@@ -1,10 +1,8 @@
 # AGENTS.md — QuantaBot（AI 评论智能体）
 
 > 本文件是 AI 编码智能体在本仓库的"操作说明书"（AGENTS.md 开放标准）。
-> 适用工具：Cursor / Claude Code / Codex / Trae 等读取根目录规则的工具。
 > 关联文档：`PRD-QuantaBot.md`（需求与场景）、`技术选型.md`（技术基线，**唯一权威决策来源**，v1.5）。
 > 状态：**v0.3 执行版**——架构/红线/技术栈/目录结构/代码规范/工作流已定稿；未标 `[待确认]` 的内容为已确定项，实现时不得臆造冲突；`[待确认]` 项依赖 Phase 0 契约对齐，确认前不要臆造实现。
-> 注：原 OpenSpec 决策记录（openspec/）已并入 `技术选型.md`，不再维护；引用它的地方一律以《技术选型.md》为准。
 
 ***
 
@@ -33,12 +31,26 @@ QuantaBot：校园校友社区 QuantaCommunity 上的 AI 互动账号，被动 @
 ## 2. 目录结构（骨架；文件级明细见 `技术选型.md` §10.1）
 
 ```
-src/quanta_bot/  → server.py（FastAPI入口）· consumer.py（MQ主循环）· composition.py（装配根）
-  pipeline/      → trigger / decision / context / generation / pipeline（核心链路，按数据流）
-  memory/        → ports.py（接口）+ dialogue / user_memory（实现走 infra）
-  crosscutting/  → idempotency / breaker / rate_limit / budget / killswitch / moderation（纯逻辑）
-  infra/         → settings / main_service / mq / vector / kv / audit_db / tracing（唯一碰外部世界）
-prompts/（人格文件，git 版本化）· eval/（评测集 YAML）· tests/{unit,eval}/ · docker/ · docs/
+QuantaBot/
+├─ src/quanta_bot/          # 服务主体（分层：pipeline/memory → crosscutting → infra）
+│  ├─ server.py             #   FastAPI 入口（/health、管理端点）
+│  ├─ consumer.py           #   MQ 消费者主循环（单消费者；同帖串行的宿主）
+│  ├─ composition.py        #   装配根（全仓库唯一可 import 一切的模块）
+│  ├─ pipeline/             #   核心链路，按数据流排列（业务，常改）
+│  │  └─ trigger / decision / context / generation / pipeline
+│  ├─ memory/               #   记忆层：接口在此，实现走 infra
+│  │  └─ ports.py + dialogue / user_memory
+│  ├─ crosscutting/         #   横切纪律：全纯逻辑，重点单测
+│  │  └─ idempotency / breaker / rate_limit / budget / killswitch / moderation
+│  └─ infra/                #   唯一碰外部世界的层
+│     └─ settings / main_service / mq / vector / kv / audit_db / tracing
+├─ prompts/                 # 人格文件，git 版本化（是数据不是代码）
+├─ eval/                    # 评测集 YAML
+├─ tests/
+│  ├─ unit/                 #   单测（镜像 src 结构）
+│  └─ eval/                 #   评测门禁 runner
+├─ docker/                  # Dockerfile + compose
+└─ docs/                    # PRD / 技术选型 / AGENTS.md
 ```
 
 **分层规则（硬规则）**：`pipeline/memory → crosscutting → infra`，禁止反向 import；唯一例外 `composition.py`。`prompts/` 是数据不是代码，generation 只读不内联 prompt 字符串。
@@ -70,7 +82,7 @@ prompts/（人格文件，git 版本化）· eval/（评测集 YAML）· tests/{
 
 ### 4.2 模块规范
 
-- 每个文件头部注释三行：模块名 + 职责 + 边界（"本模块不负责什么"）。
+- 每个文件头部注释：模块名 + 职责 + 边界（"本模块不负责什么"）。
 - 已知坑/例外必须写进头部注释（例："本模块依赖运行时注解，禁用 `from __future__ import annotations`"这类）——坑写在使用现场，不靠口口相传。
 - docstring 面向使用者写行为契约（做什么、何时调用、何时不调用），不写给作者看的废话。
 - 注释解释"为什么 / 边界 / 例外"，不复述代码；中文注释，标识符用英文。
@@ -157,14 +169,4 @@ prompts/（人格文件，git 版本化）· eval/（评测集 YAML）· tests/{
 - **AI 编码智能体特别约定**：改动前先读本文件 §0 红线与 §5 Do/Don't；`[待确认]` 项在确认前不臆造实现（用 TODO + 引用占位，不得编造契约字段）；实现完成回写本文件对应节（消灭 `[待确认]`）并追加变更记录。
 
 ***
-
-## 变更记录
-
-| 版本   | 日期         | 说明                                                                                                                                                                                               |
-| ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| v0.1 | 2026-09-12 | 框架版：架构 + 红线 + 待确认清单                                                                                                                                                                              |
-| v0.2 | 2026-09-13 | 技术基线版：技术栈/链路/Do-Don't 按《技术选型.md》定稿；确认 ruff/Docker 容器化/只读+评论权限/社区条款隐私声明                                                                                                                           |
-| v0.3 | 2026-09-13 | 执行版：目录结构细化（装配根/ports/infra/prompts，参考 globex 纪律）；§5 命令落地（ruff/评测门禁/promptfoo）；§6 代码风格定稿（分层纪律/模块规范/Python 规则）；§8 一票否决阈值建议值；§9 Docker 三容器要点+健康检查+单实例约束；§10 Langfuse 访问控制；§11 工作流约定定稿；openspec 引用清理 |
-| v0.4 | 2026-09-13 | **瘦身**：移除 §1 概述/§2 技术栈/§3 架构等资料性内容（消除与《技术选型.md》的重复副本）；目录树/测试阈值/部署细节压缩为规则要点+指针，文件级明细迁入《技术选型.md》§10.1-10.3；本文件只保留常驻规则层（红线/命令/代码风格/Do-Don't/工作流）；章节重编号 0-9                                          |
-| v0.5 | 2026-09-13 | §1 补充 GitHub 仓库地址（[https://github.com/stephen688/QuantaCommunity](https://github.com/stephen688/QuantaCommunity，QuantaBot)                                                                       |
 
