@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "搜索",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "search-input-bar": "/components/search-input-bar/index",
+    "feed-skeleton": "/components/feed-skeleton/index",
+    "state-block": "/components/state-block/index"
+  }
+}

@@ -1,0 +1,277 @@
+# Phase 6：管理端治理 — user、content、comment、answer、identityExam
+#
+# 前置：01-auth-user.http（adminToken）；04-write.http 可产生举报记录
+#
+# 封禁：仅对 userBId 执行，避免踢掉主测试账号 USER_TOKEN
+# 实名：若无待审 authId，P6-15/16 可标 BLOCKED
+
+@baseUrl = {{baseUrl}}
+@adminToken = {{adminToken}}
+@userToken = {{userToken}}
+@userId = {{userId}}
+@userBId = {{userBId}}
+@contentIdProf = {{contentIdProf}}
+@contentIdLife = {{contentIdLife}}
+@answerId = {{answerId}}
+@commentId = {{commentId}}
+@reportId = {{reportId}}
+@authId = {{authId}}
+
+###############################################################################
+# Admin User — 分页 / 详情 / 封禁 / 解封
+###############################################################################
+
+### P6-01 用户分页 → body.code=200
+GET {{baseUrl}}/admin/user/page?pageNum=1&pageSize=10&accountStatus=0
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-01 admin user page", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+%}
+
+### P6-02 用户详情 → body.code=200
+GET {{baseUrl}}/admin/user/{{userId}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-02 admin user detail", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data);
+  });
+%}
+
+### P6-03 普通用户访问用户管理 → HTTP 403
+GET {{baseUrl}}/admin/user/page?pageNum=1&pageSize=10
+authorization: {{userToken}}
+
+> {%
+  client.test("P6-03 user forbidden admin user", function () {
+    client.assert(response.status === 403);
+  });
+%}
+
+### P6-04 封禁第二测试用户（勿封 userId）
+POST {{baseUrl}}/admin/user/ban/{{userBId}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-04 ban user B", function () {
+    if (!"{{userBId}}" || "{{userBId}}" === "{{userId}}") {
+      client.log("请配置独立 userBId 后执行封禁");
+      return;
+    }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P6-05 封禁后登录 → body.code=401（账号已被封禁）
+POST {{baseUrl}}/user/login
+Content-Type: application/json
+
+{
+  "code": "test2"
+}
+
+> {%
+  client.test("P6-05 login when banned", function () {
+    if (!"{{userBId}}") { return; }
+    client.assert(response.body.code === 401);
+  });
+%}
+
+### P6-06 解封用户 B → body.code=200
+POST {{baseUrl}}/admin/user/unban/{{userBId}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-06 unban user B", function () {
+    if (!"{{userBId}}") { return; }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+###############################################################################
+# Admin Content — 列表 / 举报 / 处理
+###############################################################################
+
+### P6-07 内容分页（已通过）→ body.code=200
+GET {{baseUrl}}/admin/content/page?pageNum=1&pageSize=10&auditStatus=1&contentType=2
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-07 admin content page", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P6-08 帖子举报分页 → 写回 REPORT_ID
+# @name contentReportPage
+GET {{baseUrl}}/admin/content/report/page?pageNum=1&pageSize=10&status=0
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-08 content report page", function () {
+    client.assert(response.body.code === 200);
+  });
+  if (response.body.code === 200 && response.body.data && response.body.data.records
+      && response.body.data.records.length > 0) {
+    var rid = String(response.body.data.records[0].id);
+    client.global.set("reportId", rid);
+    client.global.set("REPORT_ID", rid);
+  }
+%}
+
+### P6-09 处理帖子举报（驳回举报 handleResult=4）
+POST {{baseUrl}}/admin/content/report/handle
+authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "reportId": {{reportId}},
+  "handleResult": 4,
+  "handleRemark": "API测试-驳回举报"
+}
+
+> {%
+  client.test("P6-09 handle content report", function () {
+    if (!"{{reportId}}") {
+      client.log("无待处理举报时先执行 04-write P5-19");
+      return;
+    }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P6-10 无 adminToken 删除帖子 → HTTP 403
+DELETE {{baseUrl}}/admin/content/999999
+authorization: {{userToken}}
+
+> {%
+  client.test("P6-10 user cannot admin delete", function () {
+    client.assert(response.status === 403);
+  });
+%}
+
+###############################################################################
+# Admin Comment — 分页 / 举报 / 处理
+###############################################################################
+
+### P6-11 评论分页（按帖子）→ body.code=200
+GET {{baseUrl}}/admin/comment/page?pageNum=1&pageSize=10&contentId={{contentIdProf}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-11 admin comment page", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P6-12 评论举报分页
+GET {{baseUrl}}/admin/comment/report/page?pageNum=1&pageSize=10&status=0
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-12 comment report page", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P6-13 处理评论举报（驳回 handleResult=4）
+POST {{baseUrl}}/admin/comment/report/handle
+authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "reportId": 1,
+  "handleResult": 4,
+  "handleRemark": "API测试-无记录时可 404"
+}
+
+> {%
+  client.test("P6-13 handle comment report", function () {
+    client.assert(response.body.code === 200 || response.body.code === 404 || response.body.code === 400);
+  });
+%}
+
+###############################################################################
+# Admin Answer — 分页 / 审核
+###############################################################################
+
+### P6-14 回答分页 → body.code=200
+GET {{baseUrl}}/admin/answer/page?pageNum=1&pageSize=10&contentId={{contentIdProf}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-14 admin answer page", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P6-15 审核回答通过（contentId 字段存 answerId）
+POST {{baseUrl}}/admin/answer/audit
+authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "contentId": {{answerId}},
+  "auditResult": 1
+}
+
+> {%
+  client.test("P6-15 audit answer approve", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+###############################################################################
+# IdentityExam — 实名认证
+###############################################################################
+
+### P6-16 实名认证分页 → body.code=200
+GET {{baseUrl}}/admin/identityExam/page?pageNum=1&pageSize=10
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-16 identity exam page", function () {
+    client.assert(response.body.code === 200);
+  });
+  if (response.body.code === 200 && response.body.data && response.body.data.records
+      && response.body.data.records.length > 0) {
+    client.global.set("authId", String(response.body.data.records[0].id));
+  }
+%}
+
+### P6-17 实名详情（需 authId）
+GET {{baseUrl}}/admin/identityExam/userAuth/detail/{{authId}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P6-17 identity detail", function () {
+    if (!client.global.get("authId")) {
+      client.log("无待审实名记录时标 BLOCKED");
+      return;
+    }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P6-18 实名审核（示例：无 authId 时跳过）
+POST {{baseUrl}}/admin/identityExam/audit
+authorization: {{adminToken}}
+Content-Type: application/json
+
+{
+  "authId": 1,
+  "auditResult": 2,
+  "auditRemark": "API测试驳回示例"
+}
+
+> {%
+  client.test("P6-18 identity audit", function () {
+    client.assert(response.body.code === 200 || response.body.code === 404 || response.body.code === 400);
+  });
+%}

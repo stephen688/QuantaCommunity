@@ -1,0 +1,155 @@
+# Phase 7：破坏性清理 — 仅删除本套测试产生的 ID
+#
+# 前置：01–05 已执行；env.sh / client.global 含 commentId、answerId、contentId*
+#
+# 顺序：评论 → 回答 → 用户端删帖 → 管理端兜底删除
+# 警告：勿对生产数据 ID 执行；执行后更新 RESULTS.md 对应 §节为已清理
+
+@baseUrl = {{baseUrl}}
+@userToken = {{userToken}}
+@adminToken = {{adminToken}}
+@contentIdProf = {{contentIdProf}}
+@contentIdLife = {{contentIdLife}}
+@questionId = {{questionId}}
+@answerId = {{answerId}}
+@answerId2 = {{answerId2}}
+@commentId = {{commentId}}
+
+###############################################################################
+# 用户端删除
+###############################################################################
+
+### P7-01 删除评论（作者）→ body.code=200
+DELETE {{baseUrl}}/comment/delete/{{commentId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P7-01 delete comment", function () {
+    if (!"{{commentId}}") {
+      client.log("无 commentId 可跳过");
+      return;
+    }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P7-02 非作者删回答 → body.code=400（在删除前执行；需 userBToken）
+DELETE {{baseUrl}}/answer/{{answerId}}
+authorization: {{userBToken}}
+
+> {%
+  client.test("P7-02 delete answer forbidden", function () {
+    var t = client.global.get("userBToken") || "{{userBToken}}";
+    if (!t || t.indexOf("userBToken") >= 0) { return; }
+    client.assert(response.body.code === 400 || response.body.code === 404);
+  });
+%}
+
+### P7-03 删除第二条回答（若存在 answerId2）
+DELETE {{baseUrl}}/answer/{{answerId2}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P7-03 delete answer 2", function () {
+    var id = client.global.get("answerId2") || "{{answerId2}}";
+    if (!id || id.indexOf("answerId2") >= 0) {
+      client.log("无 answerId2，跳过");
+      return;
+    }
+    client.assert(response.body.code === 200 || response.body.code === 404);
+  });
+%}
+
+### P7-04 删除主测试回答 → body.code=200
+DELETE {{baseUrl}}/answer/{{answerId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P7-04 delete answer", function () {
+    if (!"{{answerId}}") { return; }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P7-05 题主删除专业帖（回答已删）→ body.code=200
+DELETE {{baseUrl}}/content/delete/{{contentIdProf}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P7-05 delete content prof", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P7-06 删除生活帖（已驳回）→ body.code=200
+DELETE {{baseUrl}}/content/delete/{{contentIdLife}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P7-06 delete content life", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P7-07 重复删除 → body.code=404 或 400
+DELETE {{baseUrl}}/content/delete/{{contentIdProf}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P7-07 delete content again", function () {
+    client.assert(response.body.code === 404 || response.body.code === 400);
+  });
+%}
+
+###############################################################################
+# 管理端兜底删除（测试残留或 P7 失败时）
+###############################################################################
+
+### P7-08 管理端删除评论（若 commentId 仍存在）
+DELETE {{baseUrl}}/admin/comment/{{commentId}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P7-08 admin delete comment", function () {
+    client.assert(response.body.code === 200 || response.body.code === 404);
+  });
+%}
+
+### P7-09 管理端删除回答
+DELETE {{baseUrl}}/admin/answer/{{answerId}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P7-09 admin delete answer", function () {
+    client.assert(response.body.code === 200 || response.body.code === 404);
+  });
+%}
+
+### P7-10 管理端删除帖子（contentIdProf / contentIdLife）
+DELETE {{baseUrl}}/admin/content/{{contentIdProf}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P7-10 admin delete content prof", function () {
+    client.assert(response.body.code === 200 || response.body.code === 404);
+  });
+%}
+
+DELETE {{baseUrl}}/admin/content/{{contentIdLife}}
+authorization: {{adminToken}}
+
+> {%
+  client.test("P7-11 admin delete content life", function () {
+    client.assert(response.body.code === 200 || response.body.code === 404);
+  });
+%}
+
+### P7-12 不存在 ID 管理端删除 → body.code=404 或 400
+DELETE {{baseUrl}}/admin/content/999999
+authorization: {{adminToken}}
+
+> {%
+  client.test("P7-12 admin delete missing", function () {
+    client.assert(response.body.code === 404 || response.body.code === 400);
+  });
+%}

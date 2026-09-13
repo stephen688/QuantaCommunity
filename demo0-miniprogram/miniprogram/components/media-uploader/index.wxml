@@ -1,0 +1,38 @@
+<view class="mu {{variant === 'avatar' ? 'mu--avatar' : ''}}">
+  <view wx:for="{{slots}}" wx:key="id" class="mu__cell">
+    <image
+      class="mu__img {{variant === 'avatar' ? 'mu__img--avatar' : ''}}"
+      src="{{item.displaySrc}}"
+      mode="aspectFill"
+      bindtap="onPreview"
+      data-index="{{index}}"
+    />
+    <view wx:if="{{item.status === 'uploading'}}" class="mu__mask">
+      <text class="mu__mask-text">上传中</text>
+    </view>
+    <view wx:elif="{{item.status === 'error'}}" class="mu__mask mu__mask--err" catchtap="onRetry" data-id="{{item.id}}">
+      <text class="mu__mask-text mu__mask-text--err">上传失败，点击重试</text>
+    </view>
+    <view wx:if="{{variant !== 'avatar'}}" class="mu__del" catchtap="onRemove" data-id="{{item.id}}">
+      <view class="mu__del-bar mu__del-bar--a" />
+      <view class="mu__del-bar mu__del-bar--b" />
+    </view>
+    <view wx:else class="mu__del mu__del--avatar" catchtap="onRemove" data-id="{{item.id}}">
+      <view class="mu__del-bar mu__del-bar--a" />
+      <view class="mu__del-bar mu__del-bar--b" />
+    </view>
+  </view>
+  <view
+    wx:if="{{canAdd}}"
+    class="mu__add {{variant === 'avatar' ? 'mu__add--avatar' : 'card'}}"
+    hover-class="mu__add--hover"
+    bindtap="onChoose"
+  >
+    <view class="mu__add-icon" aria-hidden="true">
+      <view wx:if="{{variant !== 'avatar'}}" class="mu__add-camera" />
+      <view class="mu__add-icon-line mu__add-icon-line--h" />
+      <view class="mu__add-icon-line mu__add-icon-line--v" />
+    </view>
+    <text class="mu__add-text">{{variant === 'avatar' ? '上传头像' : '添加'}}</text>
+  </view>
+</view>

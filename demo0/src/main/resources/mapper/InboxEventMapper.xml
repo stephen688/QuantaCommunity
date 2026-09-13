@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.quanta.demo0.mapper.InboxEventMapper">
+
+    <insert id="insertIfAbsent"
+            parameterType="com.quanta.demo0.entity.InboxEvent">
+
+        INSERT INTO tb_inbox_event (
+            event_id,
+            consumer_name,
+            outbox_event_id,
+            event_type,
+            aggregate_type,
+            aggregate_id,
+            status,
+            retry_count,
+            locked_by,
+            locked_until,
+            replay_count
+        ) VALUES (
+            #{eventId},
+            #{consumerName},
+                     #{outboxEventId},
+                     #{eventType},
+                     #{aggregateType},
+                     #{aggregateId},
+                     #{status},
+                     #{retryCount},
+                     #{lockedBy},
+            #{lockedUntil},
+            #{replayCount}
+        )
+
+    </insert>
+
+    <select id="selectByConsumerAndEvent"
+            resultType="com.quanta.demo0.entity.InboxEvent">
+
+        SELECT
+            id,
+            event_id,
+            consumer_name,
+            outbox_event_id,
+            event_type,
+            aggregate_type,
+            aggregate_id,
+            status,
+            retry_count,
+            locked_by,
+            locked_until,
+            last_error,
+            replay_count,
+            last_replay_by,
+            last_replay_time,
+            create_time,
+            update_time,
+            processed_time
+        FROM tb_inbox_event
+        WHERE consumer_name = #{consumerName}
+          AND event_id = #{eventId}
+
+    </select>
+
+    <update id="claimExpired">
+
+        UPDATE tb_inbox_event
+        SET
+            status = 'PROCESSING',
+            locked_by = #{lockedBy},
+            locked_until = #{lockedUntil},
+            last_error = NULL,
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE consumer_name = #{consumerName}
+          AND event_id = #{eventId}
+          AND status IN ('PROCESSING', 'RETRYING')
+          AND (
+            locked_until IS NULL
+                OR locked_until &lt;= #{now}
+            )
+
+    </update>
+
+    <update id="markSuccessByOwner">
+
+        UPDATE tb_inbox_event
+        SET
+            status = 'SUCCESS',
+            locked_by = NULL,
+            locked_until = NULL,
+            last_error = NULL,
+            processed_time = #{processedTime},
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE consumer_name = #{consumerName}
+          AND event_id = #{eventId}
+          AND status = 'PROCESSING'
+          AND locked_by = #{lockedBy}
+
+    </update>
+
+    <update id="markRetryByOwner">
+
+        UPDATE tb_inbox_event
+        SET
+            status = 'RETRYING',
+            retry_count = #{retryCount},
+            locked_by = NULL,
+            locked_until = #{nextRetryTime},
+            last_error = #{lastError},
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE consumer_name = #{consumerName}
+          AND event_id = #{eventId}
+          AND status = 'PROCESSING'
+          AND locked_by = #{lockedBy}
+
+    </update>
+
+    <update id="markDeadByOwner">
+
+        UPDATE tb_inbox_event
+        SET
+            status = 'DEAD',
+            locked_by = NULL,
+            locked_until = NULL,
+            last_error = #{lastError},
+            processed_time = #{processedTime},
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE consumer_name = #{consumerName}
+          AND event_id = #{eventId}
+          AND status = 'PROCESSING'
+          AND locked_by = #{lockedBy}
+
+    </update>
+
+
+
+    <select id="pageAdmin" resultType="com.quanta.demo0.entity.InboxEvent">
+        SELECT
+        id, event_id, consumer_name, outbox_event_id, event_type,
+        aggregate_type, aggregate_id, status, retry_count,
+        locked_by, locked_until, last_error, replay_count,
+        last_replay_by, last_replay_time, create_time,
+        update_time, processed_time
+        FROM tb_inbox_event
+        <where>
+            <if test="query.consumerName != null and query.consumerName != ''">
+                AND consumer_name = #{query.consumerName}
+            </if>
+            <if test="query.eventId != null and query.eventId != ''">
+                AND event_id = #{query.eventId}
+            </if>
+            <if test="query.eventType != null and query.eventType != ''">
+                AND event_type = #{query.eventType}
+            </if>
+            <if test="query.aggregateType != null and query.aggregateType != ''">
+                AND aggregate_type = #{query.aggregateType}
+            </if>
+            <if test="query.aggregateId != null">
+                AND aggregate_id = #{query.aggregateId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND status = #{query.status}
+            </if>
+            <if test="query.createTimeStart != null">
+                AND create_time &gt;= #{query.createTimeStart}
+            </if>
+            <if test="query.createTimeEnd != null">
+                AND create_time &lt;= #{query.createTimeEnd}
+            </if>
+        </where>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!--
+        先把 Inbox DEAD 改成 RETRYING，相当于抢占人工重放权。
+        WHERE status='DEAD' 保证两个管理员不能同时重放成功。
+    -->
+    <update id="replayDead">
+        UPDATE tb_inbox_event
+        SET status = 'RETRYING',
+            retry_count = 0,
+            locked_by = NULL,
+            locked_until = #{now},
+            last_error = NULL,
+            replay_count = replay_count + 1,
+            last_replay_by = #{adminId},
+            last_replay_time = #{now},
+            processed_time = NULL,
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE consumer_name = #{consumerName}
+          AND event_id = #{eventId}
+          AND status = 'DEAD'
+    </update>
+
+    <select id="countByStatus" resultType="com.quanta.demo0.vo.EventStatusCountVO">
+        SELECT status, COUNT(*) AS count
+        FROM tb_inbox_event
+        GROUP BY status
+    </select>
+
+    <delete id="deleteSuccessBefore">
+        DELETE FROM tb_inbox_event
+        WHERE status = 'SUCCESS'
+          AND processed_time &lt; #{before}
+    </delete>
+</mapper>

@@ -1,0 +1,132 @@
+<view class="cc card" hover-class="hover-scale" bindtap="onTap">
+  <view wx:if="{{auditLabel}}" class="cc__audit cc__audit--{{auditTone}}">{{auditLabel}}</view>
+  <author-row
+    wx:if="{{showAuthor}}"
+    nickname="{{item.authorName}}"
+    avatarUrl="{{item.authorAvatar || ''}}"
+    time="{{item.createTime}}"
+    quantaBatch="{{item.quantaBatch || ''}}"
+    quantaDepartment="{{item.quantaDepartment || ''}}"
+    userId="{{item.authorId}}"
+    clickable="{{true}}"
+    bind:tapauthor="onAuthorRowTap"
+  />
+
+  <block wx:if="{{isLife}}">
+    <view wx:if="{{item.title}}" class="cc__title">{{item.title}}</view>
+    <view wx:if="{{authorUnderTitle && !showAuthor}}" class="cc__author-below">
+      <author-row
+        nickname="{{item.authorName}}"
+        avatarUrl="{{item.authorAvatar || ''}}"
+        time="{{item.createTime}}"
+        quantaBatch="{{item.quantaBatch || ''}}"
+        quantaDepartment="{{item.quantaDepartment || ''}}"
+        userId="{{item.authorId}}"
+        clickable="{{true}}"
+        compact="{{true}}"
+        bind:tapauthor="onAuthorRowTap"
+      />
+    </view>
+    <view wx:if="{{summary}}" class="cc__summary">{{summary}}</view>
+    <view wx:if="{{hasSingleImage}}" class="cc__single">
+      <image class="cc__single-img" src="{{imageList[0]}}" mode="aspectFill" lazy-load />
+    </view>
+    <scroll-view wx:if="{{hasMultiImages}}" class="cc__gallery" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="cc__gallery-track">
+        <image
+          wx:for="{{imageList}}"
+          wx:key="*this"
+          class="cc__gallery-img"
+          src="{{item}}"
+          mode="aspectFill"
+          lazy-load
+        />
+      </view>
+    </scroll-view>
+    <view wx:if="{{!showAuthor && !authorUnderTitle}}" class="cc__meta">
+      <text class="cc__meta-name">{{item.authorName}}</text>
+      <text wx:if="{{metaTimeText}}" class="cc__meta-dot">·</text>
+      <text wx:if="{{metaTimeText}}" class="cc__meta-time">{{metaTimeText}}</text>
+    </view>
+  </block>
+
+  <block wx:elif="{{isPro}}">
+    <view class="cc__pro-main">
+      <view class="cc__pro-text">
+        <view wx:if="{{item.title}}" class="cc__title">{{item.title}}</view>
+        <view wx:if="{{authorUnderTitle && !showAuthor}}" class="cc__author-below">
+          <author-row
+            nickname="{{item.authorName}}"
+            avatarUrl="{{item.authorAvatar || ''}}"
+            time="{{item.createTime}}"
+            quantaBatch="{{item.quantaBatch || ''}}"
+            quantaDepartment="{{item.quantaDepartment || ''}}"
+            userId="{{item.authorId}}"
+            clickable="{{true}}"
+            compact="{{true}}"
+            bind:tapauthor="onAuthorRowTap"
+          />
+        </view>
+        <view wx:if="{{summary}}" class="cc__summary">{{summary}}</view>
+      </view>
+      <image
+        wx:if="{{imageList.length}}"
+        class="cc__pro-thumb"
+        src="{{imageList[0]}}"
+        mode="aspectFill"
+        lazy-load
+      />
+    </view>
+    <view wx:if="{{showAnswer}}" class="cc__answer">{{answerText}}</view>
+    <view wx:if="{{!showAuthor && !authorUnderTitle}}" class="cc__meta">
+      <text class="cc__meta-name">{{item.authorName}}</text>
+      <text wx:if="{{metaTimeText}}" class="cc__meta-dot">·</text>
+      <text wx:if="{{metaTimeText}}" class="cc__meta-time">{{metaTimeText}}</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="cc__title">内容类型异常</view>
+    <view class="cc__summary">无法展示该卡片</view>
+  </block>
+
+  <view class="cc__stats">
+    <view class="cc__stats-left">
+      <view
+        class="cc__stat {{liked ? 'cc__stat--active' : ''}}"
+        hover-class="hover-opacity"
+        catchtap="onLikeTap"
+      >
+        <image
+          class="cc__stat-img"
+          src="{{liked ? '/images/detail-action-bar/like-active.svg' : '/images/detail-action-bar/like.svg'}}"
+          mode="aspectFit"
+          aria-hidden="true"
+        />
+        <text class="cc__stat-num">{{likeText}}</text>
+      </view>
+      <view class="cc__stat cc__stat--comment" hover-class="hover-opacity" catchtap="onCommentTap">
+        <image
+          class="cc__stat-img"
+          src="/images/detail-action-bar/comment.svg"
+          mode="aspectFit"
+          aria-hidden="true"
+        />
+        <text class="cc__stat-num">{{commentText}}</text>
+      </view>
+    </view>
+    <view
+      class="cc__stat cc__stat--collect {{collected ? 'cc__stat--collected' : ''}}"
+      hover-class="hover-opacity"
+      catchtap="onCollectTap"
+    >
+      <image
+        class="cc__stat-img"
+        src="{{collected ? '/images/detail-action-bar/collect-active.svg' : '/images/detail-action-bar/collect.svg'}}"
+        mode="aspectFit"
+        aria-hidden="true"
+      />
+      <text class="cc__stat-num">{{collectText}}</text>
+    </view>
+  </view>
+</view>

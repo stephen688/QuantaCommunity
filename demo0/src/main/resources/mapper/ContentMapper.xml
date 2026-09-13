@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.mapper.ContentMapper">
+    <insert id="insert" useGeneratedKeys="true" keyProperty="contentId">
+        insert into tb_content
+        (content_type,title,content,publish_user_id,audit_status,liked,comment_count,collect_count,create_time,update_time,is_deleted)
+        values
+        (#{contentType},#{title},#{content},#{publishUserId},#{auditStatus},#{liked},#{commentCount},#{collectCount},#{createTime},#{updateTime},#{isDeleted})
+    </insert>
+
+
+
+    <insert id="batchInsertImages">
+        insert into tb_content_image
+        (content_id,image_url,sort)
+        values
+        <foreach collection="images" item="img" separator=",">
+            (#{img.contentId},#{img.imageUrl},#{img.sort})
+        </foreach>
+    </insert>
+    <insert id="insertContentLiked"
+            useGeneratedKeys="true"
+            keyProperty="id">
+
+        INSERT IGNORE INTO tb_content_like
+            (content_id, user_id, create_time)
+        VALUES
+            (#{contentId}, #{userId}, #{createTime})
+    </insert>
+    <insert id="insertCollect" useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO tb_content_collect
+        (content_id,user_id,create_time)
+        VALUES
+        (#{contentId},#{userId},#{createTime})
+    </insert>
+
+    <!-- 插入帖子举报记录 -->
+    <insert id="insertContentReport" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_content_report
+        (content_id, reporter_id, report_type, status, is_deleted, create_time, update_time)
+        VALUES
+            (#{contentId}, #{reporterId}, #{reportType}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
+    </insert>
+
+    <!-- 动态更新内容 -->
+    <update id="update">
+        update tb_content
+        <set>
+            <if test="contentType != null">content_type=#{contentType},</if>
+            <if test="title != null and title != ''">title=#{title},</if>
+            <if test="content != null and content != ''">content=#{content},</if>
+            <if test="auditStatus != null">audit_status=#{auditStatus},</if>
+            <if test="updateTime != null">update_time=#{updateTime},</if>
+        </set>
+        where content_id=#{contentId}
+    </update>
+
+    <update id="softDeleteContentComment">
+        update tb_content_comment
+        set is_deleted = 1,
+        update_time = CURRENT_TIMESTAMP()
+        where content_id = #{contentId}
+        and is_deleted = 0
+    </update>
+    <update id="softDeleteContent">
+        update tb_content
+        set is_deleted = 1,
+        update_time = CURRENT_TIMESTAMP()
+        where content_id = #{contentId}
+        and is_deleted = 0
+    </update>
+    <!-- 管理端 - 更新举报处理信息 -->
+    <update id="updateReport">
+        UPDATE tb_content_report
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="handlerId != null">handler_id = #{handlerId},</if>
+            <if test="handleResult != null">handle_result = #{handleResult},</if>
+            <if test="handleRemark != null and handleRemark != ''">handle_remark = #{handleRemark},</if>
+            <if test="handleTime != null">handle_time = #{handleTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+    <!-- 更新收藏数（加 GREATEST 保护，防止负数） -->
+    <update id="updateCollectCount">
+        UPDATE tb_content
+        SET collect_count = GREATEST(0, collect_count + #{i}),
+            update_time = NOW()
+        WHERE content_id = #{contentId}
+    </update>
+    <!-- 更新点赞数（加 GREATEST 保护，防止负数） -->
+    <update id="updateLiked">
+        UPDATE tb_content
+        SET liked = GREATEST(0, liked + #{i}),
+            update_time = NOW()
+        WHERE content_id = #{contentId}
+    </update>
+    <!--
+     只有待审核状态才能被 AI 审核修改。
+
+     这个条件直接交给 MySQL 判断，
+     可以防止 AI 和管理员同时审核成功。
+ -->
+    <update id="updateAuditStatusIfPending">
+
+        UPDATE tb_content
+        SET
+            audit_status = #{auditStatus},
+            update_time = CURRENT_TIMESTAMP
+        WHERE content_id = #{contentId}
+          AND audit_status = 0
+          AND is_deleted = 0
+
+    </update>
+
+    <delete id="deleteContentCommentImages">
+        delete from tb_comment_image where comment_id in (select comment_id from tb_content_comment
+             where content_id = #{contentId})
+    </delete>
+    <delete id="deleteContentCommentLiked">
+        delete from tb_comment_like where comment_id in (select comment_id from tb_content_comment
+             where content_id = #{contentId})
+    </delete>
+    <select id="selectBatchIds" resultType="com.quanta.demo0.entity.Content">
+        SELECT
+        c.content_id,
+        c.content_type,
+        c.title,
+        IF(CHAR_LENGTH(c.content) > 100,
+        CONCAT(LEFT(c.content, 100), '...'),
+        c.content) AS content,
+        c.publish_user_id,
+        c.audit_status,
+        c.create_time,
+        c.update_time,
+        c.liked,
+        c.comment_count,
+        c.collect_count,
+        c.is_deleted
+        FROM tb_content c
+        WHERE c.content_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and c.is_deleted = 0
+        and c.audit_status = 1
+        ORDER BY FIELD(c.content_id,
+        <foreach collection="ids" item="id" separator=",">
+            #{id}
+        </foreach>
+        )
+
+    </select>
+
+    <select id="getMyContentsList" resultType="com.quanta.demo0.entity.Content">
+        SELECT * FROM tb_content
+        WHERE publish_user_id = #{userId}
+        AND is_deleted = 0
+        <if test="auditStatus != null">
+            AND audit_status = #{auditStatus}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+
+    <select id="searchContent" resultType="com.quanta.demo0.entity.Content">
+        select * from tb_content
+        where is_deleted = 0
+        AND audit_status=1
+        AND (title like CONCAT('%',#{keyword},'%')
+                 or content like CONCAT('%',#{keyword},'%'))
+        <if test="contentType != null">
+            AND content_type = #{contentType}
+        </if>
+        order by create_time desc
+    </select>
+    <!-- 管理端 - 分页查询内容列表 -->
+    <select id="pageAdmin" resultType="com.quanta.demo0.entity.Content">
+        SELECT * FROM tb_content
+        <where>
+            is_deleted = 0
+            <if test="query.auditStatus != null">
+                AND audit_status = #{query.auditStatus}
+            </if>
+            <if test="query.contentType != null">
+                AND content_type = #{query.contentType}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+    <!-- 管理端 - 分页查询帖子举报列表 -->
+    <select id="pageReport" resultType="com.quanta.demo0.entity.ContentReport">
+        SELECT * FROM tb_content_report
+        <where>
+            is_deleted = 0
+            <if test="query.status != null">
+                AND status = #{query.status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+    <!-- C 端 - 分页查询用户公开帖子列表 -->
+    <select id="pageUserPublicContents" resultType="com.quanta.demo0.entity.Content">
+        SELECT * FROM tb_content
+        WHERE publish_user_id = #{userId}
+          AND is_deleted = 0
+          AND audit_status = 1
+        ORDER BY create_time DESC
+    </select>
+
+
+</mapper>

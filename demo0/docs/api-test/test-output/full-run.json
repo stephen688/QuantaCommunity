@@ -1,0 +1,1261 @@
+{
+  "date": "2026-05-19",
+  "apis": {
+    "U-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "Mock 登录 code=test 正常",
+      "cases": [
+        {
+          "id": "U-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P0-02"
+        },
+        {
+          "id": "U-01-02",
+          "type": "非法",
+          "status": "PASS",
+          "expected": "code=400",
+          "actual": "code=400",
+          "note": "P1-01"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "JWT 拦截与正向查询符合预期",
+      "cases": [
+        {
+          "id": "U-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P1-05"
+        },
+        {
+          "id": "U-02-02",
+          "type": "权限",
+          "status": "PASS",
+          "expected": "HTTP 401",
+          "actual": "HTTP 401",
+          "note": "P1-03/04"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-06": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "管理员分页正常",
+      "cases": [
+        {
+          "id": "AD-06-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P1-07"
+        }
+      ],
+      "issues": "无"
+    },
+    "O-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "上传成功",
+      "cases": [
+        {
+          "id": "O-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P2-01"
+        }
+      ],
+      "issues": "无"
+    },
+    "C-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "专业帖发布正常",
+      "cases": [
+        {
+          "id": "C-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P2-04"
+        },
+        {
+          "id": "C-01-02",
+          "type": "非法",
+          "status": "PASS",
+          "expected": "code=400",
+          "actual": "code=400",
+          "note": "P2-06"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "待审列表正常",
+      "cases": [
+        {
+          "id": "AD-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P3-01"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "审核通过专业帖",
+      "cases": [
+        {
+          "id": "AD-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P3-04"
+        }
+      ],
+      "issues": "无"
+    },
+    "A-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "专业区已审帖可回答",
+      "cases": [
+        {
+          "id": "A-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P3-06"
+        },
+        {
+          "id": "A-01-02",
+          "type": "业务",
+          "status": "PASS",
+          "expected": "code=400",
+          "actual": "code=400",
+          "note": "P3-07"
+        }
+      ],
+      "issues": "无"
+    },
+    "C-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "推荐流正常",
+      "cases": [
+        {
+          "id": "C-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-01"
+        }
+      ],
+      "issues": "无"
+    },
+    "C-03": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "详情正常",
+      "cases": [
+        {
+          "id": "C-03-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-02"
+        },
+        {
+          "id": "C-03-02",
+          "type": "关联",
+          "status": "PASS",
+          "expected": "404/400",
+          "actual": "code=400",
+          "note": "P4-03"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-12": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "用户主页",
+      "cases": [
+        {
+          "id": "U-12-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-04"
+        }
+      ],
+      "issues": "无"
+    },
+    "S-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "搜索正常",
+      "cases": [
+        {
+          "id": "S-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-05"
+        },
+        {
+          "id": "S-01-02",
+          "type": "非法",
+          "status": "PASS",
+          "expected": "code=400",
+          "actual": "code=400",
+          "note": "P4-06"
+        }
+      ],
+      "issues": "无"
+    },
+    "S-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "历史关键词",
+      "cases": [
+        {
+          "id": "S-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-07"
+        }
+      ],
+      "issues": "无"
+    },
+    "S-05": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "热门发现",
+      "cases": [
+        {
+          "id": "S-05-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-08"
+        }
+      ],
+      "issues": "无"
+    },
+    "R-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "RAG 检索正常",
+      "cases": [
+        {
+          "id": "R-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-10"
+        },
+        {
+          "id": "R-01-02",
+          "type": "非法",
+          "status": "PASS",
+          "expected": "code=400",
+          "actual": "code=400",
+          "note": "P4-11"
+        }
+      ],
+      "issues": "无"
+    },
+    "A-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "回答列表",
+      "cases": [
+        {
+          "id": "A-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-13"
+        }
+      ],
+      "issues": "无"
+    },
+    "A-06": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "回答详情",
+      "cases": [
+        {
+          "id": "A-06-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-14"
+        }
+      ],
+      "issues": "无"
+    },
+    "M-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "评论列表",
+      "cases": [
+        {
+          "id": "M-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-16"
+        }
+      ],
+      "issues": "无"
+    },
+    "F-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "关注 Feed",
+      "cases": [
+        {
+          "id": "F-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-18"
+        }
+      ],
+      "issues": "无"
+    },
+    "N-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "通知列表",
+      "cases": [
+        {
+          "id": "N-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-19"
+        }
+      ],
+      "issues": "无"
+    },
+    "N-02": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "未读数",
+      "cases": [
+        {
+          "id": "N-02-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P4-20"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-03": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "更新资料",
+      "cases": [
+        {
+          "id": "U-03-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U03"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-05": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "实名状态",
+      "cases": [
+        {
+          "id": "U-05-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U05"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-07": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "我的发布",
+      "cases": [
+        {
+          "id": "U-07-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U07"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-08": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "我的点赞",
+      "cases": [
+        {
+          "id": "U-08-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U08"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-13": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "用户内容列表",
+      "cases": [
+        {
+          "id": "U-13-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U13"
+        }
+      ],
+      "issues": "无"
+    },
+    "S-03": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "清空搜索历史",
+      "cases": [
+        {
+          "id": "S-03-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-02"
+        }
+      ],
+      "issues": "无"
+    },
+    "M-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "发评论",
+      "cases": [
+        {
+          "id": "M-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-09"
+        }
+      ],
+      "issues": "无"
+    },
+    "M-05": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "点赞评论",
+      "cases": [
+        {
+          "id": "M-05-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-11"
+        }
+      ],
+      "issues": "无"
+    },
+    "M-06": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "举报评论",
+      "cases": [
+        {
+          "id": "M-06-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-12"
+        }
+      ],
+      "issues": "无"
+    },
+    "C-05": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "点赞帖子",
+      "cases": [
+        {
+          "id": "C-05-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-17"
+        }
+      ],
+      "issues": "无"
+    },
+    "C-06": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "收藏帖子",
+      "cases": [
+        {
+          "id": "C-06-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-18"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-09": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "我的收藏",
+      "cases": [
+        {
+          "id": "U-09-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U09"
+        }
+      ],
+      "issues": "无"
+    },
+    "C-07": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "举报帖子",
+      "cases": [
+        {
+          "id": "C-07-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-19"
+        }
+      ],
+      "issues": "无"
+    },
+    "F-01": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "关注用户",
+      "cases": [
+        {
+          "id": "F-01-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-14"
+        },
+        {
+          "id": "F-01-02",
+          "type": "业务",
+          "status": "FAIL",
+          "expected": "code=400",
+          "actual": "code=500",
+          "note": "不能关注自己"
+        }
+      ],
+      "issues": "无"
+    },
+    "A-03": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "题主采纳",
+      "cases": [
+        {
+          "id": "A-03-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-05"
+        }
+      ],
+      "issues": "无"
+    },
+    "A-04": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "点赞回答",
+      "cases": [
+        {
+          "id": "A-04-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-07"
+        }
+      ],
+      "issues": "无"
+    },
+    "N-04": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "全部已读",
+      "cases": [
+        {
+          "id": "N-04-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-22"
+        }
+      ],
+      "issues": "无"
+    },
+    "N-03": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "单条已读",
+      "cases": [
+        {
+          "id": "N-03-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P5-21"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-04": {
+      "status": "PASS",
+      "http": 200,
+      "code": 401,
+      "msg": "用户已经认证过了",
+      "conclusion": "可能已提交过实名",
+      "cases": [
+        {
+          "id": "U-04-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "200/400",
+          "actual": "code=401",
+          "note": "U04"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-06": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "实名详情",
+      "cases": [
+        {
+          "id": "U-06-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U06"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-10": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "浏览历史",
+      "cases": [
+        {
+          "id": "U-10-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U10"
+        }
+      ],
+      "issues": "无"
+    },
+    "U-11": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "清空浏览历史",
+      "cases": [
+        {
+          "id": "U-11-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "U11"
+        }
+      ],
+      "issues": "无"
+    },
+    "M-03": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "回复列表",
+      "cases": [
+        {
+          "id": "M-03-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "M03"
+        }
+      ],
+      "issues": "无"
+    },
+    "S-04": {
+      "status": "PASS",
+      "http": 200,
+      "code": 400,
+      "msg": "删除搜索历史失败",
+      "conclusion": "删除单条历史",
+      "cases": [
+        {
+          "id": "S-04-01",
+          "type": "关联",
+          "status": "PASS",
+          "expected": "200/404",
+          "actual": "code=400",
+          "note": "S04"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-07": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "用户详情",
+      "cases": [
+        {
+          "id": "AD-07-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-02"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-04": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "帖子举报分页",
+      "cases": [
+        {
+          "id": "AD-04-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-08"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-05": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "处理举报",
+      "cases": [
+        {
+          "id": "AD-05-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-09"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-10": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "评论分页",
+      "cases": [
+        {
+          "id": "AD-10-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-11"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-12": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "评论举报分页",
+      "cases": [
+        {
+          "id": "AD-12-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-12"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-13": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "处理评论举报",
+      "cases": [
+        {
+          "id": "AD-13-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "200/404",
+          "actual": "code=200",
+          "note": "P6-13"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-14": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "回答分页",
+      "cases": [
+        {
+          "id": "AD-14-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-14"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-16": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "审核回答",
+      "cases": [
+        {
+          "id": "AD-16-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-15"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-17": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "实名分页",
+      "cases": [
+        {
+          "id": "AD-17-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-16"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-18": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "实名详情",
+      "cases": [
+        {
+          "id": "AD-18-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-17"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-19": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "实名审核",
+      "cases": [
+        {
+          "id": "AD-19-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-18"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-08": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "封禁用户B",
+      "cases": [
+        {
+          "id": "AD-08-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-04"
+        },
+        {
+          "id": "AD-08-02",
+          "type": "业务",
+          "status": "PASS",
+          "expected": "code=401",
+          "actual": "code=401",
+          "note": "封禁后登录"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-09": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "解封用户B",
+      "cases": [
+        {
+          "id": "AD-09-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P6-06"
+        }
+      ],
+      "issues": "无"
+    },
+    "M-04": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "删除评论",
+      "cases": [
+        {
+          "id": "M-04-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P7-01"
+        }
+      ],
+      "issues": "无"
+    },
+    "A-05": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "删除回答",
+      "cases": [
+        {
+          "id": "A-05-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P7-04"
+        }
+      ],
+      "issues": "无"
+    },
+    "C-04": {
+      "status": "PASS",
+      "http": 200,
+      "code": 200,
+      "msg": "success",
+      "conclusion": "删除专业帖",
+      "cases": [
+        {
+          "id": "C-04-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P7-05"
+        },
+        {
+          "id": "C-04-02",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "code=200",
+          "actual": "code=200",
+          "note": "P7-06"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-03": {
+      "status": "PASS",
+      "http": 200,
+      "code": 400,
+      "msg": "内容不存在",
+      "conclusion": "管理端删帖（含不存在 ID）",
+      "cases": [
+        {
+          "id": "AD-03-01",
+          "type": "关联",
+          "status": "PASS",
+          "expected": "404/400",
+          "actual": "code=400",
+          "note": "P7-12"
+        },
+        {
+          "id": "AD-03-02",
+          "type": "正向",
+          "status": "SKIP",
+          "expected": "code=200",
+          "actual": "-",
+          "note": "测试帖已删"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-11": {
+      "status": "PASS",
+      "http": 200,
+      "code": 400,
+      "msg": "评论不存在",
+      "conclusion": "管理端删评论",
+      "cases": [
+        {
+          "id": "AD-11-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "200/404/400",
+          "actual": "code=400",
+          "note": "P7-08"
+        }
+      ],
+      "issues": "无"
+    },
+    "AD-15": {
+      "status": "PASS",
+      "http": 200,
+      "code": 400,
+      "msg": "回答不存在",
+      "conclusion": "管理端删回答",
+      "cases": [
+        {
+          "id": "AD-15-01",
+          "type": "正向",
+          "status": "PASS",
+          "expected": "200/404/400",
+          "actual": "code=400",
+          "note": "P7-09"
+        }
+      ],
+      "issues": "无"
+    }
+  },
+  "env": {
+    "BASE_URL": "http://localhost:9191",
+    "USER_TOKEN": "eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjoxLCJ1c2VySWQiOjEsImlhdCI6MTc3OTE4NjY0MSwiZXhwIjoxNzc5NzkxNDQxfQ.OPbCnhEmPJH7vg3F4cgWLhqwx7vUw-eT_DAerlPPNY0",
+    "USER_ID": "1",
+    "ADMIN_TOKEN": "eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjoxLCJ1c2VySWQiOjEsImlhdCI6MTc3OTE4NjY0MSwiZXhwIjoxNzc5NzkxNDQxfQ.OPbCnhEmPJH7vg3F4cgWLhqwx7vUw-eT_DAerlPPNY0",
+    "IMAGE_URL": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/95fc73fe-7371-496d-b9d9-ea505f6c7ed8.png",
+    "CONTENT_ID_PROF": "33",
+    "QUESTION_ID": "33",
+    "CONTENT_ID_LIFE": "34",
+    "ANSWER_ID": "16",
+    "USER_B_TOKEN": "eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjowLCJ1c2VySWQiOjIzLCJpYXQiOjE3NzkxODY2ODQsImV4cCI6MTc3OTc5MTQ4NH0.AqeF2ANG03oGzK1-BqH0MEIvndrt2zWvMOVYiHKA2HM",
+    "USER_B_ID": "23",
+    "PENDING_AUTH_ID": "4",
+    "NOTIFICATION_ID": "48",
+    "COMMENT_ID": "14"
+  }
+}

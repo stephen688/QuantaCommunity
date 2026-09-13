@@ -1,0 +1,50 @@
+.bh {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 24rpx 48rpx;
+  background-color: var(--color-bg, #f7f5f0);
+}
+
+.bh__bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+  padding: 20rpx 24rpx;
+  box-shadow: none;
+}
+
+.bh__bar-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1d21);
+}
+
+.bh__clear {
+  font-size: 28rpx;
+  color: var(--color-link, #5c6b62);
+  padding: 8rpx 4rpx;
+}
+
+.bh__clear--hover {
+  opacity: 0.85;
+}
+
+.bh__clear--disabled {
+  opacity: 0.45;
+}
+
+.bh__state {
+  padding: 48rpx 0;
+}
+
+.bh__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.bh__safe-bottom {
+  height: var(--space-tabbar-safe);
+}

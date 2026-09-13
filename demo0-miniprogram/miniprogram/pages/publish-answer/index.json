@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "发布回答",
+  "usingComponents": {
+    "state-block": "/components/state-block/index"
+  }
+}

@@ -1,0 +1,55 @@
+<view class="mine">
+  <view class="mine__header">
+    <profile-header
+      loading="{{profileLoading}}"
+      user="{{userInfo}}"
+      errorType="{{profileErrorType}}"
+      errorMessage="{{profileErrorMessage}}"
+      authBadgeText="{{headerAuthBadgeText}}"
+      authBadgeTone="{{headerAuthBadgeTone}}"
+      identityTypeText="{{headerIdentityTypeText}}"
+      identityLineText="{{headerIdentityLineText}}"
+      statPosts="{{headerStatPosts}}"
+      statFollowing="{{headerStatFollowing}}"
+      statFollowers="{{headerStatFollowers}}"
+      bind:retry="onProfileRetry"
+      bind:edit="onProfileEdit"
+    />
+  </view>
+
+  <view
+    wx:if="{{profileCompletenessVisible}}"
+    class="mine__completeness"
+    hover-class="hover-opacity"
+    bindtap="onCompletenessTap"
+  >
+    <view class="mine__completeness-head">
+      <text class="mine__completeness-title">资料完整度</text>
+      <text class="mine__completeness-action">去完善</text>
+    </view>
+    <view class="mine__completeness-track">
+      <view class="mine__completeness-fill" style="width: {{profileCompletenessPercent}}%;" />
+    </view>
+    <view class="mine__completeness-meta">
+      <text class="mine__completeness-hint">{{profileCompletenessHint}}</text>
+      <text class="mine__completeness-pct">{{profileCompletenessFilled}}/{{profileCompletenessTotal}}</text>
+    </view>
+  </view>
+
+  <view class="mine__section">
+    <view class="mine__section-title">常用入口</view>
+    <entry-grid entries="{{assetEntries}}" bind:select="onAssetSelect" />
+  </view>
+
+  <view class="mine__section mine__section--list">
+    <entry-list-item
+      wx:for="{{functionEntries}}"
+      wx:key="key"
+      entry="{{item}}"
+      bind:tap="onFunctionTap"
+    />
+  </view>
+
+  <view class="mine__safe-bottom" />
+  <auth-intercept-modal />
+</view>

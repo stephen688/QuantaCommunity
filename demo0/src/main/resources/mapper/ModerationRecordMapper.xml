@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.quanta.demo0.mapper.ModerationRecordMapper">
+
+    <!-- 插入或更新（审核完成后落库） -->
+    <insert id="insertOrUpdate" parameterType="com.quanta.demo0.entity.ModerationRecord">
+        INSERT INTO tb_moderation_record (
+            target_type, target_id, provider, decision, risk_level, labels,
+            reject_reason, raw_response, content_fingerprint, task_status, retry_count, create_time, update_time
+        ) VALUES (
+                     #{targetType}, #{targetId}, #{provider}, #{decision}, #{riskLevel}, #{labels},
+                     #{rejectReason}, #{rawResponse}, #{contentFingerprint}, #{taskStatus}, #{retryCount}, NOW(), NOW()
+                 )
+            ON DUPLICATE KEY UPDATE
+                                 decision = VALUES(decision),
+                                 risk_level = VALUES(risk_level),
+                                 labels = VALUES(labels),
+                                 reject_reason = VALUES(reject_reason),
+                                 raw_response = VALUES(raw_response),
+                                 content_fingerprint = VALUES(content_fingerprint),
+                                 task_status = VALUES(task_status),
+                                 retry_count = VALUES(retry_count),
+                                 update_time = NOW()
+    </insert>
+
+    <!-- 查询最新记录 -->
+    <select id="selectLatest" resultType="com.quanta.demo0.entity.ModerationRecord">
+        SELECT * FROM tb_moderation_record
+        WHERE target_type = #{targetType} AND target_id = #{targetId}
+        ORDER BY update_time DESC
+        LIMIT 1
+    </select>
+
+</mapper>

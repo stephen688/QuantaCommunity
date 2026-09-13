@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.quanta.demo0.mapper.OutboxEventMapper">
+
+    <insert id="insert"
+            parameterType="com.quanta.demo0.entity.OutboxEvent"
+            useGeneratedKeys="true"
+            keyProperty="id"
+            keyColumn="id">
+
+        INSERT INTO tb_outbox_event (
+            event_id,
+            event_type,
+            aggregate_type,
+            aggregate_id,
+            payload,
+            status,
+            retry_count,
+            next_retry_time,
+            replay_count
+        ) VALUES (
+                     #{eventId},
+                     #{eventType},
+                     #{aggregateType},
+                     #{aggregateId},
+                     #{payload},
+                     #{status},
+                     #{retryCount},
+                     #{nextRetryTime},
+                     #{replayCount}
+                 )
+
+    </insert>
+
+    <select id="selectByEventId"
+            resultType="com.quanta.demo0.entity.OutboxEvent">
+
+        SELECT
+            id,
+            event_id,
+            event_type,
+            aggregate_type,
+            aggregate_id,
+            payload,
+            status,
+            retry_count,
+            next_retry_time,
+            locked_by,
+            locked_until,
+            last_error,
+            replay_count,
+            last_replay_by,
+            last_replay_time,
+            create_time,
+            update_time,
+            sent_time
+        FROM tb_outbox_event
+        WHERE event_id = #{eventId}
+
+    </select>
+    <!--
+        查找两类任务：
+
+        1. 到达发送时间的 PENDING；
+        2. 原处理实例已经超时的 PROCESSING。
+
+        SKIP LOCKED 需要 MySQL 8.0+。
+    -->
+    <select id="selectClaimableForUpdate"
+            resultType="com.quanta.demo0.entity.OutboxEvent">
+
+        SELECT
+            id,
+            event_id,
+            event_type,
+            aggregate_type,
+            aggregate_id,
+            payload,
+            status,
+            retry_count,
+            next_retry_time,
+            locked_by,
+            locked_until,
+            last_error,
+            replay_count,
+            last_replay_by,
+            last_replay_time,
+            create_time,
+            update_time,
+            sent_time
+        FROM tb_outbox_event
+        WHERE (
+            status = 'PENDING'
+                AND next_retry_time &lt;= #{now}
+            )
+           OR (
+            status = 'PROCESSING'
+                AND locked_until IS NOT NULL
+                AND locked_until &lt;= #{now}
+            )
+        ORDER BY create_time ASC, id ASC
+        LIMIT #{limit}
+        FOR UPDATE SKIP LOCKED
+
+    </select>
+
+    <update id="claimForProcessing">
+
+        UPDATE tb_outbox_event
+        SET
+            status = 'PROCESSING',
+            locked_by = #{lockedBy},
+            locked_until = #{lockedUntil},
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND (
+            (
+                status = 'PENDING'
+                    AND next_retry_time &lt;= #{now}
+                )
+                OR
+            (
+                status = 'PROCESSING'
+                    AND locked_until IS NOT NULL
+                    AND locked_until &lt;= #{now}
+                )
+            )
+
+    </update>
+
+    <update id="markSentByOwner">
+
+        UPDATE tb_outbox_event
+        SET
+            status = 'SENT',
+            sent_time = #{sentTime},
+            last_error = NULL,
+            locked_by = NULL,
+            locked_until = NULL,
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND status = 'PROCESSING'
+          AND locked_by = #{lockedBy}
+
+    </update>
+
+    <update id="markRetryByOwner">
+
+        UPDATE tb_outbox_event
+        SET
+            status = 'PENDING',
+            retry_count = #{retryCount},
+            next_retry_time = #{nextRetryTime},
+            last_error = #{lastError},
+            locked_by = NULL,
+            locked_until = NULL,
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND status = 'PROCESSING'
+          AND locked_by = #{lockedBy}
+
+    </update>
+
+    <update id="markDeadByOwner">
+
+        UPDATE tb_outbox_event
+        SET
+            status = 'DEAD',
+            last_error = #{lastError},
+            locked_by = NULL,
+            locked_until = NULL,
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND status = 'PROCESSING'
+          AND locked_by = #{lockedBy}
+
+    </update>
+
+
+    <!-- 管理端列表不查询 payload，避免列表一次读取大量 JSON。 -->
+    <select id="pageAdmin" resultType="com.quanta.demo0.entity.OutboxEvent">
+        SELECT
+        id, event_id, event_type, aggregate_type, aggregate_id,
+        status, retry_count, next_retry_time, locked_by, locked_until,
+        last_error, replay_count, last_replay_by, last_replay_time,
+        create_time, update_time, sent_time
+        FROM tb_outbox_event
+        <where>
+            <if test="query.eventId != null and query.eventId != ''">
+                AND event_id = #{query.eventId}
+            </if>
+            <if test="query.eventType != null and query.eventType != ''">
+                AND event_type = #{query.eventType}
+            </if>
+            <if test="query.aggregateType != null and query.aggregateType != ''">
+                AND aggregate_type = #{query.aggregateType}
+            </if>
+            <if test="query.aggregateId != null">
+                AND aggregate_id = #{query.aggregateId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND status = #{query.status}
+            </if>
+            <if test="query.createTimeStart != null">
+                AND create_time &gt;= #{query.createTimeStart}
+            </if>
+            <if test="query.createTimeEnd != null">
+                AND create_time &lt;= #{query.createTimeEnd}
+            </if>
+        </where>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <!--
+        直接重放 Outbox 时只允许 DEAD。
+        两个管理员同时点击，只有第一个请求能影响一行。
+    -->
+    <update id="replayDead">
+        UPDATE tb_outbox_event
+        SET status = 'PENDING',
+            retry_count = 0,
+            next_retry_time = #{now},
+            locked_by = NULL,
+            locked_until = NULL,
+            last_error = NULL,
+            replay_count = replay_count + 1,
+            last_replay_by = #{adminId},
+            last_replay_time = #{now},
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE event_id = #{eventId}
+          AND status = 'DEAD'
+    </update>
+
+    <!--
+        Inbox 消费失败时，原 Outbox 通常已经是 SENT。
+        重置后，OutboxDispatcher 会使用原 eventId 再次发送。
+    -->
+    <update id="resetForInboxReplay">
+        UPDATE tb_outbox_event
+        SET status = 'PENDING',
+            retry_count = 0,
+            next_retry_time = #{now},
+            locked_by = NULL,
+            locked_until = NULL,
+            last_error = NULL,
+            replay_count = replay_count + 1,
+            last_replay_by = #{adminId},
+            last_replay_time = #{now},
+            update_time = CURRENT_TIMESTAMP(3)
+        WHERE event_id = #{eventId}
+          AND status IN ('SENT', 'DEAD')
+    </update>
+
+    <select id="countByStatus" resultType="com.quanta.demo0.vo.EventStatusCountVO">
+        SELECT status, COUNT(*) AS count
+        FROM tb_outbox_event
+        GROUP BY status
+    </select>
+
+    <select id="selectAverageSendLatencyMs" resultType="java.lang.Double">
+        SELECT AVG(TIMESTAMPDIFF(MICROSECOND, create_time, sent_time)) / 1000
+        FROM tb_outbox_event
+        WHERE status = 'SENT'
+          AND sent_time IS NOT NULL
+    </select>
+
+    <select id="selectLongestBacklogSeconds" resultType="java.lang.Long">
+        SELECT COALESCE(
+            GREATEST(TIMESTAMPDIFF(SECOND, MIN(create_time), CURRENT_TIMESTAMP(3)), 0),
+            0
+        )
+        FROM tb_outbox_event
+        WHERE status IN ('PENDING', 'PROCESSING')
+    </select>
+
+    <select id="selectRetryDistribution" resultType="com.quanta.demo0.vo.EventRetryDistributionVO">
+        SELECT retry_count AS retryCount, COUNT(*) AS eventCount
+        FROM tb_outbox_event
+        GROUP BY retry_count
+        ORDER BY retry_count ASC
+    </select>
+
+    <delete id="deleteCompletedBefore">
+        DELETE outbox
+        FROM tb_outbox_event outbox
+        WHERE outbox.status = 'SENT'
+          AND outbox.sent_time &lt; #{before}
+          AND NOT EXISTS (
+              SELECT 1
+              FROM tb_inbox_event inbox
+              WHERE inbox.event_id = outbox.event_id
+                AND inbox.status IN ('PROCESSING', 'RETRYING', 'DEAD')
+          )
+    </delete>
+</mapper>

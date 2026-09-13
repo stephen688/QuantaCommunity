@@ -1,0 +1,10 @@
+<view class="quanta-logo quanta-logo--{{size}}">
+  <view class="quanta-logo__frame">
+    <view class="quanta-logo__shine" />
+    <image
+      class="quanta-logo__img"
+      src="/images/quanta-mark-ref.png"
+      mode="aspectFill"
+    />
+  </view>
+</view>

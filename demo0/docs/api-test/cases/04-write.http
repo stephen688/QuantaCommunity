@@ -1,0 +1,345 @@
+# Phase 5：写操作 — search、rag、answer、comment、follow、notification + 内容互动
+#
+# 前置：03-read.http 同目录变量；answerId、contentIdProf、questionId 已就绪
+#
+# 第二账号（越权采纳 / 关注）：在 DB 插入 openid=test_openid_2 用户后
+#   POST /user/login {"code":"test2"}（若未扩展 mock，用手动 userBId + 自行取 Token）
+# 封禁用例见 05-admin.http，勿用主测试账号 USER_TOKEN
+
+@baseUrl = {{baseUrl}}
+@userToken = {{userToken}}
+@userBToken = {{userBToken}}
+@userId = {{userId}}
+@userBId = {{userBId}}
+@contentIdProf = {{contentIdProf}}
+@contentIdLife = {{contentIdLife}}
+@questionId = {{questionId}}
+@answerId = {{answerId}}
+@commentId = {{commentId}}
+@notificationId = {{notificationId}}
+
+###############################################################################
+# Search — 写（清空 / 单条删除）
+###############################################################################
+
+### P5-01 先触发一次搜索以写入历史（依赖 ES 时可 BLOCKED）
+GET {{baseUrl}}/search/content?keyword=API测试历史&current=1&pageSize=5
+authorization: {{userToken}}
+
+### P5-02 清空搜索历史 → body.code=200
+DELETE {{baseUrl}}/search/history/clear
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-02 clear search history", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-03 删除单条历史（需 SEARCH_HISTORY_ID；无则跳过或标 BLOCKED）
+DELETE {{baseUrl}}/search/history/deleteOne/{{searchHistoryId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-03 delete one history", function () {
+    if (!client.global.get("searchHistoryId") && !"{{searchHistoryId}}") {
+      client.log("无 searchHistoryId 时跳过或先执行带历史的搜索");
+      return;
+    }
+    client.assert(response.body.code === 200 || response.body.code === 404);
+  });
+%}
+
+###############################################################################
+# Answer — 发布 / 采纳 / 点赞
+###############################################################################
+
+### P5-04 专业区再发一条回答 → 可产出 answerId2
+# @name publishAnswer2
+POST {{baseUrl}}/answer/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "questionId": {{questionId}},
+  "content": "Phase5 第二条测试回答"
+}
+
+> {%
+  client.test("P5-04 publish answer", function () {
+    client.assert(response.body.code === 200);
+    if (response.body.data && response.body.data.answerId) {
+      client.global.set("answerId2", String(response.body.data.answerId));
+    }
+  });
+%}
+
+### P5-05 题主采纳回答 → body.code=200
+POST {{baseUrl}}/answer/accept/{{answerId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-05 accept answer as owner", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-06 非题主采纳 → body.code=400（需 userBToken）
+POST {{baseUrl}}/answer/accept/{{answerId}}
+authorization: {{userBToken}}
+
+> {%
+  client.test("P5-06 accept as non-owner", function () {
+    var t = client.global.get("userBToken") || "{{userBToken}}";
+    if (!t || t === "" || t.indexOf("userBToken") >= 0) {
+      client.log("未配置 userBToken，跳过越权用例");
+      return;
+    }
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("发布者") >= 0);
+  });
+%}
+
+### P5-07 点赞回答（切换）→ body.code=200
+POST {{baseUrl}}/answer/like/{{answerId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-07 like answer", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+%}
+
+### P5-08 不存在回答点赞 → body.code=404 或 400
+POST {{baseUrl}}/answer/like/999999
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-08 like missing answer", function () {
+    client.assert(response.body.code === 404 || response.body.code === 400);
+  });
+%}
+
+###############################################################################
+# Comment — 发送 / 点赞 / 举报
+###############################################################################
+
+### P5-09 专业区一级评论（必填 answerId）→ COMMENT_ID
+# @name sendComment
+POST {{baseUrl}}/comment/send
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentId": {{contentIdProf}},
+  "answerId": {{answerId}},
+  "parentId": null,
+  "content": "API测试专业区评论"
+}
+
+> {%
+  client.test("P5-09 send comment", function () {
+    client.assert(response.body.code === 200);
+    if (response.body.data) {
+      var id = String(response.body.data);
+      client.global.set("commentId", id);
+      client.global.set("COMMENT_ID", id);
+    }
+  });
+%}
+
+### P5-10 专业区缺 answerId → body.code=400
+POST {{baseUrl}}/comment/send
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentId": {{contentIdProf}},
+  "parentId": null,
+  "content": "缺 answerId 应失败"
+}
+
+> {%
+  client.test("P5-10 comment without answerId", function () {
+    client.assert(response.body.code === 400);
+  });
+%}
+
+### P5-11 点赞评论 → body.code=200
+POST {{baseUrl}}/comment/like/{{commentId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-11 like comment", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-12 举报评论 → body.code=200
+POST {{baseUrl}}/comment/report
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "commentId": {{commentId}},
+  "reportType": 5
+}
+
+> {%
+  client.test("P5-12 report comment", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-13 重复举报评论 → body.code=400
+POST {{baseUrl}}/comment/report
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "commentId": {{commentId}},
+  "reportType": 5
+}
+
+> {%
+  client.test("P5-13 duplicate comment report", function () {
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("重复") >= 0);
+  });
+%}
+
+###############################################################################
+# Follow — 关注 / 取关
+###############################################################################
+
+### P5-14 关注另一用户 → body.code=200（userBId 不可为自己）
+POST {{baseUrl}}/follow/{{userBId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-14 follow user", function () {
+    if (!"{{userBId}}" || "{{userBId}}" === "{{userId}}") {
+      client.log("请配置 userBId 为第二测试用户 ID");
+      return;
+    }
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+%}
+
+### P5-15 不能关注自己 → body.code=400
+POST {{baseUrl}}/follow/{{userId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-15 follow self", function () {
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("自己") >= 0);
+  });
+%}
+
+### P5-16 再次 POST 同一用户 → 取关（切换）
+POST {{baseUrl}}/follow/{{userBId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-16 unfollow toggle", function () {
+    if (!"{{userBId}}") { return; }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+###############################################################################
+# Content — 点赞 / 收藏 / 举报（Phase 5 互动）
+###############################################################################
+
+### P5-17 点赞帖子 → body.code=200
+POST {{baseUrl}}/content/like/{{contentIdProf}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-17 like content", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-18 收藏帖子 → body.code=200
+POST {{baseUrl}}/content/collect/{{contentIdProf}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-18 collect content", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-19 举报帖子 → body.code=200
+POST {{baseUrl}}/content/report
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentId": {{contentIdProf}},
+  "reportType": 5
+}
+
+> {%
+  client.test("P5-19 report content", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-20 重复举报帖子 → body.code=400
+POST {{baseUrl}}/content/report
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentId": {{contentIdProf}},
+  "reportType": 5
+}
+
+> {%
+  client.test("P5-20 duplicate content report", function () {
+    client.assert(response.body.code === 400);
+  });
+%}
+
+###############################################################################
+# Notification — 已读
+###############################################################################
+
+### P5-21 标记单条已读（依赖 notificationId）
+PUT {{baseUrl}}/notification/read/{{notificationId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-21 mark notification read", function () {
+    if (!"{{notificationId}}") {
+      client.log("无通知时先执行点赞/评论/关注以产生通知，或跳过");
+      return;
+    }
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-22 全部已读 → body.code=200
+PUT {{baseUrl}}/notification/readAll
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-22 mark all read", function () {
+    client.assert(response.body.code === 200);
+  });
+%}
+
+### P5-23 不存在通知已读 → body.code=404 或 400
+PUT {{baseUrl}}/notification/read/999999
+authorization: {{userToken}}
+
+> {%
+  client.test("P5-23 read missing notification", function () {
+    client.assert(response.body.code === 404 || response.body.code === 400);
+  });
+%}

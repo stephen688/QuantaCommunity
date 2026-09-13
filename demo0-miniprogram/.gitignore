@@ -1,0 +1,16 @@
+node_modules/
+miniprogram_npm/
+design-preview/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / IDE
+.cursor/
+.vscode/
+.idea/
+.DS_Store
+
+# WeChat DevTools personal settings (optional per machine)
+project.private.config.json

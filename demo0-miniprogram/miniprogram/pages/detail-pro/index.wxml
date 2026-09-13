@@ -1,0 +1,195 @@
+<view class="detail-page">
+  <view wx:if="{{invalidId}}" class="detail-page__pad">
+    <state-block
+      type="invalidData"
+      title="内容参数无效"
+      description="缺少或无效的内容编号"
+      actionText="返回"
+      bind:action="onDetailStateAction"
+    />
+  </view>
+
+  <block wx:elif="{{typeMismatch && detail}}">
+    <view class="detail-page__pad">
+      <state-block
+        type="invalidData"
+        title="内容类型异常"
+        description="该内容不是专业类，请从对应入口打开"
+        actionText="返回"
+        bind:action="onTypeMismatchAction"
+      />
+    </view>
+  </block>
+
+  <view wx:elif="{{contentDeleted}}" class="detail-page__pad">
+    <state-block
+      type="empty"
+      title="内容已删除"
+      description="该内容已不存在或已被删除"
+      actionText="回首页"
+      bind:action="onContentDeletedBack"
+    />
+  </view>
+
+  <view wx:elif="{{loading && !detail}}" class="detail-page__skel">
+    <feed-skeleton variant="detail" count="{{1}}" />
+  </view>
+
+  <view wx:elif="{{errorType && !detail}}" class="detail-page__state">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onDetailStateAction"
+    />
+  </view>
+
+  <block wx:elif="{{detail}}">
+    <view class="detail-page__body content-reveal">
+      <view class="detail-page__card card">
+        <view class="detail-page__toolbar">
+          <view class="detail-page__toolbar-fill" />
+          <text class="detail-page__more hover-opacity" catchtap="onContentMore">更多</text>
+        </view>
+        <author-row
+          nickname="{{detail.authorName}}"
+          avatarUrl="{{detail.authorAvatar}}"
+          time="{{detail.createTime}}"
+          quantaBatch="{{detail.quantaBatch || ''}}"
+          quantaDepartment="{{detail.quantaDepartment || ''}}"
+          userId="{{detail.authorId}}"
+          clickable="{{true}}"
+          bind:tapauthor="onAuthorTap"
+        />
+        <text wx:if="{{detail.title}}" class="detail-page__title">{{detail.title}}</text>
+        <text wx:if="{{detail.content}}" class="detail-page__content" user-select>{{detail.content}}</text>
+        <view wx:if="{{detail.images && detail.images.length}}" class="detail-page__imgs">
+          <image
+            wx:for="{{detail.images}}"
+            wx:key="*this"
+            class="detail-page__img"
+            src="{{item}}"
+            mode="aspectFill"
+            data-url="{{item}}"
+            bindtap="onPreviewImage"
+          />
+        </view>
+      </view>
+
+      <view class="detail-page__section">回答 · {{answers.length}} 条</view>
+
+      <view wx:if="{{answerLoading && answers.length === 0}}" class="detail-page__hint">加载回答中…</view>
+
+      <view wx:elif="{{answerError}}" class="detail-page__pad-inner">
+        <state-block
+          type="network"
+          title="回答加载失败"
+          description="请稍后重试"
+          actionText="重试"
+          bind:action="onAnswerRetry"
+        />
+      </view>
+
+      <view wx:elif="{{answers.length === 0}}" class="detail-page__pad-inner">
+        <state-block
+          type="empty"
+          title="还没有回答"
+          description="来写第一个回答"
+          actionText=""
+        />
+      </view>
+
+      <view wx:else class="detail-page__answers">
+        <view wx:for="{{answers}}" wx:key="answerId" class="detail-page__ans card {{item.isAccepted ? 'detail-page__ans--accepted' : ''}}">
+          <view wx:if="{{item.authorId}}" class="detail-page__ans-head detail-page__ans-head--row">
+            <view class="detail-page__ans-author">
+              <author-row
+                nickname="{{item.authorName}}"
+                avatarUrl="{{item.authorAvatar}}"
+                time=""
+                userId="{{item.authorId}}"
+                clickable="{{true}}"
+                bind:tapauthor="onAnswerAuthorTap"
+              />
+            </view>
+            <text wx:if="{{item.isAccepted}}" class="detail-page__badge--accepted">最佳回答</text>
+          </view>
+          <view wx:else class="detail-page__ans-head">
+            <text class="detail-page__ans-name">{{item.authorName}}</text>
+            <text wx:if="{{item.isAccepted}}" class="detail-page__badge--accepted">最佳回答</text>
+          </view>
+          <text wx:if="{{item.quantaBatch}}" class="detail-page__ans-batch">{{item.quantaBatch}}</text>
+          <view class="detail-page__ans-body-wrap" data-answer-id="{{item.answerId}}" catchtap="onAnswerCardTap">
+            <view class="detail-page__ans-body">{{item.content}}</view>
+          </view>
+          <button
+            wx:if="{{isQuestionAuthor && !item.isAccepted}}"
+            class="detail-page__accept-btn {{acceptingAnswerId === item.answerId ? 'detail-page__accept-btn--busy' : ''}}"
+            hover-class="detail-page__accept-btn--hover"
+            disabled="{{acceptingAnswerId !== null}}"
+            data-answer-id="{{item.answerId}}"
+            catchtap="onAcceptAnswerTap"
+          >
+            {{acceptingAnswerId === item.answerId ? '处理中…' : '采纳'}}
+          </button>
+          <view class="detail-page__ans-foot">
+            <text class="detail-page__ans-time">{{item.createTime}}</text>
+            <view class="detail-page__ans-foot-right">
+              <text
+                class="detail-page__ans-stat detail-page__ans-stat--tap"
+                hover-class="detail-page__ans-stat--hover"
+                data-answer-id="{{item.answerId}}"
+                catchtap="onAnswerCommentTap"
+              >评论 {{item.commentCount}}</text>
+              <view
+                class="detail-page__ans-like {{item.liked ? 'detail-page__ans-like--on' : ''}}"
+                hover-class="detail-page__ans-like--hover"
+                data-answer-id="{{item.answerId}}"
+                catchtap="onAnswerLike"
+              >
+                <text>{{item.liked ? '已赞' : '赞'}} {{item.likeCount}}</text>
+              </view>
+              <text
+                class="detail-page__ans-more"
+                data-answer-id="{{item.answerId}}"
+                catchtap="onAnswerMore"
+              >更多</text>
+            </view>
+          </view>
+          <view class="detail-page__ans-entry" data-answer-id="{{item.answerId}}" catchtap="onAnswerCardTap">
+            <text class="detail-page__ans-entry-text">查看回答详情</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="detail-page__foot-spacer" />
+
+      <view
+        wx:if="{{detail && !typeMismatch}}"
+        class="detail-page__fab"
+        hover-class="detail-page__fab--hover"
+        catchtap="onPublishAnswerFabTap"
+        aria-role="button"
+        aria-label="发布回答"
+      >
+        <text class="detail-page__fab-text">答</text>
+      </view>
+    </view>
+
+    <detail-action-bar
+      fixed
+      liked="{{detail.liked}}"
+      collected="{{detail.collected}}"
+      like-count="{{detail.likeCount}}"
+      collect-count="{{detail.collectCount}}"
+      comment-count="{{detail.commentCount}}"
+      composer-placeholder="在回答下评论…"
+      loading="{{likeLoading || collectLoading}}"
+      bind:like="onDetailLike"
+      bind:collect="onDetailCollect"
+      bind:composeropen="onCommentEntryTap"
+    />
+  </block>
+  <auth-intercept-modal />
+</view>

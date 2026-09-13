@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "unread-badge": "/components/unread-badge/index"
+  }
+}

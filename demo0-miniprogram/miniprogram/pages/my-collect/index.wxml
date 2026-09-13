@@ -1,0 +1,41 @@
+<view class="mc">
+  <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0}}" variant="assets" />
+
+  <view wx:elif="{{errorType && list.length === 0}}" class="mc__state">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <view wx:elif="{{!loading && !errorType && list.length === 0}}" class="mc__state">
+    <state-block type="empty" variant="collect" title="还没有收藏内容" description="遇到干货记得点收藏，方便以后回看" />
+  </view>
+
+  <view wx:else class="mc__feed content-reveal">
+    <view class="mc__cards">
+      <content-card
+        wx:for="{{list}}"
+        wx:key="contentId"
+        item="{{item}}"
+        data-content-id="{{item.contentId}}"
+        data-content-type="{{item.contentType}}"
+        showAuthor="{{true}}"
+        bind:cardtap="onCardTap"
+        bind:tapauthor="onCardAuthorTap"
+        bind:interactionchange="onCardInteractionChange"
+      />
+    </view>
+    <page-list-footer
+      visible="{{list.length > 0}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onFooterRetry"
+    />
+    <view class="mc__safe-bottom" />
+  </view>
+</view>

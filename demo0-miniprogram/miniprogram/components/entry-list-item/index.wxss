@@ -1,0 +1,128 @@
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20rpx;
+  padding: 26rpx 24rpx;
+  border: 1rpx solid var(--color-border, rgba(26, 29, 33, 0.08));
+  box-shadow: var(--shadow-none, none);
+  box-sizing: border-box;
+}
+
+
+.row__icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+}
+
+.row__icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 18rpx;
+}
+
+.row__icon--css {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 18rpx;
+  background-color: var(--color-chip-neutral-bg, #f0ede7);
+  border: 1rpx solid var(--color-border, rgba(26, 29, 33, 0.08));
+  color: var(--color-text-secondary, #5c6370);
+}
+
+.row__icon--auth::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 18rpx;
+  width: 22rpx;
+  height: 26rpx;
+  margin-left: -11rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 4rpx 4rpx 10rpx 10rpx;
+  box-sizing: border-box;
+  opacity: 0.8;
+}
+
+.row__icon--auth::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 30rpx;
+  width: 10rpx;
+  height: 6rpx;
+  margin-left: -6rpx;
+  border-left: 3rpx solid currentColor;
+  border-bottom: 3rpx solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0.85;
+}
+
+.row__icon--notify::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 16rpx;
+  width: 24rpx;
+  height: 20rpx;
+  margin-left: -12rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 10rpx 10rpx 4rpx 4rpx;
+  box-sizing: border-box;
+  opacity: 0.8;
+}
+
+.row__icon--notify::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 14rpx;
+  width: 8rpx;
+  height: 4rpx;
+  margin-left: -4rpx;
+  border-radius: 0 0 6rpx 6rpx;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.row__title-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.row__title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1d21);
+}
+
+.row__sub {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary, #8c939e);
+}
+
+.row__chev {
+  width: 14rpx;
+  height: 14rpx;
+  border-right: 3rpx solid var(--color-text-tertiary, #8c939e);
+  border-bottom: 3rpx solid var(--color-text-tertiary, #8c939e);
+  transform: rotate(-45deg);
+  margin-right: 10rpx;
+  flex-shrink: 0;
+}
+
+.row__dot-wrap {
+  display: flex;
+  align-items: center;
+}

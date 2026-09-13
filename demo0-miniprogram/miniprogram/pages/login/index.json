@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "login-sheet": "/components/login-sheet/index",
+    "quanta-mark": "/components/quanta-mark/index"
+  },
+  "navigationStyle": "custom",
+  "disableScroll": true
+}

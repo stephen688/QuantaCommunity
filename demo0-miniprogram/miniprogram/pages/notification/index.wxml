@@ -1,0 +1,67 @@
+<view class="nt">
+  <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0}}" variant="notification" />
+
+  <view wx:elif="{{errorType && list.length === 0}}" class="nt__state">
+    <state-block
+      type="{{errorType}}"
+      variant="network"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <view wx:elif="{{!loading && !errorType && list.length === 0}}" class="nt__state">
+    <state-block
+      type="empty"
+      variant="message"
+      title="暂无通知"
+      description="有新消息时会出现在这里"
+    />
+  </view>
+
+  <view wx:else class="nt__list content-reveal">
+    <view wx:if="{{hasUnread}}" class="nt__toolbar">
+      <button
+        class="nt__mark-all {{markAllBusy ? 'nt__mark-all--disabled' : ''}}"
+        size="mini"
+        hover-class="nt__mark-all--hover"
+        hover-stay-time="100"
+        disabled="{{markAllBusy}}"
+        loading="{{markAllBusy}}"
+        bindtap="onMarkAllRead"
+      >
+        {{markAllBusy ? '处理中…' : '全部已读'}}
+      </button>
+    </view>
+    <view
+      wx:for="{{list}}"
+      wx:key="id"
+      class="nt__item card {{item.read ? '' : 'nt__item--unread'}}"
+      hover-class="nt__item--hover"
+      data-id="{{item.id}}"
+      data-payload="{{item.payload}}"
+      bindtap="onItemTap"
+    >
+      <view class="nt__head">
+        <view class="nt__head-left">
+          <view class="nt__icon nt__icon--{{item.iconKind}}" aria-hidden="true" />
+          <text class="nt__type">{{item.typeDesc || '通知'}}</text>
+        </view>
+        <text wx:if="{{!item.read}}" class="nt__dot">未读</text>
+      </view>
+      <view class="nt__content">{{item.content}}</view>
+      <view wx:if="{{item.createTime}}" class="nt__time">{{item.createTime}}</view>
+    </view>
+    <page-list-footer
+      visible="{{list.length > 0}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onFooterRetry"
+    />
+    <view class="nt__safe-bottom" />
+  </view>
+  <auth-intercept-modal />
+</view>

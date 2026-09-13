@@ -1,0 +1,77 @@
+﻿{
+    "results":  [
+                    {
+                        "msg":  "",
+                        "pass":  true,
+                        "name":  "P0-01",
+                        "http":  401,
+                        "code":  null
+                    },
+                    {
+                        "msg":  "success",
+                        "pass":  true,
+                        "name":  "P0-02",
+                        "http":  200,
+                        "code":  200
+                    },
+                    {
+                        "msg":  "寰俊鐧诲綍鍑瘉涓嶈兘涓虹┖",
+                        "pass":  true,
+                        "name":  "P1-01",
+                        "http":  200,
+                        "code":  400
+                    },
+                    {
+                        "msg":  "",
+                        "pass":  true,
+                        "name":  "P1-03",
+                        "http":  401,
+                        "code":  null
+                    },
+                    {
+                        "msg":  "",
+                        "pass":  true,
+                        "name":  "P1-04",
+                        "http":  401,
+                        "code":  null
+                    },
+                    {
+                        "msg":  "success",
+                        "pass":  true,
+                        "name":  "P1-05",
+                        "http":  200,
+                        "code":  200
+                    },
+                    {
+                        "msg":  "{\"code\":200,\"msg\":\"success\",\"data\":{\"total\":21,\"records\":[{\"id\":3,\"openid\":\"seed2026_user_00003\",\"appUserId\":null,\"nickName\":\"Quanta_灏忛箍\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-3.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":4,\"openid\":\"seed2026_user_00004\",\"appUserId\":null,\"nickName\":\"鎶€鏈儴闃胯景\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-4.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":5,\"openid\":\"seed2026_user_00005\",\"appUserId\":null,\"nickName\":\"骞垮鎽搁奔鐜?,\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-5.jpg?v=realistic2\",\"authStatus\":0,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:21:21\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":6,\"openid\":\"seed2026_user_00006\",\"appUserId\":null,\"nickName\":\"浜у搧缁凪omo\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-6.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":7,\"openid\":\"seed2026_user_00007\",\"appUserId\":null,\"nickName\":\"2024灞奯鑰佸闀?,\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-7.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":8,\"openid\":\"seed2026_user_00008\",\"appUserId\":null,\"nickName\":\"璁捐閮↙ily\",\"avatarUrl\":\"https://picsum.photos/id/69/200/200\",\"authStatus\":-1,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-13 20:59:36\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":9,\"openid\":\"seed2026_user_00009\",\"appUserId\":null,\"nickName\":\"杩愯惀_灏忓懆\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-9.jpg?v=realistic2\",\"authStatus\":1,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":10,\"openid\":\"seed2026_user_00010\",\"appUserId\":null,\"nickName\":\"绠楁硶鑿滈浮浜掑晞\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-10.jpg?v=realistic2\",\"authStatus\":3,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":11,\"openid\":\"seed2026_user_00011\",\"appUserId\":null,\"nickName\":\"澶栬仈閮↘K\",\"avatarUrl\":\"https://picsum.photos/id/72/200/200\",\"authStatus\":1,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-13 20:59:36\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":12,\"openid\":\"seed2026_user_00012\",\"appUserId\":null,\"nickName\":\"瀹胯垗澶滆皥bot\",\"avatarUrl\":\"https://picsum.photos/id/73/200/200\",\"authStatus\":0,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-13 20:59:36\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0}]}}\r",
+                        "pass":  false,
+                        "name":  "P1-06",
+                        "http":  200,
+                        "code":  200
+                    },
+                    {
+                        "msg":  "success",
+                        "pass":  true,
+                        "name":  "P0-03",
+                        "http":  200,
+                        "code":  200
+                    },
+                    {
+                        "msg":  "{\"code\":200,\"msg\":\"success\",\"data\":{\"total\":21,\"records\":[{\"id\":3,\"openid\":\"seed2026_user_00003\",\"appUserId\":null,\"nickName\":\"Quanta_灏忛箍\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-3.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":4,\"openid\":\"seed2026_user_00004\",\"appUserId\":null,\"nickName\":\"鎶€鏈儴闃胯景\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-4.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":5,\"openid\":\"seed2026_user_00005\",\"appUserId\":null,\"nickName\":\"骞垮鎽搁奔鐜?,\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-5.jpg?v=realistic2\",\"authStatus\":0,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:21:21\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":6,\"openid\":\"seed2026_user_00006\",\"appUserId\":null,\"nickName\":\"浜у搧缁凪omo\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-6.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":7,\"openid\":\"seed2026_user_00007\",\"appUserId\":null,\"nickName\":\"2024灞奯鑰佸闀?,\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-7.jpg?v=realistic2\",\"authStatus\":2,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":8,\"openid\":\"seed2026_user_00008\",\"appUserId\":null,\"nickName\":\"璁捐閮↙ily\",\"avatarUrl\":\"https://picsum.photos/id/69/200/200\",\"authStatus\":-1,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-13 20:59:36\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":9,\"openid\":\"seed2026_user_00009\",\"appUserId\":null,\"nickName\":\"杩愯惀_灏忓懆\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-9.jpg?v=realistic2\",\"authStatus\":1,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":10,\"openid\":\"seed2026_user_00010\",\"appUserId\":null,\"nickName\":\"绠楁硶鑿滈浮浜掑晞\",\"avatarUrl\":\"https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-10.jpg?v=realistic2\",\"authStatus\":3,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-17 14:39:06\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":11,\"openid\":\"seed2026_user_00011\",\"appUserId\":null,\"nickName\":\"澶栬仈閮↘K\",\"avatarUrl\":\"https://picsum.photos/id/72/200/200\",\"authStatus\":1,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-13 20:59:36\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0},{\"id\":12,\"openid\":\"seed2026_user_00012\",\"appUserId\":null,\"nickName\":\"瀹胯垗澶滆皥bot\",\"avatarUrl\":\"https://picsum.photos/id/73/200/200\",\"authStatus\":0,\"createTime\":\"2026-05-13 20:59:36\",\"updateTime\":\"2026-05-13 20:59:36\",\"isDeleted\":0,\"isAdmin\":0,\"accountStatus\":0}]}}\r",
+                        "pass":  true,
+                        "name":  "P1-07",
+                        "http":  200,
+                        "code":  200
+                    }
+                ],
+    "env":  {
+                "BASE_URL":  "http://localhost:9191",
+                "USER_ID":  "1",
+                "ADMIN_TOKEN":  "eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjoxLCJ1c2VySWQiOjEsImlhdCI6MTc3OTE4NDY5NiwiZXhwIjoxNzc5Nzg5NDk2fQ.kByKgAwO33noSZxAIegOMSbDeRJrhTXJY9tqtaTH5cY",
+                "USER_TOKEN":  "eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjoxLCJ1c2VySWQiOjEsImlhdCI6MTc3OTE4NDY5NiwiZXhwIjoxNzc5Nzg5NDk2fQ.kByKgAwO33noSZxAIegOMSbDeRJrhTXJY9tqtaTH5cY"
+            },
+    "timestamp":  "2026-05-19 17:58:16",
+    "passCount":  8,
+    "phase":  "0-1",
+    "failCount":  1
+}

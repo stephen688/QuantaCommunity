@@ -1,0 +1,80 @@
+<view class="mc">
+  <view class="mc__tabs card">
+    <view
+      class="mc__chip {{auditTab==='all' ? 'mc__chip--on' : ''}}"
+      hover-class="mc__chip--hover"
+      data-tab="all"
+      bindtap="onAuditTap"
+    >全部</view>
+    <view
+      class="mc__chip {{auditTab==='pending' ? 'mc__chip--on' : ''}}"
+      hover-class="mc__chip--hover"
+      data-tab="pending"
+      bindtap="onAuditTap"
+    >审核中</view>
+    <view
+      class="mc__chip mc__chip--approved {{auditTab==='approved' ? 'mc__chip--on' : ''}}"
+      hover-class="mc__chip--hover"
+      data-tab="approved"
+      bindtap="onAuditTap"
+    >已通过</view>
+    <view
+      class="mc__chip mc__chip--rejected {{auditTab==='rejected' ? 'mc__chip--on' : ''}}"
+      hover-class="mc__chip--hover"
+      data-tab="rejected"
+      bindtap="onAuditTap"
+    >已驳回</view>
+  </view>
+
+  <feed-switch-bar wx:if="{{switching}}" />
+
+  <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0 && !switching}}" variant="assets" />
+
+  <view wx:elif="{{errorType && list.length === 0 && !switching}}" class="mc__state">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <view
+    wx:elif="{{!loading && !errorType && list.length === 0}}"
+    class="mc__state feed-panel {{switching ? 'feed-panel--switching' : ''}}"
+  >
+    <state-block
+      type="empty"
+      title="还没有发布内容"
+      description="发布一条内容，与大家一起交流"
+      actionText="去发布"
+      bind:action="onEmptyPublish"
+    />
+  </view>
+
+  <view wx:else class="mc__feed feed-panel content-reveal {{switching ? 'feed-panel--switching' : ''}}">
+    <view class="mc__cards feed-panel__body">
+      <content-card
+        wx:for="{{list}}"
+        wx:key="contentId"
+        item="{{item}}"
+        data-content-id="{{item.contentId}}"
+        data-content-type="{{item.contentType}}"
+        show-author="{{true}}"
+        show-audit-badge="{{true}}"
+        bind:cardtap="onCardTap"
+        bind:tapauthor="onCardAuthorTap"
+        bind:interactionchange="onCardInteractionChange"
+      />
+    </view>
+    <page-list-footer
+      visible="{{list.length > 0 && !switching}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onFooterRetry"
+    />
+    <view class="mc__safe-bottom" />
+  </view>
+</view>

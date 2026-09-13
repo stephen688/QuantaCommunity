@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 266" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="quanta-box" x1="18%" y1="0%" x2="82%" y2="100%">
+      <stop offset="0%" stop-color="#1c1c20" />
+      <stop offset="36%" stop-color="#141418" />
+      <stop offset="68%" stop-color="#0d0d10" />
+      <stop offset="100%" stop-color="#111114" />
+    </linearGradient>
+    <linearGradient id="quanta-box-hi" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.12)" />
+      <stop offset="45%" stop-color="rgba(255,255,255,0.03)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+    </linearGradient>
+  </defs>
+  <rect width="270" height="266" rx="60" fill="url(#quanta-box)" />
+  <rect width="270" height="266" rx="60" fill="url(#quanta-box-hi)" />
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path
+      d="M 38 182 L 100 179 M 52 189 L 51 168 L 36 109 L 47 99 L 76 94 L 120 86 L 124 127"
+      stroke="#FE6603"
+      stroke-width="23"
+    />
+    <path d="M 93 140 L 130 184" stroke="#FE6603" stroke-width="23" />
+    <circle cx="162" cy="102" r="7" fill="#FFFFFF" />
+    <path
+      d="M 201 88 L 243 88 M 196 89 L 210 164"
+      stroke="#FFFFFF"
+      stroke-width="23"
+    />
+  </g>
+</svg>

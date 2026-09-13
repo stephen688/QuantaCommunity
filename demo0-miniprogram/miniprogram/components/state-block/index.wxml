@@ -1,0 +1,19 @@
+<view class="state state--{{type}}">
+  <view class="state__icon-wrap" aria-hidden="true">
+    <view class="state__gfx state__gfx--{{graphic}}">
+      <view wx:if="{{graphic === 'follow'}}" class="state__gfx-plus" />
+    </view>
+  </view>
+  <text class="state__title">{{title}}</text>
+  <text wx:if="{{description}}" class="state__desc">{{description}}</text>
+  <button
+    wx:if="{{showAction}}"
+    class="state__btn"
+    size="mini"
+    type="default"
+    hover-class="state__btn-hover"
+    bindtap="onActionTap"
+  >
+    {{actionText}}
+  </button>
+</view>

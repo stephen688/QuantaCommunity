@@ -1,0 +1,34 @@
+<view class="grid card">
+
+  <view
+
+    wx:for="{{entries}}"
+
+    wx:key="key"
+
+    class="grid__cell"
+
+    hover-class="hover-opacity"
+
+    data-index="{{index}}"
+
+    bindtap="onCellTap"
+
+  >
+
+    <view class="grid__icon-wrap">
+
+      <image wx:if="{{item.icon}}" class="grid__icon" src="{{item.icon}}" mode="aspectFit" />
+
+      <view wx:else class="grid__icon grid__icon--css grid__icon--{{item.key}}" aria-hidden="true" />
+
+    </view>
+
+    <text class="grid__title">{{item.title}}</text>
+
+    <text wx:if="{{item.subtitle}}" class="grid__sub">{{item.subtitle}}</text>
+
+  </view>
+
+</view>
+

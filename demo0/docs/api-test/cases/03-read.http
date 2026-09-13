@@ -1,0 +1,305 @@
+# Phase 4：读接口 — search、rag、answer、comment、follow、notification + 内容读
+#
+# 前置：
+#   1. 01-auth-user.http（userToken、userId）
+#   2. 02-upload-publish.http + 02-admin-audit.http（contentIdProf 已审核、answerId）
+#
+# 变量：http-client.env.json → dev，或 Phase 0–3 响应脚本写入的 client.global
+# ES：/search/content、/rag/search 未配置 ES 时可能 BLOCKED（记 RESULTS，不计 FAIL）
+#
+# contentType：1=生活求助，2=专业问答
+
+@baseUrl = {{baseUrl}}
+@userToken = {{userToken}}
+@userId = {{userId}}
+@contentIdProf = {{contentIdProf}}
+@questionId = {{questionId}}
+@answerId = {{answerId}}
+
+###############################################################################
+# Content — 推荐 / 详情（Phase 4 读）
+###############################################################################
+
+### P4-01 推荐流 → body.code=200
+GET {{baseUrl}}/content/recommend?scene=latest&pageSize=5&offset=0
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-01 recommend", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+%}
+
+### P4-02 内容详情（已审核专业帖）→ body.code=200
+GET {{baseUrl}}/content/detail/{{contentIdProf}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-02 content detail", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data && response.body.data.contentId);
+  });
+%}
+
+### P4-03 不存在的内容 → body.code=404 或 400
+GET {{baseUrl}}/content/detail/999999
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-03 content not found", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 404 || response.body.code === 400);
+  });
+%}
+
+### P4-04 用户主页 → body.code=200
+GET {{baseUrl}}/user/{{userId}}/profile
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-04 user profile", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data);
+  });
+%}
+
+###############################################################################
+# Search — 5 个读相关接口
+###############################################################################
+
+### P4-05 搜索内容（keyword + contentType=2）→ body.code=200
+# 依赖 ES；失败可标 BLOCKED
+GET {{baseUrl}}/search/content?keyword=API测试&contentType=2&current=1&pageSize=10&sortType=new
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-05 search content", function () {
+    client.assert(response.status === 200);
+    if (response.body.code === 200) {
+      client.assert(response.body.data != null);
+    } else {
+      client.log("ES 未就绪时可标 BLOCKED: " + (response.body.msg || ""));
+    }
+  });
+%}
+
+### P4-06 空关键词 → body.code=400
+GET {{baseUrl}}/search/content?keyword=&current=1&pageSize=10
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-06 empty keyword", function () {
+    client.assert(response.body.code === 400);
+  });
+%}
+
+### P4-07 搜索历史关键词 → body.code=200
+GET {{baseUrl}}/search/history/keywords
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-07 search history keywords", function () {
+    client.assert(response.body.code === 200);
+    client.assert(Array.isArray(response.body.data));
+  });
+%}
+
+### P4-08 热门发现 → body.code=200
+GET {{baseUrl}}/search/trending
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-08 trending", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+%}
+
+### P4-09 无 Token 搜索 → HTTP 401
+GET {{baseUrl}}/search/content?keyword=test&current=1&pageSize=10
+
+> {%
+  client.test("P4-09 search without token", function () {
+    client.assert(response.status === 401);
+  });
+%}
+
+###############################################################################
+# RAG — enableAi=false（不依赖 DeepSeek）
+###############################################################################
+
+### P4-10 RAG 检索（enableAi=false）→ body.code=200 或 ES 阻塞
+POST {{baseUrl}}/rag/search
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "query": "专业问答 API测试",
+  "contentType": 2,
+  "enableAi": false
+}
+
+> {%
+  client.test("P4-10 rag without ai", function () {
+    client.assert(response.status === 200);
+    if (response.body.code === 200) {
+      client.assert(response.body.data != null);
+    } else {
+      client.log("RAG/ES 未配置时可标 BLOCKED");
+    }
+  });
+%}
+
+### P4-11 RAG 空 query → body.code=400（@Valid）
+POST {{baseUrl}}/rag/search
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "query": "",
+  "enableAi": false
+}
+
+> {%
+  client.test("P4-11 rag empty query", function () {
+    client.assert(response.body.code === 400);
+  });
+%}
+
+### P4-12 RAG enableAi=true（环境依赖，失败记 BLOCKED）
+POST {{baseUrl}}/rag/search
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "query": "校友互助",
+  "enableAi": true
+}
+
+> {%
+  client.test("P4-12 rag with ai (env)", function () {
+    if (response.body.code !== 200) {
+      client.log("DeepSeek/通义未配置时标 BLOCKED，非 FAIL");
+    }
+  });
+%}
+
+###############################################################################
+# Answer — 列表 / 详情
+###############################################################################
+
+### P4-13 问题回答列表 → body.code=200
+GET {{baseUrl}}/answer/list/{{questionId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-13 answer list", function () {
+    client.assert(response.body.code === 200);
+    client.assert(Array.isArray(response.body.data));
+  });
+%}
+
+### P4-14 回答详情 → body.code=200
+GET {{baseUrl}}/answer/{{answerId}}
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-14 answer detail", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data && response.body.data.answerId);
+  });
+%}
+
+### P4-15 不存在回答 → body.code=404 或 400
+GET {{baseUrl}}/answer/999999
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-15 answer not found", function () {
+    client.assert(response.body.code === 404 || response.body.code === 400);
+  });
+%}
+
+###############################################################################
+# Comment — 列表 / 回复列表（@RequireAuth 标注；JWT 仍必需）
+###############################################################################
+
+### P4-16 评论列表（专业区需 answerId）→ body.code=200
+GET {{baseUrl}}/comment/list?contentId={{contentIdProf}}&answerId={{answerId}}&pageNum=1&pageSize=10&sortType=1
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-16 comment list", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+%}
+
+### P4-17 专业区缺 answerId → body.code=400
+GET {{baseUrl}}/comment/list?contentId={{contentIdProf}}&pageNum=1&pageSize=10
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-17 comment list missing answerId", function () {
+    client.assert(response.body.code === 400);
+  });
+%}
+
+###############################################################################
+# Follow — 关注动态
+###############################################################################
+
+### P4-18 关注 Feed → body.code=200
+GET {{baseUrl}}/follow/feed?offset=0&pageSize=5
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-18 follow feed", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+%}
+
+###############################################################################
+# Notification — 列表 / 未读数
+###############################################################################
+
+### P4-19 通知列表 → body.code=200；若有记录写 NOTIFICATION_ID
+# @name notificationList
+GET {{baseUrl}}/notification/list?page=1&pageSize=10
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-19 notification list", function () {
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data != null);
+  });
+  if (response.body.code === 200 && response.body.data && response.body.data.records
+      && response.body.data.records.length > 0) {
+    var nid = String(response.body.data.records[0].id);
+    client.global.set("notificationId", nid);
+    client.global.set("NOTIFICATION_ID", nid);
+  }
+%}
+
+### P4-20 未读数量 → body.code=200
+GET {{baseUrl}}/notification/unreadCount
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-20 unread count", function () {
+    client.assert(response.body.code === 200);
+    client.assert(typeof response.body.data === "number");
+  });
+%}
+
+### P4-21 无 Token 通知列表 → HTTP 401
+GET {{baseUrl}}/notification/list?page=1&pageSize=10
+
+> {%
+  client.test("P4-21 notification without token", function () {
+    client.assert(response.status === 401);
+  });
+%}

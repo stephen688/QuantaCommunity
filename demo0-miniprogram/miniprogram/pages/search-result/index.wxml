@@ -1,0 +1,85 @@
+<view class="sr">
+  <view wx:if="{{invalidKeyword}}" class="sr__state">
+    <state-block
+      type="invalidData"
+      title="搜索关键词无效"
+      description="请返回搜索页重新输入"
+      actionText="返回"
+      bind:action="onBackToSearch"
+    />
+  </view>
+
+  <block wx:else>
+    <view class="sr__kw card" hover-class="sr__kw--hover" bindtap="onBackToSearch">
+      <text class="sr__kw-label">关键词</text>
+      <text class="sr__kw-text">{{keyword}}</text>
+      <text class="sr__kw-action">修改</text>
+    </view>
+
+    <content-type-tabs value="{{filter}}" bindchange="onFilterChange" />
+    <feed-switch-bar wx:if="{{switching}}" />
+
+    <view class="sr__ai">
+      <ai-summary-card
+        keyword="{{aiSummary.keyword}}"
+        summary="{{aiSummary.summary}}"
+        source-count="{{aiSummary.sourceCount}}"
+        loading="{{aiSummary.loading}}"
+        error-type="{{aiSummary.errorType}}"
+        error-message="{{aiSummary.errorMessage}}"
+        bind:tap="onAiSummaryTap"
+      />
+    </view>
+
+    <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0 && !switching}}" variant="assets" />
+
+    <view wx:elif="{{errorType && list.length === 0 && !switching}}" class="sr__state">
+      <state-block
+        type="{{errorType}}"
+        title="{{stateTitle}}"
+        description="{{errorMessage}}"
+        actionText="{{stateActionText}}"
+        bind:action="onStateAction"
+      />
+    </view>
+
+    <view
+      wx:elif="{{!loading && !errorType && list.length === 0}}"
+      class="sr__state feed-panel {{switching ? 'feed-panel--switching' : ''}}"
+    >
+      <state-block
+        type="empty"
+        variant="search"
+        title="未找到相关帖子"
+        description="换个关键词或切换分区试试"
+        actionText="返回搜索"
+        bind:action="onBackToSearch"
+      />
+    </view>
+
+    <view wx:else class="sr__feed feed-panel content-reveal {{switching ? 'feed-panel--switching' : ''}}">
+      <view class="sr__section-title">帖子</view>
+      <view class="sr__cards feed-panel__body">
+        <content-card
+          wx:for="{{list}}"
+          wx:key="contentId"
+          item="{{item}}"
+          showAuthor="{{true}}"
+          data-content-id="{{item.contentId}}"
+          data-content-type="{{item.contentType}}"
+          bind:cardtap="onCardTap"
+          bind:tapauthor="onCardAuthorTap"
+          bind:interactionchange="onCardInteractionChange"
+        />
+      </view>
+      <page-list-footer
+        visible="{{list.length > 0 && !switching}}"
+        loading-more="{{loadingMore}}"
+        load-error="{{loadMoreError}}"
+        finished="{{finished}}"
+        bind:retry="onFooterRetry"
+      />
+      <view class="sr__safe-bottom" />
+    </view>
+  </block>
+</view>

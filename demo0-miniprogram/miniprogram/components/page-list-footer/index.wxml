@@ -1,0 +1,22 @@
+<view wx:if="{{visible}}" class="plf">
+  <view wx:if="{{loadingMore}}" class="plf__row">
+    <view class="plf__dots">
+      <view class="plf__dot" />
+      <view class="plf__dot" />
+      <view class="plf__dot" />
+    </view>
+    <text class="plf__text plf__text--muted">加载中</text>
+  </view>
+  <view
+    wx:elif="{{loadError}}"
+    class="plf__row plf__row--action"
+    hover-class="plf__row--hover"
+    hover-stay-time="100"
+    bindtap="onRetry"
+  >
+    <text class="plf__text plf__text--action">加载失败，点此重试</text>
+  </view>
+  <view wx:elif="{{finished}}" class="plf__row">
+    <text class="plf__text plf__text--muted">没有更多了</text>
+  </view>
+</view>

@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "专业详情",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "detail-action-bar": "/components/detail-action-bar/index",
+    "state-block": "/components/state-block/index",
+    "author-row": "/components/author-row/index",
+    "feed-skeleton": "/components/feed-skeleton/index",
+    "auth-intercept-modal": "/components/auth-intercept-modal/index"
+  }
+}

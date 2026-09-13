@@ -1,0 +1,78 @@
+<view class="login-page {{motionReduced ? 'motion-reduced' : ''}}">
+<view class="page-container">
+  <!-- z0–z4 动态背景层 -->
+  <view class="bg-layer" aria-hidden="true">
+    <view class="bg-base-gradient"></view>
+    <view class="bg-bottom-glow"></view>
+    <view class="bg-blob bg-blob-1"></view>
+    <view class="bg-blob bg-blob-2"></view>
+    <view class="bg-blob bg-blob-3"></view>
+    <view class="deco-layer">
+      <view class="deco-star deco-star-1"></view>
+      <view class="deco-star deco-star-2"></view>
+      <view class="deco-star deco-star-3"></view>
+      <view class="deco-hex deco-hex-1"></view>
+      <view class="deco-hex deco-hex-2"></view>
+      <view class="deco-paw deco-paw-1">
+        <view class="deco-paw__toe"></view>
+        <view class="deco-paw__toe"></view>
+        <view class="deco-paw__toe"></view>
+        <view class="deco-paw__pad"></view>
+      </view>
+      <view class="deco-paw deco-paw-2">
+        <view class="deco-paw__toe"></view>
+        <view class="deco-paw__toe"></view>
+        <view class="deco-paw__toe"></view>
+        <view class="deco-paw__pad"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- z5 顶部导航 -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px; height: {{navBarHeight}}px;">
+    <view class="nav-back" bindtap="onBack" wx:if="{{canBack}}">
+      <view class="back-icon"></view>
+    </view>
+  </view>
+
+  <!-- z5 主体内容 -->
+  <view class="content-wrapper">
+    <view class="logo-section {{animateIn ? 'animate-in-1' : ''}}">
+      <quanta-mark />
+      <view class="brand-title">Quanta</view>
+      <view class="brand-subtitle">连接你我 · 探索无限</view>
+    </view>
+
+    <view class="action-section {{animateIn ? 'animate-in-2' : ''}}">
+      <view class="welcome-text">欢迎回到 Quanta 社区</view>
+
+      <view class="login-cta">
+        <button class="btn-primary" hover-class="btn-primary-hover" bindtap="onLoginTap">
+          <view class="btn-content">
+            <view class="wx-icon-wrap" aria-hidden="true">
+              <view class="wx-bubble wx-bubble-lg"></view>
+              <view class="wx-bubble wx-bubble-sm"></view>
+            </view>
+            <text class="btn-primary__label">微信登录</text>
+          </view>
+        </button>
+      </view>
+
+      <view class="skip-link" hover-class="skip-link--hover" bindtap="onSkipTap">
+        暂不登录，先逛逛
+      </view>
+    </view>
+
+    <view class="footer-section {{animateIn ? 'animate-in-3' : ''}}">
+      <view class="legal-text">
+        登录即代表同意
+        <text class="legal-link" bindtap="onAgreement">《用户协议》</text>
+        和
+        <text class="legal-link" bindtap="onPrivacy">《隐私政策》</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<login-sheet id="loginSheet" autoShow="{{false}}" bind:success="onLoginSuccess" />
+</view>

@@ -1,0 +1,236 @@
+# Phase 2：造数 — 上传、发布、边界校验
+#
+# 前置：先执行 01-auth-user.http（P0-02 写入 userToken）
+# 变量传递：响应脚本 → client.global + 与 env.example.sh 同名（便于抄入 env.sh）
+# OSS：/common/upload 依赖阿里云；失败记 RESULTS 为 BLOCKED，可跳过 P2-01/02 用 images:[]
+#
+# contentType：1=生活求助，2=专业问答
+
+@baseUrl = {{baseUrl}}
+@userToken = {{userToken}}
+@imageUrl = {{imageUrl}}
+
+###############################################################################
+# Phase 2 — 上传
+###############################################################################
+
+### P2-01 上传图片（multipart）→ IMAGE_URL
+# @name uploadImage
+POST {{baseUrl}}/common/upload
+authorization: {{userToken}}
+Content-Type: multipart/form-data; boundary=----ApiTestBoundary
+
+------ApiTestBoundary
+Content-Disposition: form-data; name="file"; filename="pixel.png"
+Content-Type: image/png
+
+< ./fixtures/pixel.png
+------ApiTestBoundary--
+
+> {%
+  client.test("P2-01 upload image", function () {
+    if (response.status !== 200) {
+      client.log("OSS 未配置或上传失败时可标 BLOCKED，继续用 images:[] 发布");
+      return;
+    }
+    if (response.body.code === 200 && response.body.data) {
+      client.global.set("imageUrl", response.body.data);
+      client.global.set("IMAGE_URL", response.body.data);
+    }
+  });
+%}
+
+### P2-02 空文件上传 → body.code=400
+POST {{baseUrl}}/common/upload
+authorization: {{userToken}}
+Content-Type: multipart/form-data; boundary=----ApiTestBoundary
+
+------ApiTestBoundary
+Content-Disposition: form-data; name="file"; filename="empty.png"
+Content-Type: image/png
+
+
+------ApiTestBoundary--
+
+> {%
+  client.test("P2-02 empty file", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("空") >= 0);
+  });
+%}
+
+### P2-03 无 Token 上传 → HTTP 401
+POST {{baseUrl}}/common/upload
+Content-Type: multipart/form-data; boundary=----ApiTestBoundary
+
+------ApiTestBoundary
+Content-Disposition: form-data; name="file"; filename="pixel.png"
+Content-Type: image/png
+
+< ./fixtures/pixel.png
+------ApiTestBoundary--
+
+> {%
+  client.test("P2-03 upload without token", function () {
+    client.assert(response.status === 401);
+  });
+%}
+
+###############################################################################
+# Phase 2 — 发布（产出 CONTENT_ID_PROF / CONTENT_ID_LIFE / QUESTION_ID）
+###############################################################################
+
+### P2-04 发布专业帖 contentType=2 → CONTENT_ID_PROF, QUESTION_ID
+# @name publishProf
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentType": 2,
+  "title": "API测试-专业问答",
+  "content": "专业区描述，用于审核通过与回答用例",
+  "images": []
+}
+
+> {%
+  client.test("P2-04 publish professional", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data && response.body.data.contentId);
+  });
+  if (response.body.code === 200 && response.body.data) {
+    var id = String(response.body.data.contentId);
+    client.global.set("contentIdProf", id);
+    client.global.set("CONTENT_ID_PROF", id);
+    client.global.set("questionId", id);
+    client.global.set("QUESTION_ID", id);
+  }
+%}
+
+### P2-05 发布生活帖 contentType=1 → CONTENT_ID_LIFE
+# @name publishLife
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentType": 1,
+  "title": "API测试-生活求助",
+  "content": "生活区描述，用于管理端驳回用例",
+  "images": []
+}
+
+> {%
+  client.test("P2-05 publish life", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data && response.body.data.contentId);
+  });
+  if (response.body.code === 200 && response.body.data) {
+    var id = String(response.body.data.contentId);
+    client.global.set("contentIdLife", id);
+    client.global.set("CONTENT_ID_LIFE", id);
+  }
+%}
+
+### P2-06 缺 title → body.code=400
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentType": 2,
+  "title": "",
+  "content": "描述合法",
+  "images": []
+}
+
+> {%
+  client.test("P2-06 missing title", function () {
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("标题") >= 0);
+  });
+%}
+
+### P2-07 标题 51 字 → body.code=400
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentType": 2,
+  "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "content": "描述合法",
+  "images": []
+}
+
+> {%
+  client.test("P2-07 title too long", function () {
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("50") >= 0);
+  });
+%}
+
+### P2-08 图片 6 张 → body.code=400
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentType": 2,
+  "title": "图片数量边界",
+  "content": "描述合法",
+  "images": [
+    "https://example.com/1.png",
+    "https://example.com/2.png",
+    "https://example.com/3.png",
+    "https://example.com/4.png",
+    "https://example.com/5.png",
+    "https://example.com/6.png"
+  ]
+}
+
+> {%
+  client.test("P2-08 too many images", function () {
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("5") >= 0);
+  });
+%}
+
+### P2-09 contentType=99 → body.code=400
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{
+  "contentType": 99,
+  "title": "非法类型",
+  "content": "描述合法",
+  "images": []
+}
+
+> {%
+  client.test("P2-09 invalid contentType", function () {
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg && response.body.msg.indexOf("内容类型") >= 0);
+  });
+%}
+
+### P2-10 无 Token 发布 → HTTP 401
+POST {{baseUrl}}/content/publish
+Content-Type: application/json
+
+{
+  "contentType": 2,
+  "title": "未登录",
+  "content": "应被拦截",
+  "images": []
+}
+
+> {%
+  client.test("P2-10 publish without token", function () {
+    client.assert(response.status === 401);
+  });
+%}

@@ -1,0 +1,121 @@
+.author {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.author--clickable:active {
+  opacity: 0.75;
+  transform: scale(0.98);
+  transition: all var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.author__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.author__avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background-color: #f0ede7;
+  display: block;
+}
+
+.author__avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #dde1e6;
+}
+
+.author__avatar-letter {
+  font-size: 28rpx;
+  color: var(--color-text-secondary, #646a73);
+  font-weight: 500;
+}
+
+.author__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  padding-top: 2rpx;
+}
+
+.author__top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.author__name {
+  font-size: 28rpx;
+  color: var(--color-text-primary, #1f2329);
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.author__subtitle {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary, #8f959e);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.author__relation {
+  font-size: 22rpx;
+  line-height: 1.3;
+  padding: 2rpx 12rpx;
+  border-radius: var(--radius-chip, 999rpx);
+  color: var(--color-chip-neutral-text, #5c6370);
+  background-color: var(--color-chip-neutral-bg, #f0ede7);
+  align-self: flex-start;
+}
+
+.author__time {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary, #8f959e);
+  flex-shrink: 0;
+}
+
+.author--compact {
+  gap: 12rpx;
+}
+
+.author--compact .author__avatar {
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.author--compact .author__avatar-letter {
+  font-size: 24rpx;
+}
+
+.author--compact .author__main {
+  gap: 4rpx;
+  padding-top: 0;
+}
+
+.author--compact .author__name {
+  font-size: 26rpx;
+}
+
+.author--compact .author__subtitle {
+  font-size: 22rpx;
+}
+
+.author--compact .author__time {
+  font-size: 22rpx;
+}

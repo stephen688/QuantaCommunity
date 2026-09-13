@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "quanta-mark": "/components/quanta-mark/index"
+  }
+}

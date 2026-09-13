@@ -1,0 +1,38 @@
+.follow {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.follow__switch-slot {
+  height: 4rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.follow__head {
+  padding: 28rpx 24rpx 14rpx;
+  font-size: 40rpx;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: var(--color-text-primary, #1a1d21);
+}
+
+.follow__state {
+  padding: 48rpx 24rpx 120rpx;
+}
+
+.follow__feed {
+  padding: 0 24rpx 24rpx;
+}
+
+.follow__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md, 24rpx);
+}
+
+.follow__safe-bottom {
+  height: calc(120rpx + env(safe-area-inset-bottom));
+}

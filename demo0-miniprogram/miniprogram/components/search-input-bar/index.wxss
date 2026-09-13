@@ -1,0 +1,104 @@
+.sib {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  padding: 12rpx 24rpx 10rpx;
+  box-sizing: border-box;
+}
+
+.sib__search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14rpx;
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid transparent;
+  box-shadow: 0 2rpx 12rpx rgba(31, 35, 41, 0.06);
+  transition: border-color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    box-shadow var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.sib__search--focus {
+  border-color: rgba(30, 90, 76, 0.45);
+  box-shadow: 0 4rpx 20rpx rgba(30, 90, 76, 0.12);
+}
+
+.sib__icon {
+  width: 30rpx;
+  height: 30rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 3rpx solid var(--color-text-tertiary, #8f959e);
+  box-sizing: border-box;
+  position: relative;
+  opacity: 0.75;
+}
+
+.sib__icon::after {
+  content: '';
+  position: absolute;
+  right: -8rpx;
+  bottom: -8rpx;
+  width: 12rpx;
+  height: 3rpx;
+  background-color: var(--color-text-tertiary, #8f959e);
+  border-radius: 2rpx;
+  transform: rotate(45deg);
+  transform-origin: right bottom;
+}
+
+.sib__input {
+  flex: 1;
+  min-width: 0;
+  height: 48rpx;
+  line-height: 48rpx;
+  font-size: 28rpx;
+  color: var(--color-text-primary, #1f2329);
+}
+
+.sib__ph {
+  color: var(--color-text-tertiary, #8f959e);
+  font-size: 26rpx;
+}
+
+.sib__clear {
+  flex-shrink: 0;
+  width: 44rpx;
+  height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(31, 35, 41, 0.06);
+}
+
+.sib__clear--hover {
+  opacity: 0.88;
+}
+
+.sib__clear-x {
+  font-size: 34rpx;
+  line-height: 1;
+  color: var(--color-text-secondary, #646a73);
+  font-weight: 500;
+  margin-top: -4rpx;
+}
+
+.sib__cancel {
+  flex-shrink: 0;
+  padding: 12rpx 4rpx 12rpx 10rpx;
+}
+
+.sib__cancel--hover {
+  opacity: 0.88;
+}
+
+.sib__cancel-text {
+  font-size: 28rpx;
+  color: var(--color-link, #5c6b62);
+  font-weight: 500;
+}

@@ -1,0 +1,39 @@
+.tabs {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 32rpx;
+  padding: 0 8rpx 16rpx;
+  border-bottom: 1rpx solid var(--color-divider, rgba(26, 29, 33, 0.06));
+}
+
+.tab {
+  position: relative;
+  padding: 12rpx 0 20rpx;
+}
+
+.tab--hover {
+  opacity: 0.85;
+}
+
+.tab__text {
+  font-size: 30rpx;
+  color: var(--color-text-secondary, #5c6370);
+  font-weight: 400;
+}
+
+.tab--active .tab__text {
+  color: var(--color-brand, #1e5a4c);
+  font-weight: 600;
+}
+
+.tab__underline {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 48rpx;
+  height: 6rpx;
+  margin-left: -24rpx;
+  border-radius: 3rpx;
+  background-color: var(--color-brand, #1e5a4c);
+}

@@ -1,0 +1,207 @@
+.publish-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background-color: var(--color-bg, #f7f5f0);
+}
+
+.publish-body {
+  padding: 24rpx 24rpx calc(156rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  transition: padding-bottom var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.publish-card {
+  background-color: var(--color-card-bg, #ffffff);
+  border-radius: var(--radius-card, 16rpx);
+  border: 1rpx solid var(--color-border, rgba(26, 29, 33, 0.08));
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-sizing: border-box;
+}
+
+.section-title {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1d21);
+  margin-bottom: 16rpx;
+}
+
+.section-title::before {
+  content: '';
+  width: 24rpx;
+  height: 24rpx;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  color: var(--color-text-secondary, #5c6370);
+}
+
+.section-title--type::before {
+  border: 3rpx solid currentColor;
+  border-radius: 6rpx;
+  opacity: 0.75;
+}
+
+.section-title--title::before {
+  width: 20rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: currentColor;
+  box-shadow: 0 8rpx 0 currentColor, 0 16rpx 0 currentColor;
+  opacity: 0.75;
+}
+
+.section-title--body::before {
+  border: 3rpx solid currentColor;
+  border-radius: 4rpx;
+  opacity: 0.75;
+}
+
+.section-title--image::before {
+  border: 3rpx solid currentColor;
+  border-radius: 4rpx;
+  opacity: 0.75;
+}
+
+.type-switch {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+}
+
+.type-chip {
+  min-width: 128rpx;
+  text-align: center;
+  padding: 14rpx 20rpx;
+  border-radius: 999rpx;
+  box-sizing: border-box;
+  border: 1rpx solid transparent;
+  background-color: var(--color-chip-neutral-bg, #f0ede7);
+  color: var(--color-chip-neutral-text, #5c6370);
+  font-size: 26rpx;
+}
+
+.type-chip--life-active {
+  background-color: #f0ebe3;
+  color: #6b5b4f;
+  border-color: rgba(107, 91, 79, 0.14);
+}
+
+.type-chip--pro-active {
+  background-color: var(--color-content-pro-bg, #edeae4);
+  color: var(--color-content-pro-text, #1e5a4c);
+  border-color: rgba(30, 90, 76, 0.14);
+}
+
+.type-chip--frozen {
+  opacity: 0.55;
+}
+
+.input-title {
+  width: 100%;
+  min-height: 72rpx;
+  line-height: 72rpx;
+  font-size: 30rpx;
+  font-weight: 400;
+  color: var(--color-text-primary, #1a1d21);
+}
+
+.input-content {
+  width: 100%;
+  min-height: 260rpx;
+  line-height: 1.6;
+  font-size: 28rpx;
+  font-weight: 400;
+  color: var(--color-text-primary, #1a1d21);
+}
+
+.input-placeholder {
+  color: var(--color-text-tertiary, #8c939e);
+}
+
+.count-text {
+  margin-top: 12rpx;
+  text-align: right;
+  font-size: 22rpx;
+  color: var(--color-text-tertiary, #8c939e);
+}
+
+.count-text--warning {
+  color: var(--color-warning, #b45309);
+}
+
+.tips-text {
+  margin: 4rpx 4rpx 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary, #5c6370);
+}
+
+.publish-submit-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background-color: rgba(247, 245, 240, 0.96);
+  border-top: 1rpx solid var(--color-border, rgba(26, 29, 33, 0.08));
+  transition: bottom var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.publish-bar-hint {
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: var(--color-text-secondary, #5c6370);
+  text-align: center;
+}
+
+.error-text {
+  margin: 0 0 12rpx;
+  font-size: 24rpx;
+  line-height: 1.45;
+  color: var(--color-danger, #c43d3d);
+}
+
+.submit-btn {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border-radius: 999rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: var(--color-cta, #1e5a4c);
+  border: none;
+  transition: transform var(--duration-fast, 150ms) var(--ease-standard, ease),
+    opacity var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.submit-btn::after {
+  border: none;
+}
+
+.submit-btn--hover {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+/* 仅在上传中禁用：弱化样式；发布中仍保持主色 + loading */
+.submit-btn[disabled].submit-btn--upload-blocked {
+  color: var(--color-text-disabled, #b8bfc8) !important;
+  background-color: #e8ebef !important;
+  opacity: 1;
+}
+
+.submit-btn[disabled].submit-btn--busy {
+  color: #ffffff !important;
+  background-color: var(--color-cta, #1e5a4c) !important;
+  opacity: 0.92;
+}

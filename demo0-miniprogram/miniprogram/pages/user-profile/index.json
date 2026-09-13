@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "用户主页",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "feed-skeleton": "/components/feed-skeleton/index",
+    "state-block": "/components/state-block/index",
+    "content-card": "/components/content-card/index",
+    "page-list-footer": "/components/page-list-footer/index"
+  }
+}

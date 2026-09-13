@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "AI 总结",
+  "usingComponents": {
+    "feed-skeleton": "/components/feed-skeleton/index",
+    "state-block": "/components/state-block/index",
+    "content-card": "/components/content-card/index"
+  }
+}

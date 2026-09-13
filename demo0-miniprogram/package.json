@@ -1,0 +1,17 @@
+{
+  "name": "demo0-miniprogram",
+  "version": "1.0.0",
+  "description": "WeChat native miniprogram for demo0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "prepare": "echo \"Use WeChat DevTools to build npm packages into miniprogram_npm\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "miniprogram-api-typings": "^5.2.0",
+    "typescript": "^6.0.3"
+  }
+}

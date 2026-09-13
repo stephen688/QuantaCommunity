@@ -1,0 +1,52 @@
+HELP.md
+**/target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### 其他 ###
+*.class
+*Test.java
+**/test/
+!src/test/
+!src/test/**
+
+### API test local env ###
+docs/api-test/env.sh
+
+### Local secrets (do not commit) ###
+src/main/resources/application-*-secret.yml
+src/main/resources/application-secret.yml
+.env
+.env.*
+!.env.example
+!**/*.example
+application.yml.local-backup

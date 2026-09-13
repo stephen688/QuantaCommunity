@@ -1,0 +1,59 @@
+<view class="follow">
+  <view class="follow__head">关注动态</view>
+  <content-type-tabs value="{{filter}}" bindchange="onFilterChange" />
+  <view class="follow__switch-slot">
+    <feed-switch-bar wx:if="{{switching}}" />
+  </view>
+
+  <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0 && !switching}}" variant="follow" />
+
+  <view wx:elif="{{errorType && list.length === 0 && !switching}}" class="follow__state">
+    <state-block
+      type="{{errorType}}"
+      variant="network"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <view
+    wx:elif="{{!loading && !errorType && list.length === 0}}"
+    class="follow__state feed-panel {{switching ? 'feed-panel--switching' : ''}}"
+  >
+    <state-block
+      type="empty"
+      variant="follow"
+      title="{{emptyTitle}}"
+      description="{{emptyDesc}}"
+      actionText="{{emptyActionText}}"
+      bind:action="onEmptyAction"
+    />
+  </view>
+
+  <view wx:else class="follow__feed feed-panel content-reveal {{switching ? 'feed-panel--switching' : ''}}">
+    <view class="follow__cards feed-panel__body">
+      <content-card
+        wx:for="{{list}}"
+        wx:key="contentId"
+        item="{{item}}"
+        showAuthor="{{true}}"
+        data-content-id="{{item.contentId}}"
+        data-content-type="{{item.contentType}}"
+        bind:cardtap="onCardTap"
+        bind:tapauthor="onCardAuthorTap"
+        bind:interactionchange="onCardInteractionChange"
+      />
+    </view>
+    <page-list-footer
+      visible="{{list.length > 0 && !switching}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onRetryLoadMore"
+    />
+    <view class="follow__safe-bottom" />
+  </view>
+  <auth-intercept-modal />
+</view>

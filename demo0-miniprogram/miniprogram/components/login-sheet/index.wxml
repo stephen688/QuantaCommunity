@@ -1,0 +1,74 @@
+<view
+  wx:if="{{show}}"
+  class="login-sheet {{panelIn ? 'login-sheet--in' : ''}} {{motionReduced ? 'motion-reduced' : ''}}"
+  catchtouchmove="noop"
+  aria-modal="true"
+  role="dialog"
+  aria-label="微信授权"
+>
+  <view class="login-sheet__mask" aria-hidden="true" />
+  <view class="login-sheet__dialog">
+    <view class="login-sheet__body">
+      <view class="login-sheet__header">
+        <quanta-mark size="xs" />
+        <text class="login-sheet__app-name">Quanta 申请</text>
+      </view>
+
+      <text class="login-sheet__heading">获取你的昵称、头像</text>
+      <text class="login-sheet__hint">点头像选照片、点昵称填写，再点「允许」</text>
+
+      <view class="login-sheet__profile {{nickNameError ? 'login-sheet__profile--error' : ''}} {{profileReady ? 'login-sheet__profile--ready' : ''}}">
+        <button
+          class="login-sheet__avatar-btn"
+          open-type="chooseAvatar"
+          hover-class="login-sheet__avatar-btn--hover"
+          bind:chooseavatar="onChooseAvatar"
+        >
+          <image
+            wx:if="{{avatarTempPath}}"
+            class="login-sheet__profile-avatar"
+            src="{{avatarTempPath}}"
+            mode="aspectFill"
+          />
+          <view wx:else class="login-sheet__profile-avatar login-sheet__profile-avatar--placeholder">
+            <view class="login-sheet__avatar-icon" />
+          </view>
+        </button>
+        <view class="login-sheet__profile-meta">
+          <input
+            class="login-sheet__profile-name {{nickNameError ? 'login-sheet__profile-name--error' : ''}}"
+            type="nickname"
+            placeholder="点此填写昵称"
+            value="{{nickName}}"
+            bindinput="onNicknameInput"
+            bindnicknamereview="onNicknameReview"
+          />
+          <text class="login-sheet__profile-desc">微信个人信息</text>
+        </view>
+        <view wx:if="{{profileReady}}" class="login-sheet__profile-check" aria-hidden="true">
+          <view class="login-sheet__check-icon" />
+        </view>
+      </view>
+    </view>
+
+    <view class="login-sheet__actions">
+      <button
+        class="login-sheet__btn login-sheet__btn--refuse"
+        hover-class="login-sheet__btn--refuse-hover"
+        disabled="{{loading}}"
+        bindtap="onRefuse"
+      >
+        拒绝
+      </button>
+      <button
+        class="login-sheet__btn login-sheet__btn--allow"
+        hover-class="login-sheet__btn--allow-hover"
+        loading="{{loading}}"
+        disabled="{{loading}}"
+        bindtap="onAllow"
+      >
+        允许
+      </button>
+    </view>
+  </view>
+</view>

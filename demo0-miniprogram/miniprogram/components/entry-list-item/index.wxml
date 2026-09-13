@@ -1,0 +1,28 @@
+<view class="row card" hover-class="hover-scale" bindtap="onTap">
+
+  <view class="row__icon-wrap">
+
+    <image wx:if="{{entry.icon}}" class="row__icon" src="{{entry.icon}}" mode="aspectFit" />
+
+    <view wx:else class="row__icon row__icon--css row__icon--{{entry.key}}" aria-hidden="true" />
+
+  </view>
+
+  <view class="row__text">
+
+    <view class="row__title-line">
+
+      <text class="row__title">{{entry.title}}</text>
+
+      <unread-badge wx:if="{{entry.badge}}" count="{{entry.badge}}" />
+
+    </view>
+
+    <text wx:if="{{entry.subtitle}}" class="row__sub">{{entry.subtitle}}</text>
+
+  </view>
+
+  <view class="row__chev" aria-hidden="true" />
+
+</view>
+

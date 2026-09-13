@@ -1,0 +1,113 @@
+.sad {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background-color: var(--color-bg, #f7f5f0);
+}
+
+.sad__scroll {
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.sad__state {
+  padding: 40rpx 24rpx;
+  box-sizing: border-box;
+}
+
+.sad__head {
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 24rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  background-color: var(--color-card-bg, #ffffff);
+  border: 1rpx solid var(--color-border, rgba(26, 29, 33, 0.08));
+  border-top: 4rpx solid var(--color-accent-warm, #b45309);
+  box-shadow: none;
+}
+
+.sad__kw {
+  flex: 1;
+  min-width: 0;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1d21);
+  word-break: break-all;
+}
+
+.sad__tag {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: var(--color-chip-neutral-text, #5c6370);
+  padding: 4rpx 14rpx;
+  border-radius: var(--radius-chip, 999rpx);
+  background: var(--color-chip-neutral-bg, #f0ede7);
+}
+
+.sad__body {
+  margin: 16rpx 24rpx 0;
+  padding: 24rpx;
+  box-sizing: border-box;
+  box-shadow: none;
+}
+
+.sad__title {
+  display: block;
+  font-size: var(--font-title, 34rpx);
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1d21);
+  margin-bottom: 16rpx;
+}
+
+.sad__content {
+  display: block;
+  font-size: var(--font-body, 28rpx);
+  line-height: 1.55;
+  color: var(--color-text-primary, #1a1d21);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sad__empty {
+  padding: 8rpx 0;
+}
+
+.sad__empty-text {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-text-tertiary, #8c939e);
+}
+
+.sad__empty-sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: var(--color-text-tertiary, #8c939e);
+}
+
+.sad__sources {
+  padding: 20rpx 24rpx 0;
+  box-sizing: border-box;
+}
+
+.sad__sources-title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-text-primary, #1a1d21);
+  margin-bottom: 16rpx;
+}
+
+.sad__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.sad__safe-bottom {
+  height: calc(32rpx + env(safe-area-inset-bottom));
+}

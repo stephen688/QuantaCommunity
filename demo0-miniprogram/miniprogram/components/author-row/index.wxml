@@ -1,0 +1,36 @@
+<block wx:if="{{clickable}}">
+  <view class="author author--clickable {{compact ? 'author--compact' : ''}}" catchtap="onAuthorTap">
+    <view class="author__avatar-wrap">
+      <image wx:if="{{showAvatar}}" class="author__avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="author__avatar author__avatar--placeholder">
+        <text class="author__avatar-letter">{{avatarLetter}}</text>
+      </view>
+    </view>
+    <view class="author__main">
+      <view class="author__top">
+        <text class="author__name">{{displayName}}</text>
+        <text wx:if="{{timeText}}" class="author__time">{{timeText}}</text>
+      </view>
+      <text wx:if="{{subtitleText}}" class="author__subtitle">{{subtitleText}}</text>
+      <text wx:if="{{showRelation}}" class="author__relation">{{relationText}}</text>
+    </view>
+  </view>
+</block>
+<block wx:else>
+  <view class="author {{compact ? 'author--compact' : ''}}">
+    <view class="author__avatar-wrap">
+      <image wx:if="{{showAvatar}}" class="author__avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="author__avatar author__avatar--placeholder">
+        <text class="author__avatar-letter">{{avatarLetter}}</text>
+      </view>
+    </view>
+    <view class="author__main">
+      <view class="author__top">
+        <text class="author__name">{{displayName}}</text>
+        <text wx:if="{{timeText}}" class="author__time">{{timeText}}</text>
+      </view>
+      <text wx:if="{{subtitleText}}" class="author__subtitle">{{subtitleText}}</text>
+      <text wx:if="{{showRelation}}" class="author__relation">{{relationText}}</text>
+    </view>
+  </view>
+</block>

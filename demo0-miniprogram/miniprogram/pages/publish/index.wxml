@@ -1,0 +1,83 @@
+<view class="publish-page">
+  <view class="publish-body" style="padding-bottom: calc(156rpx + env(safe-area-inset-bottom) + {{keyboardInset}}px);">
+    <view class="publish-card">
+      <view class="section-title section-title--type"><text>内容类型</text></view>
+      <view class="type-switch">
+        <view
+          class="type-chip {{contentType===1 ? 'type-chip--life-active' : ''}} {{submitting || uploading ? 'type-chip--frozen' : ''}}"
+          data-type="1"
+          bindtap="onTypeTap"
+        >
+          生活
+        </view>
+        <view
+          class="type-chip {{contentType===2 ? 'type-chip--pro-active' : ''}} {{submitting || uploading ? 'type-chip--frozen' : ''}}"
+          data-type="2"
+          bindtap="onTypeTap"
+        >
+          专业
+        </view>
+      </view>
+    </view>
+
+    <view class="publish-card">
+      <view class="section-title section-title--title"><text>标题</text></view>
+      <input
+        class="input-title"
+        maxlength="{{50}}"
+        placeholder="{{titlePlaceholder}}"
+        value="{{title}}"
+        placeholder-class="input-placeholder"
+        adjust-position="{{true}}"
+        cursor-spacing="{{80}}"
+        bindinput="onTitleInput"
+      />
+      <view class="count-text {{titleCount >= 45 ? 'count-text--warning' : ''}}">{{titleCount}} / 50</view>
+    </view>
+
+    <view class="publish-card">
+      <view class="section-title section-title--body"><text>正文</text></view>
+      <textarea
+        class="input-content"
+        maxlength="{{500}}"
+        placeholder="补充更多细节，描述越清楚越容易得到回应"
+        placeholder-class="input-placeholder"
+        value="{{content}}"
+        adjust-position="{{true}}"
+        cursor-spacing="{{160}}"
+        show-confirm-bar="{{false}}"
+        bindinput="onContentInput"
+        auto-height="{{true}}"
+      />
+      <view class="count-text {{contentCount >= 460 ? 'count-text--warning' : ''}}">{{contentCount}} / 500</view>
+    </view>
+
+    <view class="publish-card">
+      <view class="section-title section-title--image"><text>图片（最多 5 张）</text></view>
+      <media-uploader
+        value="{{images}}"
+        max-count="{{5}}"
+        disabled="{{submitting}}"
+        bind:change="onImagesChange"
+        bind:statechange="onUploadStateChange"
+      />
+    </view>
+
+    <view class="tips-text">提交成功后将进入内容流</view>
+  </view>
+
+  <view class="publish-submit-bar" style="bottom: {{keyboardInset}}px;">
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+    <view wx:elif="{{uploading}}" class="publish-bar-hint">图片上传中，请稍候</view>
+    <button
+      class="submit-btn {{submitting ? 'submit-btn--busy' : ''}} {{uploading && !submitting ? 'submit-btn--upload-blocked' : ''}}"
+      hover-class="submit-btn--hover"
+      loading="{{submitting}}"
+      disabled="{{submitting || uploading}}"
+      bindtap="onSubmit"
+    >
+      {{submitting ? '发布中...' : '发布'}}
+    </button>
+  </view>
+  <auth-intercept-modal />
+</view>

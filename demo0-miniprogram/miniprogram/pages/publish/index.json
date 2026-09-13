@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "发布",
+  "usingComponents": {
+    "media-uploader": "/components/media-uploader/index",
+    "auth-intercept-modal": "/components/auth-intercept-modal/index"
+  }
+}

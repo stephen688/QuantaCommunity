@@ -1,0 +1,27 @@
+<view class="asc card" bindtap="onTapCard">
+  <view class="asc__head">
+    <text class="asc__badge">AI 总结</text>
+    <text wx:if="{{!loading && sourceCount > 0}}" class="asc__meta">参考 {{sourceCount}} 条内容</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="asc__skel">
+    <view class="asc__skel-line asc__skel-line--long" />
+    <view class="asc__skel-line asc__skel-line--mid" />
+    <view class="asc__skel-line asc__skel-line--short" />
+  </view>
+
+  <block wx:elif="{{summary}}">
+    <text class="asc__summary">{{summary}}</text>
+    <view wx:if="{{showFooterHint}}" class="asc__foot">
+      <text class="asc__link">查看完整总结</text>
+    </view>
+  </block>
+
+  <view wx:elif="{{errorMessage}}" class="asc__hint">
+    <text class="asc__hint-text">{{errorMessage}}</text>
+  </view>
+
+  <view wx:elif="{{errorType}}" class="asc__hint">
+    <text class="asc__hint-text">AI 总结暂不可用</text>
+  </view>
+</view>

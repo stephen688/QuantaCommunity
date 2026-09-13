@@ -1,0 +1,54 @@
+<view class="dab {{fixed ? 'dab--fixed' : ''}}">
+  <view class="dab__inner card">
+    <view
+      wx:if="{{showComposerTrigger}}"
+      class="dab__composer-trigger"
+      hover-class="dab__composer-trigger--hover"
+      bindtap="onComposerTriggerTap"
+    >
+      <text class="dab__composer-placeholder">{{composerPlaceholder}}</text>
+    </view>
+    <view class="dab__actions">
+      <view
+        class="dab__action {{liked ? 'dab__action--liked' : ''}}"
+        hover-class="dab__action--hover"
+        bindtap="onLikeTap"
+      >
+        <image
+          class="dab__icon dab__icon-img"
+          src="{{liked ? '/images/detail-action-bar/like-active.svg' : '/images/detail-action-bar/like.svg'}}"
+          mode="aspectFit"
+          aria-hidden="true"
+        />
+        <text class="dab__count">{{likeCountText}}</text>
+      </view>
+      <view
+        wx:if="{{showCollect}}"
+        class="dab__action {{collected ? 'dab__action--collected' : ''}}"
+        hover-class="dab__action--hover"
+        bindtap="onCollectTap"
+      >
+        <image
+          class="dab__icon dab__icon-img"
+          src="{{collected ? '/images/detail-action-bar/collect-active.svg' : '/images/detail-action-bar/collect.svg'}}"
+          mode="aspectFit"
+          aria-hidden="true"
+        />
+        <text class="dab__count">{{collectCountText}}</text>
+      </view>
+      <view
+        class="dab__action"
+        hover-class="dab__action--hover"
+        bindtap="onCommentTap"
+      >
+        <image
+          class="dab__icon dab__icon-img"
+          src="/images/detail-action-bar/comment.svg"
+          mode="aspectFit"
+          aria-hidden="true"
+        />
+        <text class="dab__count dab__count--comment">{{commentCountText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

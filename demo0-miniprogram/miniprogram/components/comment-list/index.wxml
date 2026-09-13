@@ -1,0 +1,183 @@
+<view class="cl">
+  <view wx:if="{{initialLoading}}" class="cl__loading">加载评论中…</view>
+
+  <view wx:elif="{{showEmpty}}" class="cl__state">
+    <state-block
+      type="empty"
+      title="{{emptyTitle}}"
+      description="{{emptyDesc}}"
+      actionText="{{emptyActionText}}"
+      bind:action="onEmptyAction"
+    />
+  </view>
+
+  <block wx:else>
+    <view class="cl__list">
+      <view
+        wx:for="{{rows}}"
+        wx:key="_rowKey"
+        class="cl__item card"
+        bindlongpress="onLongPressMore"
+        data-id="{{item.commentId}}"
+        data-user-id="{{item.userId}}"
+        data-depth="0"
+      >
+        <view
+          class="cl__avatar-btn"
+          hover-class="cl__avatar-btn--hover"
+          catchtap="onAuthorTap"
+          catchlongpress="onStopLongPress"
+          data-user-id="{{item.userId}}"
+        >
+          <image
+            wx:if="{{item.avatarUrl}}"
+            class="cl__avatar"
+            src="{{item.avatarUrl}}"
+            mode="aspectFill"
+          />
+          <view wx:else class="cl__avatar cl__avatar--ph" aria-hidden="true">
+            <text class="cl__avatar-letter">{{item._letter}}</text>
+          </view>
+        </view>
+        <view class="cl__body">
+          <view class="cl__head">
+            <text
+              class="cl__name cl__name--link"
+              hover-class="cl__name--hover"
+              catchtap="onAuthorTap"
+              catchlongpress="onStopLongPress"
+              data-user-id="{{item.userId}}"
+            >{{item._displayName}}</text>
+            <text class="cl__time">{{item._timeText}}</text>
+          </view>
+          <text class="cl__content" user-select>{{item.content}}</text>
+          <view class="cl__foot">
+            <text
+              class="cl__reply"
+              hover-class="cl__reply--hover"
+              catchtap="onReplyTap"
+              catchlongpress="onStopLongPress"
+              data-comment-id="{{item.commentId}}"
+              data-user-id="{{item.userId}}"
+              data-nick-name="{{item._displayName}}"
+            >回复</text>
+            <view
+              class="cl__like {{item.liked ? 'cl__like--on' : ''}}"
+              hover-class="cl__like--hover"
+              catchtap="onLikeTap"
+              catchlongpress="onStopLongPress"
+              data-id="{{item.commentId}}"
+            >
+              <view class="cl__like-icon" aria-hidden="true" />
+              <text class="cl__like-num">{{item._likeText}}</text>
+            </view>
+            <text
+              wx:if="{{showMore}}"
+              class="cl__more"
+              catchtap="onMoreTap"
+              data-id="{{item.commentId}}"
+              data-user-id="{{item.userId}}"
+            >更多</text>
+          </view>
+          <view
+            wx:if="{{item._collapsedReplies && item._collapsedReplies.length}}"
+            class="cl__replies"
+          >
+            <view
+              wx:for="{{item._showExpanded ? item._expandedReplies : item._collapsedReplies}}"
+              wx:key="_rowKey"
+              class="cl__reply-row"
+              bindlongpress="onLongPressMore"
+              data-id="{{item.commentId}}"
+              data-user-id="{{item.userId}}"
+              data-depth="1"
+            >
+              <view
+                class="cl__avatar-btn cl__avatar-btn--reply"
+                hover-class="cl__avatar-btn--hover"
+                catchtap="onAuthorTap"
+                catchlongpress="onStopLongPress"
+                data-user-id="{{item.userId}}"
+              >
+                <image
+                  wx:if="{{item.avatarUrl}}"
+                  class="cl__reply-avatar"
+                  src="{{item.avatarUrl}}"
+                  mode="aspectFill"
+                />
+                <view wx:else class="cl__reply-avatar cl__reply-avatar--ph" aria-hidden="true">
+                  <text class="cl__reply-avatar-letter">{{item._letter}}</text>
+                </view>
+              </view>
+              <view class="cl__reply-main">
+                <view class="cl__reply-meta">
+                  <text
+                    class="cl__reply-author cl__name--link"
+                    hover-class="cl__name--hover"
+                    catchtap="onAuthorTap"
+                    catchlongpress="onStopLongPress"
+                    data-user-id="{{item.userId}}"
+                  >{{item._displayName}}</text>
+                  <block wx:if="{{item.replyNickName}}">
+                    <text class="cl__reply-to"> 回复 </text>
+                    <text class="cl__reply-to-name">{{item.replyNickName}}</text>
+                  </block>
+                  <text class="cl__reply-time">{{item._timeText}}</text>
+                </view>
+                <text class="cl__reply-body" user-select>{{item.content}}</text>
+                <view class="cl__reply-foot">
+                  <text
+                    class="cl__reply-foot-link"
+                    hover-class="cl__reply-foot-link--hover"
+                    catchtap="onReplyTap"
+                    catchlongpress="onStopLongPress"
+                    data-comment-id="{{item.commentId}}"
+                    data-user-id="{{item.userId}}"
+                    data-nick-name="{{item._displayName}}"
+                  >回复</text>
+                  <view
+                    class="cl__like cl__like--sm {{item.liked ? 'cl__like--on' : ''}}"
+                    hover-class="cl__like--hover"
+                    catchtap="onLikeTap"
+                    catchlongpress="onStopLongPress"
+                    data-id="{{item.commentId}}"
+                  >
+                    <view class="cl__like-icon" aria-hidden="true" />
+                    <text class="cl__like-num">{{item._likeText}}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+          <view
+            wx:if="{{item._replyLoadError}}"
+            class="cl__reply-err"
+            hover-class="cl__reply-err--hover"
+            data-comment-id="{{item.commentId}}"
+            catchtap="onRetryReplies"
+          >
+            <text class="cl__reply-err-text">回复加载失败，点此重试</text>
+          </view>
+          <view
+            wx:elif="{{item._hasMoreReplies || item._replyLoading}}"
+            class="cl__toggle {{item._replyLoading ? 'cl__toggle--loading' : ''}}"
+            hover-class="cl__toggle--hover"
+            data-key="{{item._rowKey}}"
+            data-comment-id="{{item.commentId}}"
+            data-expanded="{{item._showExpanded}}"
+            catchtap="onToggleReplies"
+          >
+            <text class="cl__toggle-text">{{item._expandText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <page-list-footer
+      visible="{{showFooter}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onFooterRetry"
+    />
+  </block>
+</view>

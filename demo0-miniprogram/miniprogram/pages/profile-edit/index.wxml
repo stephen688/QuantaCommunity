@@ -1,0 +1,152 @@
+<view class="pe" style="padding-bottom: calc(48rpx + env(safe-area-inset-bottom) + {{keyboardInset}}px);">
+  <view wx:if="{{pageLoading}}" class="pe__sk">
+    <feed-skeleton variant="form" count="{{2}}" />
+  </view>
+
+  <view wx:elif="{{profileErrorType}}" class="pe__state">
+    <state-block
+      type="{{profileErrorType}}"
+      title="{{stateTitle}}"
+      description="{{profileErrorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onProfileRetry"
+    />
+  </view>
+
+  <block wx:elif="{{verifyMode}}">
+    <view class="pe__card card">
+      <view class="pe__status-title">{{authStatusText}}</view>
+      <view wx:if="{{authStatus && authStatus.auditStatus === 2 && authStatus.auditRemark}}" class="pe__reject">
+        驳回原因：{{authStatus.auditRemark}}
+      </view>
+      <view wx:if="{{authStatus && authStatus.auditStatus === 1 && approvedDetail}}" class="pe__readonly">
+        <view class="pe__row"><text class="pe__k">身份</text><text class="pe__v">{{approvedDetail.identityType === 2 ? '历届校友' : '在校成员'}}</text></view>
+        <view class="pe__row"><text class="pe__k">姓名</text><text class="pe__v">{{approvedDetail.realName}}</text></view>
+        <view class="pe__row"><text class="pe__k">学号</text><text class="pe__v">{{approvedDetail.schoolId}}</text></view>
+        <view wx:if="{{approvedDetail.quantaBatch}}" class="pe__row"><text class="pe__k">届</text><text class="pe__v">{{approvedDetail.quantaBatch}}</text></view>
+        <view wx:if="{{approvedDetail.quantaDepartment}}" class="pe__row"><text class="pe__k">部门</text><text class="pe__v">{{approvedDetail.quantaDepartment}}</text></view>
+      </view>
+    </view>
+
+    <view wx:if="{{!authStatus || authStatus.auditStatus === -1 || authStatus.auditStatus === 2}}" class="pe__card card">
+      <view class="section-title">身份类型</view>
+      <view class="pe__id-row">
+        <view
+          class="type-chip {{identityType===1 ? 'type-chip--active' : ''}}"
+          hover-class="type-chip--hover"
+          bindtap="onIdentityCampus"
+        >在校成员</view>
+        <view
+          class="type-chip {{identityType===2 ? 'type-chip--active' : ''}}"
+          hover-class="type-chip--hover"
+          bindtap="onIdentityAlumni"
+        >历届校友</view>
+      </view>
+      <view class="section-title">真实姓名</view>
+      <input
+        class="pe__input {{focusedField === 'realName' ? 'pe__input--focus' : ''}} {{fieldErrors.realName ? 'pe__input--error' : ''}}"
+        placeholder="与证件一致"
+        value="{{realName}}"
+        cursor-spacing="32"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="realName"
+        bindinput="onRealNameInput"
+      />
+      <view wx:if="{{fieldErrors.realName}}" class="pe__field-error">{{fieldErrors.realName}}</view>
+      <view class="section-title">学号 / 校友编号</view>
+      <input
+        class="pe__input {{focusedField === 'schoolId' ? 'pe__input--focus' : ''}} {{fieldErrors.schoolId ? 'pe__input--error' : ''}}"
+        placeholder="必填"
+        value="{{schoolId}}"
+        cursor-spacing="32"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="schoolId"
+        bindinput="onSchoolIdInput"
+      />
+      <view wx:if="{{fieldErrors.schoolId}}" class="pe__field-error">{{fieldErrors.schoolId}}</view>
+      <view class="section-title">Quanta 届</view>
+      <input
+        class="pe__input {{focusedField === 'quantaBatch' ? 'pe__input--focus' : ''}} {{fieldErrors.quantaBatch ? 'pe__input--error' : ''}}"
+        placeholder="必填，例如 2024 届"
+        value="{{quantaBatch}}"
+        cursor-spacing="32"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="quantaBatch"
+        bindinput="onBatchInput"
+      />
+      <view wx:if="{{fieldErrors.quantaBatch}}" class="pe__field-error">{{fieldErrors.quantaBatch}}</view>
+      <view class="section-title">所属部门</view>
+      <picker
+        class="pe__picker"
+        mode="selector"
+        range="{{departmentPickerRange}}"
+        value="{{departmentPickerIndex}}"
+        bindchange="onDepartmentPickerChange"
+      >
+        <view class="pe__picker-row">
+          <text class="pe__picker-text">{{departmentPickerLabel}}</text>
+          <text class="pe__picker-arrow">›</text>
+        </view>
+      </picker>
+      <view wx:if="{{fieldErrors.department}}" class="pe__field-error">{{fieldErrors.department}}</view>
+      <view wx:if="{{departmentLegacyRaw}}" class="pe__legacy-hint">
+        当前登记部门为「{{departmentLegacyRaw}}」，请从上方选择固定部门后再提交。
+      </view>
+      <button
+        class="pe__btn"
+        hover-class="pe__btn--hover"
+        loading="{{authSubmitting}}"
+        disabled="{{authSubmitting}}"
+        bindtap="onSubmitAuth"
+      >
+        {{authSubmitting ? '提交中…' : '提交认证'}}
+      </button>
+    </view>
+
+    <view wx:if="{{authStatus && authStatus.auditStatus === 0}}" class="pe__card card pe__hint-only">
+      <text class="pe__hint">资料已提交，工作人员审核中。审核完成后会通过通知告知结果。</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="pe__card card">
+      <view class="section-title">头像</view>
+      <media-uploader
+        variant="avatar"
+        value="{{images}}"
+        max-count="{{1}}"
+        disabled="{{submitting}}"
+        bind:change="onImagesChange"
+        bind:statechange="onUploadStateChange"
+      />
+      <view class="section-title">昵称</view>
+      <input
+        class="pe__input {{focusedField === 'nickName' ? 'pe__input--focus' : ''}} {{fieldErrors.nickName ? 'pe__input--error' : ''}}"
+        maxlength="{{20}}"
+        placeholder="1–20 个字"
+        value="{{nickName}}"
+        cursor-spacing="32"
+        bindfocus="onFieldFocus"
+        bindblur="onFieldBlur"
+        data-field="nickName"
+        bindinput="onNickInput"
+      />
+      <view wx:if="{{fieldErrors.nickName}}" class="pe__field-error">{{fieldErrors.nickName}}</view>
+      <view class="count-text {{nickName.length >= 16 ? 'count-text--warning' : ''}}">{{nickName.length}} / 20</view>
+      <button
+        class="pe__btn"
+        hover-class="pe__btn--hover"
+        loading="{{submitting}}"
+        disabled="{{submitting || uploading}}"
+        bindtap="onSubmitProfile"
+      >
+        {{submitting ? '保存中…' : '保存'}}
+      </button>
+    </view>
+  </block>
+
+  <view class="pe__safe-bottom" />
+</view>

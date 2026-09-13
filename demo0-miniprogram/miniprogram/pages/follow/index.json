@@ -1,0 +1,14 @@
+{
+  "navigationBarTitleText": "关注",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "content-type-tabs": "/components/content-type-tabs/index",
+    "feed-skeleton": "/components/feed-skeleton/index",
+    "feed-switch-bar": "/components/feed-switch-bar/index",
+    "content-card": "/components/content-card/index",
+    "state-block": "/components/state-block/index",
+    "page-list-footer": "/components/page-list-footer/index",
+    "auth-intercept-modal": "/components/auth-intercept-modal/index"
+  }
+}

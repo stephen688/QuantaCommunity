@@ -1,0 +1,30 @@
+<view class="sib">
+  <view class="sib__search card {{focused ? 'sib__search--focus' : ''}}">
+    <view class="sib__icon" aria-hidden="true" />
+    <input
+      class="sib__input"
+      type="text"
+      value="{{innerValue}}"
+      placeholder="{{placeholder}}"
+      placeholder-class="sib__ph"
+      confirm-type="search"
+      focus="{{focus}}"
+      disabled="{{disabled}}"
+      bindinput="onInput"
+      bindconfirm="onConfirm"
+      bindfocus="onFocus"
+      bindblur="onBlur"
+    />
+    <view wx:if="{{innerValue}}" class="sib__clear" hover-class="sib__clear--hover" bindtap="onClear">
+      <text class="sib__clear-x">×</text>
+    </view>
+  </view>
+  <view
+    wx:if="{{showCancel}}"
+    class="sib__cancel"
+    hover-class="sib__cancel--hover"
+    bindtap="onCancel"
+  >
+    <text class="sib__cancel-text">取消</text>
+  </view>
+</view>

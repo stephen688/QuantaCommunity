@@ -1,0 +1,65 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/follow/index",
+    "pages/notification/index",
+    "pages/mine/index",
+    "pages/search/index",
+    "pages/search-result/index",
+    "pages/search-ai-detail/index",
+    "pages/publish/index",
+    "pages/detail-life/index",
+    "pages/detail-pro/index",
+    "pages/publish-answer/index",
+    "pages/answer-detail/index",
+    "pages/profile-edit/index",
+    "pages/my-content/index",
+    "pages/my-liked/index",
+    "pages/my-collect/index",
+    "pages/browse-history/index",
+    "pages/user-profile/index",
+    "pages/login/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTitleText": "demo0",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F7F5F0",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#8A8A8A",
+    "selectedColor": "#1E5A4C",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "assets/tabbar/home.png",
+        "selectedIconPath": "assets/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/follow/index",
+        "text": "关注",
+        "iconPath": "assets/tabbar/follow.png",
+        "selectedIconPath": "assets/tabbar/follow-active.png"
+      },
+      {
+        "pagePath": "pages/notification/index",
+        "text": "消息",
+        "iconPath": "assets/tabbar/message.png",
+        "selectedIconPath": "assets/tabbar/message-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "assets/tabbar/mine.png",
+        "selectedIconPath": "assets/tabbar/mine-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,41 @@
+{
+  "description": "Project configuration for demo0 miniprogram",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "preloadBackgroundData": false,
+    "minified": true,
+    "newFeature": true,
+    "coverView": true,
+    "nodeModules": true,
+    "autoAudits": false,
+    "showShadowRootInWxmlPanel": true,
+    "scopeDataCheck": false,
+    "checkInvalidKey": true,
+    "checkSiteMap": true,
+    "uploadWithSourceMap": true,
+    "compileHotReLoad": true,
+    "useApiHook": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "enableEngineNative": false
+  },
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "libVersion": "3.7.6",
+  "appid": "wx6af8baf31b0d42f4",
+  "projectname": "demo0-miniprogram",
+  "condition": {},
+  "simulatorPluginLibVersion": {}
+}

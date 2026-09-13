@@ -1,0 +1,55 @@
+<view class="pa">
+  <view wx:if="{{invalid}}" class="pa__pad">
+    <state-block
+      type="invalidData"
+      title="参数无效"
+      description="缺少问题编号"
+      actionText="返回"
+      bind:action="onInvalidBack"
+    />
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{loadingSummary}}" class="pa__hint">加载问题信息…</view>
+
+    <block wx:if="{{!loadingSummary}}">
+      <view class="pa__summary card">
+        <text class="pa__summary-label">正在回答</text>
+        <text wx:if="{{questionTitle}}" class="pa__summary-title" user-select>{{questionTitle}}</text>
+        <text wx:else class="pa__summary-title pa__summary-title--muted">问题 #{{questionId}}</text>
+        <text wx:if="{{questionMeta}}" class="pa__summary-meta">{{questionMeta}}</text>
+        <view wx:if="{{summaryError}}" class="pa__err-row" catchtap="onRetrySummary">
+          <text class="pa__err-text">{{summaryError}}</text>
+          <text class="pa__err-link"> · 点击重试</text>
+        </view>
+      </view>
+
+      <view class="pa__editor card">
+        <textarea
+          class="pa__input"
+          value="{{body}}"
+          placeholder="写下你的回答…"
+          placeholder-class="pa__placeholder"
+          maxlength="{{maxLen}}"
+          disabled="{{submitting}}"
+          show-confirm-bar="{{false}}"
+          adjust-position="{{true}}"
+          cursor-spacing="{{120}}"
+          bindinput="onBodyInput"
+        />
+        <view class="pa__editor-foot">
+          <text class="pa__count {{countWarning ? 'pa__count--warning' : ''}}">{{body.length}} / {{maxLen}}</text>
+          <button
+            class="pa__submit {{submitDisabled && !submitting ? 'pa__submit--disabled' : ''}} {{submitting ? 'pa__submit--busy' : ''}}"
+            hover-class="pa__submit--hover"
+            loading="{{submitting}}"
+            disabled="{{submitDisabled}}"
+            bindtap="onSubmit"
+          >
+            {{submitting ? '提交中…' : '发布'}}
+          </button>
+        </view>
+      </view>
+    </block>
+  </block>
+</view>

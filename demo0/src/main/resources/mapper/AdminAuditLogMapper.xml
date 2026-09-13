@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.quanta.demo0.mapper.AdminAuditLogMapper">
+
+    <!-- 公共查询条件 -->
+    <sql id="query_condition">
+        <where>
+            <if test="query.operatorId != null">
+                AND operator_id = #{query.operatorId}
+            </if>
+            <if test="query.action != null and query.action != ''">
+                AND action = #{query.action}
+            </if>
+            <if test="query.targetType != null and query.targetType != ''">
+                AND target_type = #{query.targetType}
+            </if>
+            <if test="query.targetId != null and query.targetId != ''">
+                AND target_id = #{query.targetId}
+            </if>
+            <if test="query.resultStatus != null and query.resultStatus != ''">
+                AND result_status = #{query.resultStatus}
+            </if>
+            <if test="query.requestId != null and query.requestId != ''">
+                AND request_id = #{query.requestId}
+            </if>
+            <if test="query.startTime != null">
+                AND created_at &gt;= #{query.startTime}
+            </if>
+            <if test="query.endTime != null">
+                AND created_at &lt;= #{query.endTime}
+            </if>
+            <!-- 默认只查最近30天，避免全表扫描 -->
+            AND created_at &gt;= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        </where>
+    </sql>
+
+    <select id="pageQuery" resultType="com.quanta.demo0.entity.AdminAuditLog">
+        select *
+        from admin_audit_log
+        <include refid="query_condition"/>
+        order by created_at desc, id desc
+    </select>
+
+    <select id="countQuery" resultType="long">
+        select count(*)
+        from admin_audit_log
+        <include refid="query_condition"/>
+    </select>
+
+</mapper>

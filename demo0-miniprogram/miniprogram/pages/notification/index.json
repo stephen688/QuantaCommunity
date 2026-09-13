@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "通知中心",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "feed-skeleton": "/components/feed-skeleton/index",
+    "state-block": "/components/state-block/index",
+    "page-list-footer": "/components/page-list-footer/index",
+    "auth-intercept-modal": "/components/auth-intercept-modal/index"
+  }
+}

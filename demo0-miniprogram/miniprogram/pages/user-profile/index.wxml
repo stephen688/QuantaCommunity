@@ -1,0 +1,130 @@
+<view class="up">
+  <view wx:if="{{invalidQuery}}" class="up__state">
+    <state-block
+      type="invalidData"
+      title="参数无效"
+      description="请从有效入口进入用户主页"
+      actionText=""
+    />
+  </view>
+
+  <block wx:elif="{{errorType && !profile}}">
+    <feed-skeleton wx:if="{{loading && !refreshing}}" variant="assets" count="{{3}}" />
+    <view wx:else class="up__state">
+      <state-block
+        type="{{errorType}}"
+        title="{{stateTitle}}"
+        description="{{errorMessage}}"
+        actionText="{{stateActionText}}"
+        bind:action="onStateAction"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <feed-skeleton wx:if="{{loading && !refreshing && !profile}}" variant="detail" count="{{1}}" />
+
+    <block wx:elif="{{profile}}">
+      <view class="up__hero card">
+        <view class="up__hero-top">
+          <image
+            class="up__avatar"
+            src="{{profile.avatarUrl}}"
+            mode="aspectFill"
+            wx:if="{{profile.avatarUrl}}"
+          />
+          <view class="up__avatar" wx:else />
+          <view class="up__hero-main">
+            <view class="up__name-row">
+              <text class="up__nickname">{{profile.nickname}}</text>
+              <text
+                class="up__auth {{profile.authStatus === 2 ? '' : 'up__auth--muted'}}"
+              >{{profile.authStatusText}}</text>
+            </view>
+            <view class="up__sub" wx:if="{{profile.quantaDepartment || profile.quantaBatch}}">
+              <text wx:if="{{profile.quantaDepartment}}">{{profile.quantaDepartment}}</text>
+              <text wx:if="{{profile.quantaDepartment && profile.quantaBatch}}"> · </text>
+              <text wx:if="{{profile.quantaBatch}}">{{profile.quantaBatch}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="up__stats">
+          <view class="up__stat">
+            <text class="up__stat-num">{{profile.followingCount}}</text>
+            <text class="up__stat-label">关注</text>
+          </view>
+          <view class="up__stat">
+            <text class="up__stat-num">{{profile.followerCount}}</text>
+            <text class="up__stat-label">粉丝</text>
+          </view>
+          <view class="up__stat">
+            <text class="up__stat-num">{{profile.contentCount}}</text>
+            <text class="up__stat-label">发布</text>
+          </view>
+        </view>
+
+        <view class="up__actions">
+          <button
+            wx:if="{{profile.isSelf}}"
+            class="up__btn up__btn--ghost"
+            hover-class="up__btn--hover"
+            bindtap="onEditProfile"
+          >编辑资料</button>
+          <button
+            wx:else
+            class="up__btn {{profile.isFollowed ? 'up__btn--secondary' : 'up__btn--primary'}} {{followLoading ? 'up__btn--busy' : ''}}"
+            hover-class="up__btn--hover"
+            disabled="{{followLoading}}"
+            bindtap="onFollowTap"
+          >{{profile.isFollowed ? '已关注' : '关注'}}</button>
+        </view>
+      </view>
+
+      <view class="up__list-block">
+        <view class="up__section-title">TA 的发布</view>
+
+        <view wx:if="{{listLoadError}}" class="up__list-state">
+          <state-block
+            type="server"
+            title="{{listNeedAuthVerify ? '需完成实名认证' : '内容加载失败'}}"
+            description="{{listErrorMessage}}"
+            actionText="{{listNeedAuthVerify ? '去认证' : '重试'}}"
+            bind:action="onListStateAction"
+          />
+        </view>
+
+        <view wx:elif="{{!listLoadError && !loading && list.length === 0}}" class="up__list-state">
+          <state-block
+            type="empty"
+            title="暂无发布"
+            description="TA 暂时还没有发布内容"
+            actionText=""
+          />
+        </view>
+
+        <view wx:else class="up__cards">
+          <content-card
+            wx:for="{{list}}"
+            wx:key="contentId"
+            item="{{item}}"
+            data-content-id="{{item.contentId}}"
+            data-content-type="{{item.contentType}}"
+            showAuthor="{{true}}"
+            bind:cardtap="onCardTap"
+            bind:interactionchange="onCardInteractionChange"
+          />
+          <page-list-footer
+            visible="{{list.length > 0}}"
+            loading-more="{{loadingMore}}"
+            load-error="{{loadMoreError}}"
+            finished="{{finished}}"
+            bind:retry="onFooterRetry"
+          />
+        </view>
+      </view>
+
+      <view class="up__safe-bottom" />
+    </block>
+  </block>
+</view>

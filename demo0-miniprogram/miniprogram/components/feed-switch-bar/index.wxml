@@ -1,0 +1,3 @@
+<view class="feed-switch-bar" aria-hidden="true">
+  <view class="feed-switch-bar__fill" />
+</view>

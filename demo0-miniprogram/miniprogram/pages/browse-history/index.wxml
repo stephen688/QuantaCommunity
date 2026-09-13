@@ -1,0 +1,50 @@
+<view class="bh">
+  <view wx:if="{{list.length > 0}}" class="bh__bar card">
+    <text class="bh__bar-text">浏览记录</text>
+    <view
+      class="bh__clear {{clearing ? 'bh__clear--disabled' : ''}}"
+      hover-class="{{clearing ? '' : 'bh__clear--hover'}}"
+      bindtap="onClearTap"
+    >{{clearing ? '清空中' : '清空全部'}}</view>
+  </view>
+
+  <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0}}" variant="assets" />
+
+  <view wx:elif="{{errorType && list.length === 0}}" class="bh__state">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <view wx:elif="{{!loading && !errorType && list.length === 0}}" class="bh__state">
+    <state-block type="empty" variant="bulletin" title="暂无浏览历史" description="浏览帖子后会自动记录在这里" />
+  </view>
+
+  <view wx:else class="bh__feed content-reveal">
+    <view class="bh__cards">
+      <content-card
+        wx:for="{{list}}"
+        wx:key="contentId"
+        item="{{item}}"
+        data-content-id="{{item.contentId}}"
+        data-content-type="{{item.contentType}}"
+        showAuthor="{{true}}"
+        bind:cardtap="onCardTap"
+        bind:tapauthor="onCardAuthorTap"
+        bind:interactionchange="onCardInteractionChange"
+      />
+    </view>
+    <page-list-footer
+      visible="{{list.length > 0}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onFooterRetry"
+    />
+    <view class="bh__safe-bottom" />
+  </view>
+</view>

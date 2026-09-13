@@ -1,0 +1,186 @@
+<view class="skel skel--{{variant}}">
+
+  <block wx:for="{{rows}}" wx:key="*this">
+
+    <view class="skel__card card">
+
+      <!-- 搜索页：历史 chip + 推荐块 -->
+
+      <block wx:if="{{variant === 'search'}}">
+
+        <view class="skel__search-head">
+
+          <view class="skel__line skel__line--short skel--shine" />
+
+          <view class="skel__line skel__line--pill skel--shine" />
+
+        </view>
+
+        <view class="skel__chips">
+
+          <view class="skel__chip skel--shine" />
+
+          <view class="skel__chip skel--shine" />
+
+          <view class="skel__chip skel--shine" />
+
+        </view>
+
+        <view class="skel__line skel__line--short skel--shine skel__mt" />
+
+        <view class="skel__line skel--shine" />
+
+        <view class="skel__line skel__line--narrow skel--shine" />
+
+      </block>
+
+
+
+      <!-- 详情页：作者 + 标题 + 正文 -->
+
+      <block wx:elif="{{variant === 'detail'}}">
+
+        <view class="skel__author">
+
+          <view class="skel__circle skel__circle--lg skel--shine" />
+
+          <view class="skel__author-text">
+
+            <view class="skel__line skel__line--short skel--shine" />
+
+            <view class="skel__line skel__line--tiny skel--shine" />
+
+          </view>
+
+        </view>
+
+        <view class="skel__line skel__line--title skel--shine" />
+
+        <view class="skel__line skel--shine" />
+
+        <view class="skel__line skel--shine" />
+
+        <view class="skel__line skel__line--narrow skel--shine" />
+
+        <view class="skel__detail-tags">
+
+          <view class="skel__tag skel--shine" />
+
+          <view class="skel__tag skel--shine" />
+
+        </view>
+
+      </block>
+
+
+
+      <!-- 表单页：分段标题 + 输入行 -->
+
+      <block wx:elif="{{variant === 'form'}}">
+
+        <view class="skel__line skel__line--short skel--shine" />
+
+        <view class="skel__field skel--shine" />
+
+        <view class="skel__line skel__line--short skel--shine skel__mt" />
+
+        <view class="skel__field skel__field--tall skel--shine" />
+
+        <view class="skel__line skel__line--short skel--shine skel__mt" />
+
+        <view class="skel__field skel--shine" />
+
+      </block>
+
+
+
+      <!-- 资产列表：无图卡片 -->
+
+      <block wx:elif="{{variant === 'assets'}}">
+
+        <view class="skel__line skel__line--title skel--shine" />
+
+        <view class="skel__line skel--shine" />
+
+        <view class="skel__line skel__line--narrow skel--shine" />
+
+        <view class="skel__footer">
+
+          <view class="skel__line skel__line--tiny skel--shine" />
+
+          <view class="skel__line skel__line--tiny skel--shine" />
+
+        </view>
+
+      </block>
+
+
+
+      <!-- 消息 -->
+
+      <block wx:elif="{{variant === 'notification'}}">
+
+        <view class="skel__nt-head">
+
+          <view class="skel__line skel__line--short skel--shine" />
+
+          <view class="skel__line skel__line--pill skel--shine" />
+
+        </view>
+
+        <view class="skel__line skel--shine" />
+
+        <view class="skel__line skel--shine" />
+
+        <view class="skel__line skel__line--tiny skel--shine" />
+
+      </block>
+
+
+
+      <!-- 关注 / 首页 -->
+
+      <block wx:else>
+
+        <view wx:if="{{variant === 'follow'}}" class="skel__author">
+
+          <view class="skel__circle skel__circle--lg skel--shine" />
+
+          <view class="skel__author-text">
+
+            <view class="skel__line skel__line--short skel--shine" />
+
+            <view class="skel__line skel__line--tiny skel--shine" />
+
+          </view>
+
+        </view>
+
+        <block wx:if="{{variant === 'home' || variant === 'follow'}}">
+
+          <view wx:if="{{variant === 'home'}}" class="skel__media skel--shine" />
+
+          <view class="skel__line skel__line--title skel--shine" />
+
+          <view class="skel__line skel--shine" />
+
+          <view wx:if="{{variant === 'home'}}" class="skel__line skel__line--narrow skel--shine" />
+
+          <view class="skel__footer">
+
+            <view class="skel__line skel__line--tiny skel--shine" />
+
+            <view class="skel__line skel__line--tiny skel--shine" />
+
+          </view>
+
+        </block>
+
+      </block>
+
+    </view>
+
+  </block>
+
+</view>
+

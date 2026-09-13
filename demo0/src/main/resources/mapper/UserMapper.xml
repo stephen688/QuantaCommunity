@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.mapper.UserMapper">
+
+    <!-- 动态插入用户 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        insert into tb_user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="openid != null and openid != ''">openid,</if>
+            <if test="appUserId != null and appUserId != ''">app_user_id,</if>
+            <if test="nickName != null and nickName != ''">nick_name,</if>
+            <if test="avatarUrl != null and avatarUrl != ''">avatar_url,</if>
+            <if test="authStatus != null">auth_status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="isDeleted != null">is_deleted,</if>
+            <if test="isAdmin != null">is_admin,</if>
+            <if test="accountStatus != null">account_status,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="openid != null and openid != ''">#{openid},</if>
+            <if test="appUserId != null and appUserId != ''">#{appUserId},</if>
+            <if test="nickName != null and nickName != ''">#{nickName},</if>
+            <if test="avatarUrl != null and avatarUrl != ''">#{avatarUrl},</if>
+            <if test="authStatus != null">#{authStatus},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="isDeleted != null">#{isDeleted},</if>
+            <if test="isAdmin != null">#{isAdmin},</if>
+            <if test="accountStatus != null">#{accountStatus},</if>
+        </trim>
+    </insert>
+
+    <!-- 动态插入用户认证信息 -->
+    <insert id="insertUserAuth" useGeneratedKeys="true" keyProperty="authId">
+        insert into tb_user_auth
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="identityType != null">identity_type,</if>
+            <if test="realName != null and realName != ''">real_name,</if>
+            <if test="schoolId != null and schoolId != ''">school_id,</if>
+            <if test="quantaBatch != null and quantaBatch != ''">quanta_batch,</if>
+            <if test="quantaDepartment != null and quantaDepartment != ''">quanta_department,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="identityType != null">#{identityType},</if>
+            <if test="realName != null and realName != ''">#{realName},</if>
+            <if test="schoolId != null and schoolId != ''">#{schoolId},</if>
+            <if test="quantaBatch != null and quantaBatch != ''">#{quantaBatch},</if>
+            <if test="quantaDepartment != null and quantaDepartment != ''">#{quantaDepartment},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateById">
+        update tb_user
+        <set>
+            <if test="openid != null and openid != ''">openid=#{openid},</if>
+            <if test="appUserId != null and appUserId != ''">app_user_id=#{appUserId},</if>
+            <if test="nickName != null and nickName != ''">nick_name=#{nickName},</if>
+            <if test="avatarUrl != null and avatarUrl != ''">avatar_url=#{avatarUrl},</if>
+            <if test="authStatus != null">auth_status=#{authStatus},</if>
+            <if test="updateTime != null">update_time=#{updateTime},</if>
+            <if test="isDeleted != null">is_deleted=#{isDeleted},</if>
+            <if test="isAdmin != null">is_admin=#{isAdmin},</if>
+            <if test="accountStatus != null">account_status=#{accountStatus},</if>
+        </set>
+        where id=#{id}
+    </update>
+    <update id="updateUserAuth">
+        update tb_user_auth
+        <set>
+            <if test="identityType != null">identity_type=#{identityType},</if>
+            <if test="realName != null and realName != ''">real_name=#{realName},</if>
+            <if test="schoolId != null and schoolId != ''">school_id=#{schoolId},</if>
+            <if test="quantaBatch != null and quantaBatch != ''">quanta_batch=#{quantaBatch},</if>
+            <if test="quantaDepartment != null and quantaDepartment != ''">quanta_department=#{quantaDepartment},</if>
+            <if test="updateTime != null">update_time=#{updateTime},</if>
+            <if test="auditStatus != null">audit_status=#{auditStatus},</if>
+            <if test="auditRemark != null and auditRemark != ''">audit_remark=#{auditRemark},</if>
+            <if test="auditTime != null">audit_time=#{auditTime},</if>
+
+
+        </set>
+        where auth_id=#{authId}
+    </update>
+
+    <!-- 根据用户 ID 查询用户认证信息（联表查询，只查询 UserAuthInfo 实体中的字段） -->
+    <select id="selectUserAuthInfoById" resultType="com.quanta.demo0.entity.UserAuthInfo">
+        SELECT
+            u.id AS userId,
+            u.nick_name AS nickName,
+            u.avatar_url AS avatarUrl,
+            u.auth_status AS authStatus,
+            u.account_status AS accountStatus,
+            ua.quanta_batch AS quantaBatch,
+            ua.quanta_department AS quantaDepartment
+        FROM tb_user u
+                 left join tb_user_auth ua ON u.id = ua.user_id and ua.audit_status=1
+        WHERE u.id = #{userId} AND u.is_deleted = 0
+    </select>
+
+
+    <select id="selectUserAuthInfoByIds" resultType="com.quanta.demo0.entity.UserAuthInfo">
+        SELECT
+        u.id AS userId,
+        u.avatar_url AS avatarUrl,
+        u.auth_status AS authStatus,
+        u.nick_name AS nickName,
+        u.account_status AS accountStatus,
+        ua.quanta_department AS quantaDepartment,
+        ua.quanta_batch AS quantaBatch
+        FROM tb_user u
+        LEFT JOIN tb_user_auth ua ON u.id = ua.user_id AND ua.audit_status = 1
+        WHERE u.is_deleted = 0
+        <choose>
+            <when test="userIds != null and userIds.size() > 0">
+                AND u.id IN
+                <foreach item="id" collection="userIds" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </when>
+            <otherwise>
+                AND 1 = 0
+            </otherwise>
+        </choose>
+
+    </select>
+    <!-- 管理端 - 分页查询用户列表 -->
+    <select id="pageAdmin" resultType="com.quanta.demo0.entity.User">
+        SELECT * FROM tb_user
+        <where>
+            <!-- 过滤软删除数据 -->
+            is_deleted = 0
+            <!-- 按账号状态筛选 -->
+            <if test="query.accountStatus != null">
+                AND account_status = #{query.accountStatus}
+            </if>
+            <!-- 按是否管理员筛选 -->
+            <if test="query.isAdmin != null">
+                AND is_admin = #{query.isAdmin}
+            </if>
+            <!-- 按昵称模糊搜索 -->
+            <if test="query.nickName != null and query.nickName != ''">
+                AND nick_name LIKE CONCAT('%', #{query.nickName}, '%')
+            </if>
+        </where>
+        <!-- 按创建时间倒序 -->
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询粉丝数最高的用户（热门校友兜底） -->
+    <select id="selectTopFollowedUsers" resultType="com.quanta.demo0.entity.UserAuthInfo">
+        SELECT u.id AS userId,
+               u.nick_name AS nickName,
+               u.avatar_url AS avatarUrl,
+               ua.quanta_department AS quantaDepartment,
+               ua.quanta_batch AS quantaBatch,
+               u.auth_status AS authStatus,
+               u.account_status AS accountStatus
+        FROM tb_user u
+                 INNER JOIN tb_user_auth ua ON u.id = ua.user_id AND ua.audit_status = 1
+        WHERE u.is_deleted = 0 AND (u.account_status IS NULL OR u.account_status = 0)
+        ORDER BY (SELECT COUNT(*) FROM tb_user_follow f WHERE f.follow_user_id = u.id AND f.is_deleted = 0) DESC,
+                 u.id DESC
+        LIMIT #{limit}
+    </select>
+
+
+</mapper>

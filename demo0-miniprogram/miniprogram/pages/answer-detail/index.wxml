@@ -1,0 +1,139 @@
+<view class="answer-page">
+  <view wx:if="{{invalidParams}}" class="answer-page__pad">
+    <state-block
+      type="invalidData"
+      title="参数无效"
+      description="缺少回答或问题编号"
+      actionText="返回"
+      bind:action="onInvalidAction"
+    />
+  </view>
+
+  <view wx:elif="{{loading && !questionDetail}}" class="answer-page__pad">
+    <feed-skeleton variant="detail" count="{{1}}" />
+  </view>
+
+  <view wx:elif="{{errorType}}" class="answer-page__pad">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onRetryLoad"
+    />
+  </view>
+
+  <view wx:elif="{{questionDetail}}" class="answer-page__body">
+    <view class="answer-page__question card">
+      <author-row
+        nickname="{{questionDetail.authorName}}"
+        avatarUrl="{{questionDetail.authorAvatar}}"
+        time="{{questionDetail.createTime}}"
+        quantaBatch="{{questionDetail.quantaBatch || ''}}"
+        quantaDepartment="{{questionDetail.quantaDepartment || ''}}"
+        userId="{{questionDetail.authorId}}"
+        clickable="{{true}}"
+        bind:tapauthor="onQuestionAuthorTap"
+      />
+      <text wx:if="{{questionDetail.title}}" class="answer-page__q-title">{{questionDetail.title}}</text>
+      <text wx:if="{{questionDetail.content}}" class="answer-page__q-content" user-select>
+        {{questionDetail.content}}
+      </text>
+    </view>
+
+    <view class="answer-page__section">回答</view>
+    <view wx:if="{{pinnedAnswer}}" class="answer-page__answers">
+      <view class="answer-page__answer card">
+        <view class="answer-page__badge">当前回答</view>
+        <view class="answer-page__answer-head">
+          <author-row
+            nickname="{{pinnedAnswer.authorName}}"
+            avatarUrl="{{pinnedAnswer.authorAvatar}}"
+            time="{{pinnedAnswer.createTime}}"
+            userId="{{pinnedAnswer.authorId}}"
+            clickable="{{true}}"
+            bind:tapauthor="onAnswerAuthorTap"
+          />
+          <text wx:if="{{pinnedAnswer.isAccepted}}" class="answer-page__accepted">最佳回答</text>
+        </view>
+        <text class="answer-page__answer-content" user-select>{{pinnedAnswer.content}}</text>
+        <button
+          wx:if="{{isQuestionAuthor && !pinnedAnswer.isAccepted}}"
+          class="detail-page__accept-btn {{acceptingAnswerId === pinnedAnswer.answerId ? 'detail-page__accept-btn--busy' : ''}}"
+          hover-class="detail-page__accept-btn--hover"
+          disabled="{{acceptingAnswerId !== null}}"
+          data-answer-id="{{pinnedAnswer.answerId}}"
+          catchtap="onAcceptAnswerTap"
+        >
+          {{acceptingAnswerId === pinnedAnswer.answerId ? '处理中…' : '采纳'}}
+        </button>
+      </view>
+    </view>
+
+    <view class="answer-page__discuss card">
+      <view class="answer-page__section answer-page__section--in-card">评论</view>
+      <comment-list
+        items="{{comments}}"
+        loading="{{commentLoading}}"
+        loading-more="{{commentLoadingMore}}"
+        load-more-error="{{commentLoadMoreError}}"
+        finished="{{commentFinished}}"
+        empty-title="暂无评论"
+        empty-desc="在回答下参与讨论"
+        default-reply-limit="{{2}}"
+        bind:retry="onCommentRetry"
+        bind:like="onCommentLike"
+        bind:commentmore="onCommentMore"
+        bind:reply="onCommentReply"
+        bind:loadreplies="onCommentLoadReplies"
+        bind:tapauthor="onAnswerAuthorTap"
+      />
+
+    </view>
+
+    <view class="answer-page__fab-spacer" />
+
+    <view
+      class="answer-page__fab"
+      hover-class="answer-page__fab--hover"
+      catchtap="onPublishAnswerFabTap"
+      aria-role="button"
+      aria-label="发布回答"
+    >
+      <text class="answer-page__fab-text">答</text>
+    </view>
+
+    <detail-action-bar
+      wx:if="{{pinnedAnswer}}"
+      fixed
+      show-collect="{{false}}"
+      liked="{{pinnedAnswer.liked}}"
+      like-count="{{pinnedAnswer.likeCount}}"
+      comment-count="{{answerCommentCount}}"
+      loading="{{answerLikeLoading}}"
+      bind:like="onAnswerDetailLike"
+      bind:composeropen="openComposer"
+    />
+
+    <view wx:if="{{composerVisible}}" class="comment-sheet">
+      <view class="comment-sheet__mask" bindtap="closeComposer" />
+      <view class="comment-sheet__panel" catchtap="onComposerSheetPanelTap">
+        <view wx:if="{{replyTargetNick}}" class="comment-sheet__reply-bar">
+          <text class="comment-sheet__reply-text">
+            回复 <text class="comment-sheet__reply-nick">@{{replyTargetNick}}</text>
+          </text>
+          <text class="comment-sheet__reply-cancel" bindtap="onCancelReply">取消</text>
+        </view>
+        <comment-composer
+          value="{{composerValue}}"
+          submitting="{{composerSubmitting}}"
+          placeholder="{{replyPlaceholder}}"
+          auto-focus="{{composerAutoFocus}}"
+          cursor-spacing="{{48}}"
+          bind:input="onComposerInput"
+          bind:submit="onComposerSubmit"
+        />
+      </view>
+    </view>
+  </view>
+</view>

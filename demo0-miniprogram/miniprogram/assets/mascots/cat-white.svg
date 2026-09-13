@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 白猫：按参考图 358×357 手工描摹，原配色（淡紫灰毛 + 粉腮红 + 蓝项圈） -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 358 357" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="pw" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F8C0D0" stop-opacity="0"/>
+      <stop offset="1" stop-color="#E8A0B2" stop-opacity=".9"/>
+    </linearGradient>
+    <linearGradient id="tt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8C4D4"/>
+      <stop offset="1" stop-color="#DE98AC"/>
+    </linearGradient>
+    <linearGradient id="bl" x1=".3" y1="0" x2=".7" y2="1">
+      <stop offset="0" stop-color="#F4D8C4"/>
+      <stop offset=".5" stop-color="#EBC4A8"/>
+      <stop offset="1" stop-color="#D09870"/>
+    </linearGradient>
+    <radialGradient id="bd" cx=".45" cy=".75" r=".5">
+      <stop offset="0" stop-color="#ECEAF4" stop-opacity="0"/>
+      <stop offset="1" stop-color="#D4D0DE" stop-opacity=".32"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 装饰心 -->
+  <path fill="#F8C8D8" opacity=".72" d="M46 48c0-9 14-13 18-4 4-9 18-5 18 4 0 10-18 20-18 20s-18-10-18-20z"/>
+  <path fill="none" stroke="#F0B4C4" stroke-width="2" opacity=".55" d="M286 32c0-7 11-10 14-3 3-7 12-4 12 7 0 8-14 14-14 14s-14-6-14-14z"/>
+  <path fill="#FAD4E0" opacity=".5" d="M312 242c0-6 9-9 12-2 3-7 11-4 11 6 0 7-12 12-12 12s-12-5-12-12z"/>
+  <circle cx="68" cy="292" r="3" fill="#F8C8D8" opacity=".45"/>
+  <circle cx="296" cy="112" r="2.5" fill="#F8C8D8" opacity=".4"/>
+
+  <!-- 尾巴 -->
+  <path fill="#F2F1F6" stroke="#4A423C" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"
+    d="M236 128c42-32 88-18 98 28 10 46-8 96-48 118-36 20-62 2-54-36 8-34 28-62 24-96-10z"/>
+  <ellipse cx="302" cy="128" rx="30" ry="26" fill="url(#tt)"/>
+  <ellipse cx="294" cy="124" rx="10" ry="8" fill="#E8A8B8" opacity=".4"/>
+
+  <!-- 身体+头 一体轮廓 -->
+  <path fill="#F2F1F6" stroke="#4A423C" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"
+    d="M98 320
+      c-38-6-62-34-68-72-6-42 12-82 52-102 18-10 38-12 56-4
+       14-22 38-38 72-42 34-4 68 6 88 30 20 24 26 58 20 90
+       -8 38-34 68-72 82-28 10-58 18-88 18
+       -24 0-42-2-58-10z"/>
+  <ellipse cx="168" cy="248" rx="100" ry="72" fill="url(#bd)"/>
+
+  <!-- 胸前锯齿毛 -->
+  <path fill="#F2F1F6" stroke="#4A423C" stroke-width="2.5" stroke-linejoin="round"
+    d="M112 204l12-22 10 14 12-20 8 16 6 24-16 18-22-4z"/>
+
+  <!-- 脸颊外翘毛 -->
+  <path fill="#F2F1F6" stroke="#4A423C" stroke-width="2.5" stroke-linejoin="round"
+    d="M58 172l-12-10 8-12 14 6 6-14 10 12z"/>
+  <path fill="#F2F1F6" stroke="#4A423C" stroke-width="2.5" stroke-linejoin="round"
+    d="M204 156l14-12 6 12-12 8 14 6-8 14z"/>
+
+  <!-- 耳朵 -->
+  <path fill="#F2F1F6" stroke="#4A423C" stroke-width="3.5" stroke-linejoin="round" d="M82 112L64 48l50 46z"/>
+  <path fill="#F6B8C8" d="M84 104L70 58l42 40z"/>
+  <path fill="#F2F1F6" stroke="#4A423C" stroke-width="3.5" stroke-linejoin="round" d="M162 102L182 38l26 56z"/>
+  <path fill="#F6B8C8" d="M166 96L180 46l24 48z"/>
+
+  <!-- 前爪 -->
+  <ellipse cx="112" cy="306" rx="34" ry="24" fill="#F2F1F6" stroke="#4A423C" stroke-width="3"/>
+  <ellipse cx="112" cy="310" rx="28" ry="15" fill="url(#pw)"/>
+  <ellipse cx="208" cy="308" rx="32" ry="22" fill="#F2F1F6" stroke="#4A423C" stroke-width="3"/>
+  <ellipse cx="208" cy="312" rx="26" ry="13" fill="url(#pw)"/>
+
+  <!-- 项圈 -->
+  <path fill="#A8CEEA" stroke="#4A423C" stroke-width="2.5" stroke-linejoin="round"
+    d="M122 194c22-12 62-12 84 0v10c-24 12-60 12-84 0z"/>
+
+  <!-- 铃铛 -->
+  <circle cx="164" cy="224" r="24" fill="url(#bl)" stroke="#4A423C" stroke-width="2.5"/>
+  <path stroke="#4A423C" stroke-width="2.5" stroke-linecap="round" d="M164 240v10"/>
+  <circle cx="164" cy="254" r="3.5" fill="#4A423C" opacity=".5"/>
+
+  <!-- 眼睛（大圆+双高光） -->
+  <circle cx="112" cy="156" r="28" fill="#2C2824"/>
+  <circle cx="121" cy="145" r="10" fill="#fff"/>
+  <circle cx="106" cy="165" r="4.5" fill="#fff"/>
+  <circle cx="176" cy="150" r="26" fill="#2C2824"/>
+  <circle cx="185" cy="140" r="9" fill="#fff"/>
+  <circle cx="170" cy="158" r="4" fill="#fff"/>
+
+  <!-- 眉 -->
+  <circle cx="100" cy="124" r="3.2" fill="#7A7268" opacity=".65"/>
+  <circle cx="190" cy="118" r="3.2" fill="#7A7268" opacity=".65"/>
+
+  <!-- 腮红+三条细纹 -->
+  <ellipse cx="86" cy="178" rx="24" ry="15" fill="#F6B8C8" opacity=".94"/>
+  <path stroke="#C08094" stroke-width="1.8" stroke-linecap="round" opacity=".48" d="M74 174h24M76 178h20M78 182h16"/>
+  <ellipse cx="206" cy="170" rx="22" ry="14" fill="#F6B8C8" opacity=".94"/>
+  <path stroke="#C08094" stroke-width="1.8" stroke-linecap="round" opacity=".48" d="M194 166h24M196 170h20M198 174h16"/>
+
+  <!-- 鼻嘴 -->
+  <circle cx="150" cy="172" r="4.2" fill="#4A423C"/>
+  <path stroke="#4A423C" stroke-width="2.2" stroke-linecap="round" fill="none" d="M144 180q6 8 12 0"/>
+</svg>

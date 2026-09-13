@@ -1,0 +1,9 @@
+{
+  "desc": "demo0 miniprogram sitemap",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

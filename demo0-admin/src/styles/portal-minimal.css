@@ -1,0 +1,981 @@
+/**
+ * QuantaAdmin — design-system/MASTER.md（社区紫 + 审核绿 CTA）
+ * `--admin-*` 为设计 token；`--el-*` 与 Element Plus 默认主题对齐覆盖。
+ */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+:root {
+  --color-primary: #FE6603;
+  --color-secondary: #1E5A4C;
+  --color-cta: #FF8C42;
+  --color-background: #FFF8ED;
+  --color-text: #3D2A1F;
+
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  --admin-bg: var(--color-background);
+  --admin-bg-2: #FFE8CC;
+  --admin-surface: #ffffff;
+  --admin-surface-soft: #FFFCF8;
+  --admin-border: #F0DCC8;
+  --admin-border-strong: #E0C8A8;
+  --admin-text: var(--color-text);
+  --admin-text-label: #6B4226;
+  --admin-text-muted: #8A6B55;
+
+  --admin-primary: var(--color-primary);
+  --admin-primary-hover: #E55A00;
+  --admin-primary-active: #CC4F00;
+  --admin-primary-soft: #FFF1E6;
+  --admin-primary-subtle: #FFF8ED;
+  --admin-primary-ring: rgba(254, 102, 3, 0.22);
+
+  --admin-success: var(--color-secondary);
+  --admin-success-soft: #E6F2EE;
+  --admin-warning: #D97706;
+  --admin-warning-soft: #FFF8E6;
+  --admin-danger: #C43D3D;
+  --admin-danger-soft: #FDE8E8;
+  --admin-info: #0369A1;
+  --admin-info-soft: #E0F2FE;
+
+  /** 沿用旧命名：映射为暖橙辅助 */
+  --admin-purple-soft: var(--admin-primary-subtle);
+  --admin-purple-text: var(--admin-primary-active);
+
+  --admin-radius: 8px;
+  --admin-radius-lg: 12px;
+
+  /* 阴影层级（卡片 / 浮层），暖棕调与背景统一 */
+  --shadow-xs: 0 1px 2px rgba(61, 42, 31, 0.04);
+  --shadow-sm: 0 4px 6px rgba(61, 42, 31, 0.06);
+  --shadow-md: 0 10px 15px rgba(61, 42, 31, 0.08);
+  --shadow-lg: 0 20px 25px rgba(61, 42, 31, 0.10);
+  --shadow-xl: 0 20px 25px rgba(61, 42, 31, 0.14);
+
+  --admin-shadow-card: var(--shadow-md);
+  --admin-shadow-sm: var(--shadow-sm);
+
+  /* 深色侧栏 */
+  --sidebar-bg: #141418;
+  --sidebar-text: #F0EAE5;
+  --sidebar-text-muted: #8A8078;
+  --sidebar-active-bg: rgba(254, 102, 3, 0.13);
+  --sidebar-active-text: var(--admin-primary);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-border: #2A2A30;
+
+  --admin-transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
+
+  --portal-primary: var(--admin-primary);
+  --portal-primary-hover: var(--admin-primary-hover);
+  --portal-primary-rgb: 254, 102, 3;
+  --portal-primary-soft: var(--admin-primary-soft);
+  --portal-secondary: var(--color-secondary);
+  --portal-cta: var(--admin-primary);
+  --portal-bg: var(--admin-bg);
+  --portal-surface: var(--admin-surface);
+  --portal-text: var(--admin-text);
+  --portal-text-secondary: var(--admin-text-muted);
+  --portal-border: var(--admin-border);
+  --portal-radius: var(--admin-radius-lg);
+  --portal-shadow: var(--admin-shadow-sm);
+  --portal-shadow-hover: var(--admin-shadow-card);
+  --portal-transition: var(--admin-transition);
+
+  /* Element Plus：主色与色阶（Quanta 暖橙） */
+  --el-color-primary-rgb: 254, 102, 3;
+  --el-color-primary: var(--admin-primary);
+  --el-color-primary-light-3: #FF9A4D;
+  --el-color-primary-light-5: #FFB380;
+  --el-color-primary-light-7: #FFCCAA;
+  --el-color-primary-light-8: #FFE0CC;
+  --el-color-primary-light-9: var(--admin-primary-soft);
+  --el-color-primary-dark-2: var(--admin-primary-active);
+
+  --el-color-success-rgb: 30, 90, 76;
+  --el-color-success: var(--admin-success);
+  --el-color-success-light-3: #3D8A72;
+  --el-color-success-light-5: #6AAD96;
+  --el-color-success-light-7: #9ACDBB;
+  --el-color-success-light-8: #C2E0D5;
+  --el-color-success-light-9: var(--admin-success-soft);
+  --el-color-success-dark-2: #164538;
+
+  --el-color-warning-rgb: 217, 119, 6;
+  --el-color-warning: var(--admin-warning);
+  --el-color-warning-light-3: #fbbf24;
+  --el-color-warning-light-5: #fcd34d;
+  --el-color-warning-light-7: #fde68a;
+  --el-color-warning-light-8: var(--admin-warning-soft);
+  --el-color-warning-light-9: #fffbeb;
+  --el-color-warning-dark-2: #b45309;
+
+  --el-color-danger-rgb: 220, 38, 38;
+  --el-color-danger: var(--admin-danger);
+  --el-color-danger-light-3: #f87171;
+  --el-color-danger-light-5: #fca5a5;
+  --el-color-danger-light-7: #fecaca;
+  --el-color-danger-light-8: var(--admin-danger-soft);
+  --el-color-danger-light-9: #fef2f2;
+  --el-color-danger-dark-2: #b91c1c;
+
+  --el-color-error-rgb: var(--el-color-danger-rgb);
+  --el-color-error: var(--admin-danger);
+  --el-color-error-light-3: var(--el-color-danger-light-3);
+  --el-color-error-light-5: var(--el-color-danger-light-5);
+  --el-color-error-light-7: var(--el-color-danger-light-7);
+  --el-color-error-light-8: var(--el-color-danger-light-8);
+  --el-color-error-light-9: var(--el-color-danger-light-9);
+  --el-color-error-dark-2: var(--el-color-danger-dark-2);
+
+  --el-color-info-rgb: 2, 132, 199;
+  --el-color-info: var(--admin-info);
+  --el-color-info-light-3: #38bdf8;
+  --el-color-info-light-5: #7dd3fc;
+  --el-color-info-light-7: #bae6fd;
+  --el-color-info-light-8: #e0f2fe;
+  --el-color-info-light-9: var(--admin-info-soft);
+  --el-color-info-dark-2: #0369a1;
+
+  --el-bg-color: var(--admin-surface);
+  --el-bg-color-page: var(--admin-bg);
+  --el-bg-color-overlay: var(--admin-surface);
+
+  --el-text-color-primary: var(--admin-text);
+  --el-text-color-regular: var(--admin-text-label);
+  --el-text-color-secondary: var(--admin-text-muted);
+  --el-text-color-placeholder: #B8A898;
+  --el-text-color-disabled: #C8B8A8;
+
+  --el-border-color: var(--admin-border);
+  --el-border-color-light: var(--admin-bg-2);
+  --el-border-color-lighter: #FFE8CC;
+  --el-border-color-extra-light: var(--admin-surface-soft);
+  --el-border-color-dark: var(--admin-border-strong);
+  --el-border-color-darker: #C8B098;
+  --el-border-color-hover: var(--admin-border-strong);
+
+  --el-fill-color: var(--admin-bg-2);
+  --el-fill-color-light: #FFF8ED;
+  --el-fill-color-lighter: var(--admin-surface-soft);
+  --el-fill-color-extra-light: var(--admin-bg);
+  --el-fill-color-dark: var(--admin-border);
+  --el-fill-color-darker: var(--admin-border-strong);
+  --el-fill-color-blank: var(--admin-surface);
+
+  --el-box-shadow: var(--shadow-md);
+  --el-box-shadow-light: var(--shadow-sm);
+  --el-box-shadow-lighter: var(--shadow-xs);
+  --el-box-shadow-dark: var(--shadow-xl);
+
+  --el-mask-color: rgba(255, 255, 255, 0.88);
+  --el-mask-color-extra-light: rgba(255, 255, 255, 0.45);
+
+  --el-border-radius-base: var(--admin-radius);
+}
+
+html,
+body {
+  margin: 0;
+  font-family: 'DM Sans', 'Noto Sans SC', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--admin-text);
+  background: var(--admin-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.portal-table.el-table--default .el-table__header th {
+  background-color: var(--admin-bg-2) !important;
+  color: var(--admin-text-label) !important;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  line-height: 20px;
+}
+
+/* B6：卡片内嵌无边框表格，仅行间细分隔线 */
+.portal-table.el-table {
+  --el-table-border-color: var(--admin-border);
+  --el-table-header-bg-color: var(--admin-bg-2);
+  border: none !important;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.portal-table.el-table::before,
+.portal-table.el-table::after,
+.portal-table.el-table .el-table__inner-wrapper::before {
+  display: none !important;
+}
+
+.portal-table.el-table .el-table__header .el-table__cell {
+  padding: 10px 14px;
+}
+
+.portal-table.el-table .el-table__body .el-table__cell {
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+}
+
+.portal-table.el-table .el-table__body tr {
+  height: 48px;
+}
+
+.portal-table.el-table .el-table__body tr:hover > td {
+  background-color: rgba(254, 102, 3, 0.05) !important;
+}
+
+.portal-table.el-table .el-table__fixed-right-patch {
+  background-color: var(--admin-surface) !important;
+}
+
+.portal-table.el-table .sort-caret.ascending {
+  border-bottom-color: var(--admin-text-muted);
+}
+
+.portal-table.el-table .sort-caret.descending {
+  border-top-color: var(--admin-text-muted);
+}
+
+.portal-table.el-table th.ascending .sort-caret.ascending {
+  border-bottom-color: var(--admin-primary);
+}
+
+.portal-table.el-table th.descending .sort-caret.descending {
+  border-top-color: var(--admin-primary);
+}
+
+.portal-table.el-table.el-table--border .el-table__cell {
+  border-right: none !important;
+}
+
+.portal-panel.el-card {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  box-shadow: none;
+}
+
+.portal-panel.el-card .el-card__header {
+  border-bottom: 1px solid var(--admin-border);
+  padding: 14px 18px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--admin-text);
+}
+
+.portal-panel.el-card .el-card__body {
+  padding: 16px 18px;
+}
+
+.portal-panel.toolbar-card {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.portal-panel.toolbar-card:hover {
+  border-color: color-mix(in srgb, var(--admin-primary) 30%, var(--admin-border));
+  box-shadow: var(--shadow-sm);
+}
+
+.portal-panel.table-card .el-card__body {
+  padding-top: 14px;
+}
+
+/* 列表页筛选区：label、控件高度、focus ring */
+.filter-form.el-form--inline .el-form-item__label {
+  color: var(--admin-text-label);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.filter-form .el-input__wrapper,
+.filter-form .el-select .el-input__wrapper,
+.filter-form .el-date-editor.el-input__wrapper,
+.filter-form .el-date-editor .el-input__wrapper {
+  min-height: 36px;
+  border-radius: var(--admin-radius);
+  box-shadow: 0 0 0 1px var(--admin-border) inset;
+  transition: box-shadow 0.15s ease;
+}
+
+.filter-form .el-input__wrapper:hover,
+.filter-form .el-select .el-input__wrapper:hover,
+.filter-form .el-date-editor.el-input__wrapper:hover,
+.filter-form .el-date-editor .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--admin-border-strong) inset;
+}
+
+.filter-form .el-input__wrapper.is-focus,
+.filter-form .el-select .el-input__wrapper.is-focus,
+.filter-form .el-date-editor.el-input__wrapper.is-focus,
+.filter-form .el-date-editor .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--admin-primary) inset, 0 0 0 3px var(--admin-primary-ring);
+}
+
+.filter-form .el-form-item .el-button + .el-button {
+  margin-left: 8px;
+}
+
+/* 表格空状态（各列表页复用 `.table-empty` 结构） */
+.table-empty {
+  padding: 28px 20px 36px;
+  text-align: center;
+}
+
+.table-empty-graphic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.table-empty-icon {
+  color: color-mix(in srgb, var(--admin-primary) 35%, transparent);
+}
+
+.table-empty-line {
+  display: block;
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--admin-border) 20%,
+    var(--admin-border) 80%,
+    transparent
+  );
+}
+
+.table-empty-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.table-empty-desc {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--admin-text-muted);
+  line-height: 1.5;
+}
+
+.table-empty--error .table-empty-title {
+  font-size: 14px;
+  color: var(--admin-danger);
+}
+
+.table-empty--error .table-empty-desc {
+  color: var(--admin-text-muted);
+}
+
+.table-empty-graphic--error .table-empty-icon--error {
+  color: color-mix(in srgb, var(--admin-danger) 55%, transparent);
+}
+
+.table-empty-line--error {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--admin-danger) 35%, var(--admin-border)) 20%,
+    color-mix(in srgb, var(--admin-danger) 35%, var(--admin-border)) 80%,
+    transparent
+  );
+}
+
+/* —— 列表页布局与共享块（各 *List.vue 复用） —— */
+.portal-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.portal-page .toolbar-card .el-card__body {
+  padding-bottom: 10px;
+}
+
+.portal-page .filter-form {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.portal-page .list-skeleton {
+  padding: 8px 0 4px;
+}
+
+.portal-page .table-wrap {
+  min-height: 120px;
+}
+
+.portal-page .list-error-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--admin-danger);
+  background: color-mix(in srgb, var(--admin-danger) 8%, var(--admin-surface));
+  border: 1px solid color-mix(in srgb, var(--admin-danger) 28%, var(--admin-border));
+  border-radius: var(--admin-radius);
+}
+
+.portal-page .list-error-text {
+  flex: 1;
+  min-width: 200px;
+  line-height: 1.45;
+}
+
+.portal-page .list-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.portal-page .list-error-retry,
+.portal-page .list-error-dismiss {
+  cursor: pointer;
+  transition: var(--admin-transition);
+}
+
+.portal-page .list-error-retry {
+  font-weight: 600;
+}
+
+.portal-page .row-actions,
+.portal-page .action-cell {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.portal-page .action-detail {
+  font-weight: 600;
+}
+
+.portal-page .action-mod {
+  font-weight: 500;
+}
+
+.portal-page .audit-tag-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.portal-page .drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.portal-page .drawer-footer .el-button {
+  cursor: pointer;
+  transition: var(--admin-transition);
+}
+
+/* 表格内操作按钮：pointer + 轻量 hover（Pre-Delivery） */
+.portal-table .el-button {
+  cursor: pointer;
+  transition: var(--admin-transition);
+}
+
+.portal-table .el-button:focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 2px;
+}
+
+.portal-table .el-button.is-plain:not(:disabled):hover {
+  transform: none;
+}
+
+.portal-dialog-accent .el-textarea__inner:focus,
+.portal-dialog-accent .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--admin-primary) inset, 0 0 0 3px var(--admin-primary-ring);
+}
+
+@media (max-width: 768px) {
+  .portal-page .filter-form.el-form--inline .el-form-item {
+    margin-right: 0;
+    width: 100%;
+  }
+
+  .portal-page .filter-form.el-form--inline .el-form-item__content {
+    width: 100%;
+  }
+
+  .portal-page .filter-form .filter-input-nick,
+  .portal-page .filter-form .filter-input-sm,
+  .portal-page .filter-form .filter-input-range {
+    width: 100%;
+  }
+
+  .portal-page .filter-form .filter-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .portal-page .filter-form .filter-actions .el-button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 375px) {
+  .portal-drawer.el-drawer {
+    width: calc(100vw - 16px) !important;
+  }
+}
+
+/* 举报管理 Tab 内嵌列表区 */
+.report-manage.portal-page .report-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+
+.pager {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pager .el-pagination {
+  --el-pagination-font-size: 13px;
+  --el-pagination-text-color: var(--admin-text-muted);
+  --el-pagination-button-bg-color: var(--admin-surface);
+  --el-pagination-button-color: var(--admin-text-label);
+  --el-disabled-bg-color: var(--admin-bg-2);
+}
+
+.pager .el-pagination .el-pagination__total,
+.pager .el-pagination .el-pagination__jump {
+  color: var(--admin-text-muted);
+}
+
+.pager .el-pagination.is-background .btn-prev:enabled:hover,
+.pager .el-pagination.is-background .btn-next:enabled:hover,
+.pager .el-pagination.is-background .el-pager li:not(.is-active):hover {
+  background-color: var(--admin-primary-subtle) !important;
+  color: var(--admin-primary-active) !important;
+}
+
+.pager .el-pagination.is-background .el-pager li.is-active {
+  background-color: var(--admin-primary) !important;
+  color: #fff !important;
+}
+
+/* v-loading：更轻遮罩 + 青绿 spinner */
+.el-loading-mask {
+  background-color: rgba(255, 248, 237, 0.78) !important;
+}
+
+.el-loading-spinner .path {
+  stroke: var(--admin-primary) !important;
+}
+
+.el-loading-spinner .el-loading-text {
+  color: var(--admin-text-label);
+}
+
+.portal-drawer.el-drawer {
+  width: min(520px, calc(100vw - 24px)) !important;
+  box-shadow: var(--shadow-lg) !important;
+  --el-drawer-bg-color: var(--admin-surface);
+}
+
+.portal-drawer.el-drawer .el-drawer__header {
+  margin-bottom: 0;
+  padding: 16px 24px 14px;
+  border-bottom: 1px solid var(--admin-border);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--admin-text);
+  border-left: 4px solid var(--admin-primary);
+  background: linear-gradient(180deg, var(--admin-surface) 0%, var(--admin-surface-soft) 100%);
+}
+
+.portal-drawer.el-drawer .el-drawer__body {
+  padding: 16px 24px 20px;
+  flex: 1;
+  overflow: auto;
+  background: var(--admin-bg);
+}
+
+.portal-drawer.el-drawer .el-drawer__footer {
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.portal-drawer .el-drawer__close-btn:focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 2px;
+}
+
+/* 抽屉内：概要卡 + 分组描述 + 长文本 */
+.portal-detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.portal-detail-summary {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.portal-detail-summary-thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--admin-radius-lg);
+  border: 1px solid var(--admin-border);
+  overflow: hidden;
+}
+
+.portal-detail-summary-thumb.el-image img {
+  border-radius: inherit;
+}
+
+.portal-detail-summary-thumb--ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--admin-primary-subtle);
+  color: var(--admin-primary);
+}
+
+.portal-detail-summary-icon {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--admin-radius-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--admin-primary-subtle);
+  border: 1px solid color-mix(in srgb, var(--admin-primary) 16%, var(--admin-border));
+  color: var(--admin-primary);
+  font-size: 26px;
+}
+
+.portal-detail-summary-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.portal-detail-summary-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--admin-text);
+  word-break: break-word;
+}
+
+.portal-detail-summary-title--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.portal-detail-summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.portal-detail-summary-sub {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--admin-text-muted);
+}
+
+.portal-readonly-block {
+  box-sizing: border-box;
+  margin: 0;
+  font-family: inherit;
+  padding: 12px 14px;
+  max-height: min(440px, 58vh);
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--admin-text-label);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--admin-surface-soft);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+}
+
+/* el-descriptions：抽屉 / 详情内统一边框与 label 层级 */
+.portal-details-in-drawer.el-descriptions {
+  --el-descriptions-table-border: 1px solid var(--admin-border);
+  --el-descriptions-item-bordered-label-background: var(--admin-surface-soft);
+}
+
+.portal-details-in-drawer .el-descriptions__title {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0.02em;
+  color: var(--admin-text-label);
+}
+
+.portal-details-in-drawer .el-descriptions__label.el-descriptions__cell.is-bordered-label {
+  width: 112px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--admin-text-label);
+}
+
+.portal-details-in-drawer .el-descriptions__content.el-descriptions__cell.is-bordered-content {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--admin-text);
+}
+
+.portal-details-in-drawer .el-descriptions__body .el-descriptions__table .el-descriptions__cell {
+  padding: 10px 14px !important;
+}
+
+/* 登录页布局与视觉由 Login.vue 内 scoped 样式负责 */
+
+/* 全局徽章（与 Element Plus el-tag 区分：轻量 pill，用于页面内状态说明） */
+.portal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.2em 0.55em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  vertical-align: middle;
+}
+
+.portal-badge--primary {
+  color: var(--admin-primary);
+  background: var(--admin-primary-soft);
+  border-color: color-mix(in srgb, var(--admin-primary) 22%, transparent);
+}
+
+.portal-badge--warning {
+  color: var(--admin-warning);
+  background: var(--admin-warning-soft);
+  border-color: color-mix(in srgb, var(--admin-warning) 28%, transparent);
+}
+
+.portal-badge--info {
+  color: var(--admin-info);
+  background: var(--admin-info-soft);
+  border-color: color-mix(in srgb, var(--admin-info) 26%, transparent);
+}
+
+.portal-badge--danger {
+  color: var(--admin-danger);
+  background: var(--admin-danger-soft);
+  border-color: color-mix(in srgb, var(--admin-danger) 24%, transparent);
+}
+
+.portal-badge--success {
+  color: var(--admin-success);
+  background: var(--admin-success-soft);
+  border-color: color-mix(in srgb, var(--admin-success) 26%, transparent);
+}
+
+.portal-badge--muted {
+  color: var(--admin-text-muted);
+  background: var(--admin-bg-2);
+  border-color: var(--admin-border);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.portal-fade-in-up {
+  animation: fadeInUp 0.34s ease-out both;
+}
+
+/* B6：Dialog 标题区左侧主色强调（与列表页表单区形成视觉锚点） */
+.portal-dialog-accent.el-dialog {
+  border-radius: var(--admin-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  padding: 0;
+}
+
+.portal-dialog-accent .el-dialog__header {
+  border-left: 4px solid var(--admin-primary);
+  padding: 14px 20px 12px;
+  padding-left: 18px;
+  margin-right: 0;
+  background: linear-gradient(180deg, var(--admin-surface) 0%, var(--admin-surface-soft) 100%);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.portal-dialog-accent .el-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--admin-text);
+}
+
+.portal-dialog-accent .el-dialog__headerbtn {
+  top: 10px;
+  right: 12px;
+}
+
+.portal-dialog-accent .el-dialog__headerbtn:focus-visible {
+  outline: 2px solid var(--admin-primary);
+  outline-offset: 2px;
+}
+
+.portal-dialog-accent .el-dialog__body {
+  padding: 18px 20px 8px;
+  color: var(--admin-text-label);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.portal-dialog-accent .el-dialog__footer {
+  padding: 14px 20px 16px;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.portal-dialog-accent .el-dialog__footer .el-button + .el-button {
+  margin-left: 8px;
+}
+
+.portal-dialog-accent .el-form-item:last-child {
+  margin-bottom: 6px;
+}
+
+/* 弹窗内提示行（驳回、举报处理等） */
+.portal-dialog-accent .dialog-hint,
+.portal-dialog-accent .dialog-line {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--admin-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --admin-transition: none;
+    --portal-transition: none;
+  }
+
+  .layout-portal .portal-menu.portal-menu--sidebar .el-menu-item {
+    transition: none !important;
+  }
+
+  .portal-fade-in-up {
+    animation: none !important;
+  }
+
+  .card-lift {
+    transition: none !important;
+  }
+  .card-lift:hover {
+    transform: none !important;
+  }
+}
+
+/* ===== Glass Morphism Utilities ===== */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 248, 237, 0.6);
+  border-radius: var(--admin-radius-lg);
+}
+
+.glass-surface {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ===== Page Transition ===== */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ===== Count Animation ===== */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.count-animate {
+  animation: countUp 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* ===== Card Lift Refinement ===== */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.22, 0.61, 0.36, 1),
+              box-shadow 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}

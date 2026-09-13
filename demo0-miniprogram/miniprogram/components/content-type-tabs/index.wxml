@@ -1,0 +1,14 @@
+<view class="tabs">
+  <view
+    wx:for="{{tabs}}"
+    wx:key="key"
+    class="tab {{activeFilter === item.key ? 'tab--active' : ''}}"
+    hover-class="tab--hover"
+    hover-stay-time="100"
+    data-key="{{item.key}}"
+    bindtap="onTabTap"
+  >
+    <text class="tab__text">{{item.label}}</text>
+    <view wx:if="{{activeFilter === item.key}}" class="tab__underline" />
+  </view>
+</view>

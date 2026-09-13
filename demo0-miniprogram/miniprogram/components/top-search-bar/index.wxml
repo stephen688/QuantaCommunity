@@ -1,0 +1,14 @@
+<view class="bar">
+  <view class="bar__search card" hover-class="bar__search--hover" bindtap="onSearchTap">
+    <view class="bar__search-icon" aria-hidden="true" />
+    <text class="bar__placeholder">{{placeholder}}</text>
+  </view>
+  <view
+    wx:if="{{showPublish}}"
+    class="bar__publish"
+    hover-class="bar__publish--hover"
+    bindtap="onPublishTap"
+  >
+    <text class="bar__publish-text">发布</text>
+  </view>
+</view>

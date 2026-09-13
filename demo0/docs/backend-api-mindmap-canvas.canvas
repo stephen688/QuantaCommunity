@@ -1,0 +1,177 @@
+{
+  "nodes": [
+    {
+      "id": "root",
+      "type": "text",
+      "text": "demo0 后端接口思维导图\n\n总接口：68（方法级）\n范围：controller 层\n目标：稳定性 / 性能 / 安全",
+      "x": 0,
+      "y": 220,
+      "width": 340,
+      "height": 220
+    },
+    {
+      "id": "m1",
+      "type": "text",
+      "text": "L2 用户账号与身份（14）\n\n子域：登录会话、资料维护、身份认证、个人内容视图、公开主页",
+      "x": 420,
+      "y": 0,
+      "width": 340,
+      "height": 180
+    },
+    {
+      "id": "m2",
+      "type": "text",
+      "text": "L2 内容发布与互动（19）\n\n子域：内容生命周期、评论回复、回答采纳、点赞收藏、举报闭环",
+      "x": 420,
+      "y": 210,
+      "width": 340,
+      "height": 180
+    },
+    {
+      "id": "m3",
+      "type": "text",
+      "text": "L2 关系链路与推荐（2）\n\n子域：关注关系维护、关注流时间线",
+      "x": 420,
+      "y": 420,
+      "width": 340,
+      "height": 150
+    },
+    {
+      "id": "m4",
+      "type": "text",
+      "text": "L2 检索与智能问答（6）\n\n子域：关键词检索、历史管理、热门聚合、RAG 检索增强",
+      "x": 420,
+      "y": 600,
+      "width": 340,
+      "height": 170
+    },
+    {
+      "id": "m5",
+      "type": "text",
+      "text": "L2 通知与公共能力（5）\n\n子域：通知中心、已读状态管理、文件上传",
+      "x": 420,
+      "y": 800,
+      "width": 340,
+      "height": 160
+    },
+    {
+      "id": "m6",
+      "type": "text",
+      "text": "L2 平台治理与审核（22）\n\n子域：内容/评论/回答治理、举报处置、用户封禁、身份审核、AI 审核记录",
+      "x": 420,
+      "y": 990,
+      "width": 340,
+      "height": 180
+    },
+    {
+      "id": "d1",
+      "type": "text",
+      "text": "L4-L5 用户账号与身份接口\n\n/user/login：换取身份 -> 发 JWT -> Redis 会话\n/user/info：读取当前用户资料\n/user/info/update：更新资料\n/user/auth/add|status|detail：认证申请与查询\n/user/content/my/list|liked|collect|browseHistory：个人内容行为视图\n/user/browse/history/clear：清理浏览历史\n/user/{userId}/profile：公开主页聚合\n/user/{userId}/contents：公开内容分页\n/user/logout：会话失效\n\n亮点：会话 TTL、封禁前置拦截、公开口径统一",
+      "x": 840,
+      "y": 0,
+      "width": 540,
+      "height": 380
+    },
+    {
+      "id": "d2",
+      "type": "text",
+      "text": "L4-L5 内容发布与互动接口\n\n/content/publish|recommend|detail|delete|like|collect|report\n/comment/send|list|replyList|delete|like|report\n/answer/publish|list|accept|like|{id}(delete/detail)\n\n重点流程（发布->审核->分发）：\n1) 用户发布内容/评论/回答\n2) 治理侧审核与举报处理介入\n3) 通过后进入推荐/搜索/关注流分发\n\n亮点：状态切换接口幂等友好，问答采纳强约束，举报闭环可审计",
+      "x": 840,
+      "y": 230,
+      "width": 540,
+      "height": 360
+    },
+    {
+      "id": "d3",
+      "type": "text",
+      "text": "L4-L5 关系链路与推荐接口\n\n/follow/{id}：关注/取关状态切换\n/follow/feed：关注动态滚动分页\n\n亮点：\n- 单接口切换关系状态\n- ScrollResult 适配高并发时间线",
+      "x": 840,
+      "y": 620,
+      "width": 540,
+      "height": 210
+    },
+    {
+      "id": "d4",
+      "type": "text",
+      "text": "L4-L5 检索与智能问答接口\n\n/search/content：内容检索分页\n/search/history/keywords：历史关键词\n/search/history/clear：清空历史\n/search/history/deleteOne/{id}：删除单条历史\n/search/trending：热门聚合\n/rag/search：检索 + 可选 AI 总结\n\n亮点：\n- 检索失败与 AI 失败分级处理\n- 热门聚合读模型减少前端拼装",
+      "x": 840,
+      "y": 860,
+      "width": 540,
+      "height": 300
+    },
+    {
+      "id": "d5",
+      "type": "text",
+      "text": "L4-L5 通知与公共能力接口\n\n/notification/list：通知分页\n/notification/unreadCount：未读数\n/notification/read/{id}：单条已读\n/notification/readAll：全部已读\n/common/upload：文件上传 OSS\n\n亮点：\n- 通知读写分离，角标刷新友好\n- 上传三重校验（MIME+后缀+魔数）",
+      "x": 840,
+      "y": 1190,
+      "width": 540,
+      "height": 280
+    },
+    {
+      "id": "d6",
+      "type": "text",
+      "text": "L4-L5 平台治理与审核接口\n\n/admin/content: page|audit|delete|report/page|report/handle\n/admin/comment: page|audit|delete|report/page|report/handle\n/admin/answer: page|audit|delete\n/admin/user: page|{id}|ban|unban\n/admin/moderation: latest|latest/batch\n/admin/identityExam: page|userAuth/detail/{authId}|audit\n\n亮点：\n- 治理工单化（举报分页+处理）\n- 人工审核与 AI 审核协同\n- 高风险账号可即时下线",
+      "x": 840,
+      "y": 1500,
+      "width": 540,
+      "height": 360
+    },
+    {
+      "id": "t1",
+      "type": "text",
+      "text": "系统级主线 1：稳定性\n\n- 幂等：点赞/关注等状态切换\n- 异常分层：业务异常 / 系统异常\n- 降级：RAG AI 失败不阻塞主流程\n- 建议：治理链路补消息重试与死信",
+      "x": 1480,
+      "y": 220,
+      "width": 440,
+      "height": 240
+    },
+    {
+      "id": "t2",
+      "type": "text",
+      "text": "系统级主线 2：性能\n\n- 分页 + 滚动分页并用\n- Redis 会话与热点计数缓存\n- profile/trending 聚合读模型\n- 建议：推荐与搜索分层缓存、批量优先",
+      "x": 1480,
+      "y": 500,
+      "width": 440,
+      "height": 230
+    },
+    {
+      "id": "t3",
+      "type": "text",
+      "text": "系统级主线 3：安全\n\n- 鉴权与角色隔离（用户/管理端）\n- 审核闭环（发布->审核->分发）\n- 举报治理与审计留痕\n- 上传内容安全校验\n- 建议：高风险操作双因子",
+      "x": 1480,
+      "y": 770,
+      "width": 440,
+      "height": 250
+    },
+    {
+      "id": "term",
+      "type": "text",
+      "text": "术语统一\n\n- 帖子/内容：路径统一用 content\n- 审核：audit\n- 举报处理：report/handle\n- page=普通分页，scroll=滚动分页\n- 身份认证(identity exam) 与 登录认证(login auth) 区分",
+      "x": 1480,
+      "y": 1060,
+      "width": 440,
+      "height": 230
+    }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "root", "toNode": "m1", "fromSide": "right", "toSide": "left" },
+    { "id": "e2", "fromNode": "root", "toNode": "m2", "fromSide": "right", "toSide": "left" },
+    { "id": "e3", "fromNode": "root", "toNode": "m3", "fromSide": "right", "toSide": "left" },
+    { "id": "e4", "fromNode": "root", "toNode": "m4", "fromSide": "right", "toSide": "left" },
+    { "id": "e5", "fromNode": "root", "toNode": "m5", "fromSide": "right", "toSide": "left" },
+    { "id": "e6", "fromNode": "root", "toNode": "m6", "fromSide": "right", "toSide": "left" },
+
+    { "id": "e7", "fromNode": "m1", "toNode": "d1", "fromSide": "right", "toSide": "left" },
+    { "id": "e8", "fromNode": "m2", "toNode": "d2", "fromSide": "right", "toSide": "left" },
+    { "id": "e9", "fromNode": "m3", "toNode": "d3", "fromSide": "right", "toSide": "left" },
+    { "id": "e10", "fromNode": "m4", "toNode": "d4", "fromSide": "right", "toSide": "left" },
+    { "id": "e11", "fromNode": "m5", "toNode": "d5", "fromSide": "right", "toSide": "left" },
+    { "id": "e12", "fromNode": "m6", "toNode": "d6", "fromSide": "right", "toSide": "left" },
+
+    { "id": "e13", "fromNode": "d2", "toNode": "t1", "fromSide": "right", "toSide": "left" },
+    { "id": "e14", "fromNode": "d4", "toNode": "t2", "fromSide": "right", "toSide": "left" },
+    { "id": "e15", "fromNode": "d6", "toNode": "t3", "fromSide": "right", "toSide": "left" },
+    { "id": "e16", "fromNode": "d6", "toNode": "term", "fromSide": "right", "toSide": "left" }
+  ]
+}

@@ -1,0 +1,21 @@
+<view class="mascot-cat {{positionClass}} {{motionReduced ? 'motion-reduced' : ''}}" aria-hidden="true">
+  <image
+    wx:if="{{useImage}}"
+    class="mascot-cat__img"
+    src="/assets/mascot-cat.png"
+    mode="aspectFit"
+  />
+  <view wx:else class="mascot-cat__css">
+    <view class="mascot-cat__css-ear mascot-cat__css-ear--l"></view>
+    <view class="mascot-cat__css-ear mascot-cat__css-ear--r"></view>
+    <view class="mascot-cat__css-head">
+      <view class="mascot-cat__css-eye mascot-cat__css-eye--l"></view>
+      <view class="mascot-cat__css-eye mascot-cat__css-eye--r"></view>
+      <view class="mascot-cat__css-nose"></view>
+    </view>
+    <view class="mascot-cat__css-body">
+      <view class="mascot-cat__css-bell"></view>
+    </view>
+    <view class="mascot-cat__css-tail"></view>
+  </view>
+</view>

@@ -1,0 +1,22 @@
+---
+description: Run ui-ux-pro-max search from this repo root (avoids wrong path / Chinese path issues on Windows)
+globs:
+alwaysApply: false
+---
+
+# ui-ux-pro-max (demo0)
+
+Run search **from the demo0 project root** using a **relative** path. Do not pass a full absolute path with Chinese directory names.
+
+```powershell
+cd <demo0-root>
+python .cursor\skills\ui-ux-pro-max\scripts\search.py "<query>" --design-system -p "Project Name"
+```
+
+On Windows, prefer the wrapper (uses script directory, UTF-8 code page):
+
+```powershell
+.cursor\skills\ui-ux-pro-max\scripts\search.cmd "<query>" --design-system -p "Project Name"
+```
+
+Skill files live at `.cursor/skills/ui-ux-pro-max/` in this repo (not under demo0-admin unless you are in that workspace folder).

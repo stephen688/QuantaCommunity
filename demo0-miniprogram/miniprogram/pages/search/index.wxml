@@ -1,0 +1,133 @@
+<view class="search-page">
+  <search-input-bar
+    value="{{inputValue}}"
+    bind:input="onSearchInput"
+    bind:confirm="onSearchConfirm"
+    bind:clear="onSearchClear"
+    bind:cancel="onSearchCancel"
+  />
+
+  <view class="search-page__body">
+    <block wx:if="{{historyLoading}}">
+      <view class="search-page__history-card card">
+        <view class="search-page__section-head">
+          <text class="search-page__section-title">搜索历史</text>
+        </view>
+        <view class="search-page__history-skel">
+          <feed-skeleton variant="search" count="{{1}}" />
+        </view>
+      </view>
+    </block>
+    <block wx:elif="{{historyErrorType}}">
+      <view class="search-page__history-card card search-page__history-card--pad">
+        <view class="search-page__history-state">
+          <state-block
+            type="{{historyErrorType}}"
+            title="{{historyStateTitle}}"
+            description="{{historyErrorMessage}}"
+            actionText="{{historyStateActionText}}"
+            bind:action="onHistoryStateAction"
+          />
+        </view>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="search-page__history-card card">
+        <view class="search-page__section-head">
+          <view class="search-page__section-head-left">
+            <view class="search-page__clock" aria-hidden="true" />
+            <text class="search-page__section-title">搜索历史</text>
+          </view>
+          <text
+            wx:if="{{historyKeywords.length}}"
+            class="search-page__clear-btn"
+            hover-class="search-page__clear-btn--hover"
+            bindtap="onClearHistory"
+          >清空</text>
+        </view>
+        <view wx:if="{{historyKeywords.length}}" class="search-page__tags">
+          <view
+            wx:for="{{historyKeywords}}"
+            wx:key="*this"
+            class="search-page__tag"
+            hover-class="search-page__tag--hover"
+            data-keyword="{{item}}"
+            bindtap="onHistoryTap"
+          >
+            <text class="search-page__tag-text">{{item}}</text>
+          </view>
+        </view>
+        <view wx:else class="search-page__history-empty">还没有搜索记录，试试输入关键词</view>
+      </view>
+    </block>
+
+    <view wx:if="{{showHotRecommend}}" class="search-page__recommend-card card">
+      <view class="search-page__section-head search-page__section-head--no-border">
+        <view class="search-page__section-head-left">
+          <view class="search-page__trend-icon" aria-hidden="true" />
+          <text class="search-page__section-title">大家在搜</text>
+        </view>
+      </view>
+
+      <view wx:if="{{hotKeywords.length}}" class="search-page__recommend-block">
+        <text class="search-page__recommend-label">热门关键词</text>
+        <view class="search-page__tags">
+          <view
+            wx:for="{{hotKeywords}}"
+            wx:key="*this"
+            class="search-page__hot-chip {{lastHotKeyword === item ? 'search-page__hot-chip--active' : ''}}"
+            hover-class="search-page__hot-chip--hover"
+            data-keyword="{{item}}"
+            bindtap="onHotKeywordTap"
+          >
+            <text class="search-page__hot-chip-text">{{item}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{hotQuestions.length}}" class="search-page__recommend-block">
+        <text class="search-page__recommend-label">热门问题</text>
+        <view class="search-page__hot-questions">
+          <view
+            wx:for="{{hotQuestions}}"
+            wx:key="contentId"
+            class="search-page__hot-question"
+            hover-class="search-page__hot-question--hover"
+            data-content-id="{{item.contentId}}"
+            data-content-type="{{item.contentType}}"
+            bindtap="onHotQuestionTap"
+          >
+            <text class="search-page__hot-question-title">{{item.title}}</text>
+            <text wx:if="{{item.heatLabel}}" class="search-page__hot-question-meta">{{item.heatLabel}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{hotAlumni.length}}" class="search-page__recommend-block">
+        <text class="search-page__recommend-label">热门校友</text>
+        <scroll-view class="search-page__alumni-scroll" scroll-x enable-flex>
+          <view
+            wx:for="{{hotAlumni}}"
+            wx:key="userId"
+            class="search-page__alumni-item"
+            hover-class="search-page__alumni-item--hover"
+            data-user-id="{{item.userId}}"
+            bindtap="onHotAlumniTap"
+          >
+            <view class="search-page__alumni-avatar">
+              <image
+                wx:if="{{item.avatarUrl}}"
+                class="search-page__alumni-avatar-img"
+                src="{{item.avatarUrl}}"
+                mode="aspectFill"
+              />
+              <text wx:else class="search-page__alumni-avatar-fallback">{{item.avatarInitial || '友'}}</text>
+            </view>
+            <text class="search-page__alumni-name">{{item.nickName}}</text>
+            <text wx:if="{{item.subtitle}}" class="search-page__alumni-sub">{{item.subtitle}}</text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+  </view>
+</view>

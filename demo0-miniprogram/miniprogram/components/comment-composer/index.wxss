@@ -1,0 +1,46 @@
+.cc {
+  padding: 20rpx 24rpx 24rpx;
+  box-sizing: border-box;
+}
+
+.cc__input {
+  width: 100%;
+  min-height: 120rpx;
+  max-height: 320rpx;
+  font-size: 28rpx;
+  line-height: 1.55;
+  color: var(--color-text-primary, #1f2329);
+  box-sizing: border-box;
+}
+
+.cc__footer {
+  margin-top: 16rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.cc__hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: var(--color-text-tertiary, #8f959e);
+}
+
+.cc__btn {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 28rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  border-radius: 32rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+  background-color: var(--color-cta, #1e5a4c) !important;
+}
+
+.cc__btn--hover {
+  opacity: 0.9;
+}

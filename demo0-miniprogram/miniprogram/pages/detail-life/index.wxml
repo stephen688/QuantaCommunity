@@ -1,0 +1,135 @@
+<view class="detail-page">
+  <view wx:if="{{invalidId}}" class="detail-page__pad">
+    <state-block
+      type="invalidData"
+      title="内容参数无效"
+      description="缺少或无效的内容编号"
+      actionText="返回"
+      bind:action="onDetailStateAction"
+    />
+  </view>
+
+  <block wx:elif="{{typeMismatch && detail}}">
+    <view class="detail-page__pad">
+      <state-block
+        type="invalidData"
+        title="内容类型异常"
+        description="该内容不是生活类，请从对应入口打开"
+        actionText="返回"
+        bind:action="onTypeMismatchAction"
+      />
+    </view>
+  </block>
+
+  <view wx:elif="{{contentDeleted}}" class="detail-page__pad">
+    <state-block
+      type="empty"
+      title="内容已删除"
+      description="该内容已不存在或已被删除"
+      actionText="回首页"
+      bind:action="onContentDeletedBack"
+    />
+  </view>
+
+  <view wx:elif="{{loading && !detail}}" class="detail-page__skel">
+    <feed-skeleton variant="detail" count="{{1}}" />
+  </view>
+
+  <view wx:elif="{{errorType && !detail}}" class="detail-page__state">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onDetailStateAction"
+    />
+  </view>
+
+  <block wx:elif="{{detail}}">
+    <view class="detail-page__body content-reveal">
+      <view class="detail-page__card card">
+        <view class="detail-page__toolbar">
+          <view class="detail-page__toolbar-fill" />
+          <text class="detail-page__more hover-opacity" catchtap="onContentMore">更多</text>
+        </view>
+        <author-row
+          nickname="{{detail.authorName}}"
+          avatarUrl="{{detail.authorAvatar}}"
+          time="{{detail.createTime}}"
+          quantaBatch="{{detail.quantaBatch || ''}}"
+          quantaDepartment="{{detail.quantaDepartment || ''}}"
+          userId="{{detail.authorId}}"
+          clickable="{{true}}"
+          bind:tapauthor="onAuthorTap"
+        />
+        <text wx:if="{{detail.title}}" class="detail-page__title">{{detail.title}}</text>
+        <view wx:if="{{detail.images && detail.images.length}}" class="detail-page__imgs">
+          <image
+            wx:for="{{detail.images}}"
+            wx:key="*this"
+            class="detail-page__img"
+            src="{{item}}"
+            mode="aspectFill"
+            data-url="{{item}}"
+            bindtap="onPreviewImage"
+          />
+        </view>
+        <text wx:if="{{detail.content}}" class="detail-page__content" user-select>{{detail.content}}</text>
+      </view>
+
+      <view class="detail-page__section">评论</view>
+
+      <comment-list
+        items="{{comments}}"
+        loading="{{commentLoading}}"
+        loading-more="{{commentLoadingMore}}"
+        load-more-error="{{commentLoadMoreError}}"
+        finished="{{commentFinished}}"
+        default-reply-limit="{{2}}"
+        bind:retry="onCommentRetry"
+        bind:like="onCommentLike"
+        bind:commentmore="onCommentMore"
+        bind:reply="onCommentReply"
+        bind:loadreplies="onCommentLoadReplies"
+        bind:tapauthor="onAuthorTap"
+      />
+
+      <view class="detail-page__foot-spacer" />
+    </view>
+
+    <detail-action-bar
+      fixed
+      liked="{{detail.liked}}"
+      collected="{{detail.collected}}"
+      like-count="{{detail.likeCount}}"
+      collect-count="{{detail.collectCount}}"
+      comment-count="{{detail.commentCount}}"
+      loading="{{likeLoading || collectLoading}}"
+      bind:like="onDetailLike"
+      bind:collect="onDetailCollect"
+      bind:composeropen="openComposer"
+    />
+
+    <view wx:if="{{composerVisible}}" class="comment-sheet">
+      <view class="comment-sheet__mask" bindtap="closeComposer" />
+      <view class="comment-sheet__panel" catchtap="onComposerSheetPanelTap">
+        <view wx:if="{{replyTargetNick}}" class="comment-sheet__reply-bar">
+          <text class="comment-sheet__reply-text">
+            回复 <text class="comment-sheet__reply-nick">@{{replyTargetNick}}</text>
+          </text>
+          <text class="comment-sheet__reply-cancel" bindtap="onCancelReply">取消</text>
+        </view>
+        <comment-composer
+          value="{{composerValue}}"
+          submitting="{{composerSubmitting}}"
+          placeholder="{{replyPlaceholder}}"
+          auto-focus="{{composerAutoFocus}}"
+          cursor-spacing="{{48}}"
+          bind:input="onComposerInput"
+          bind:submit="onComposerSubmit"
+        />
+      </view>
+    </view>
+  </block>
+  <auth-intercept-modal />
+</view>

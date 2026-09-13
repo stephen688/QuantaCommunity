@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "state-block": "/components/state-block/index",
+    "page-list-footer": "/components/page-list-footer/index"
+  }
+}

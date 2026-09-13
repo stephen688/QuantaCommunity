@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.mapper.CommentMapper">
+
+
+    <insert id="insert" keyProperty="commentId" useGeneratedKeys="true">
+        insert into tb_content_comment
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="contentId != null">content_id,</if>
+            <if test="answerId != null">answer_id,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="replyCommentId != null">reply_comment_id,</if>
+            <if test="replyUserId != null">reply_user_id,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="content != null">content,</if>
+            <if test="likeCount != null">like_count,</if>
+            <if test="auditStatus != null">audit_status,</if>
+            <if test="rejectReason != null">reject_reason,</if>
+            <if test="auditTime != null">audit_time,</if>
+            <if test="auditUserId != null">audit_user_id,</if>
+            <if test="isDeleted != null">is_deleted,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+            <if test="contentId != null">#{contentId},</if>
+            <if test="answerId != null">#{answerId},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="replyCommentId != null">#{replyCommentId},</if>
+            <if test="replyUserId != null">#{replyUserId},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="content != null">#{content},</if>
+            <if test="likeCount != null">#{likeCount},</if>
+            <if test="auditStatus != null">#{auditStatus},</if>
+            <if test="rejectReason != null">#{rejectReason},</if>
+            <if test="auditTime != null">#{auditTime},</if>
+            <if test="auditUserId != null">#{auditUserId},</if>
+            <if test="isDeleted != null">#{isDeleted},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <insert id="insertCommentImagesBatch">
+        insert into tb_comment_image
+        (comment_id,image_url,sort)
+        values
+        <foreach collection="images" item="img" separator=",">
+            (#{img.commentId},#{img.imageUrl},#{img.sort})
+        </foreach>
+    </insert>
+    <insert id="insertCommentLikes">
+        INSERT IGNORE INTO tb_comment_like
+        (comment_id,user_id)
+        values
+        (#{commentId},#{userId})
+    </insert>
+    <!-- 插入举报记录 -->
+    <insert id="insertCommentReport" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_comment_report
+        (comment_id, reporter_id, report_type, status, is_deleted, create_time, update_time)
+        VALUES
+            (#{commentId}, #{reporterId}, #{reportType}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
+    </insert>
+    <update id="softDeleteById">
+        update tb_content_comment
+        set is_deleted = 1 ,update_time = CURRENT_TIMESTAMP
+        where comment_id = #{commentId}
+    </update>
+    <update id="softDeleteRepliesByParentId">
+        update  tb_content_comment
+        set is_deleted = 1 ,update_time = CURRENT_TIMESTAMP
+        where parent_id = #{commentId}
+    </update>
+    <update id="softDeleteRepliesByCommentIds">
+        UPDATE tb_content_comment
+        SET is_deleted = 1, update_time = NOW()
+        WHERE comment_id IN
+        <foreach collection="replyCommentIds" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+    <!-- 管理端 - 更新评论举报处理信息 -->
+    <update id="updateReport">
+        UPDATE tb_comment_report
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="handlerId != null">handler_id = #{handlerId},</if>
+            <if test="handleResult != null">handle_result = #{handleResult},</if>
+            <if test="handleRemark != null and handleRemark != ''">handle_remark = #{handleRemark},</if>
+            <if test="handleTime != null">handle_time = #{handleTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+    <delete id="deleteCommentImagesByCommentIds">
+        DELETE FROM tb_comment_image WHERE comment_id IN
+        <foreach collection="replyCommentIds" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+    <delete id="deleteCommentLikesByCommentIds">
+        DELETE FROM tb_comment_like WHERE comment_id IN
+        <foreach collection="replyCommentIds" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+    <select id="selectFirstLevelComments" resultType="com.quanta.demo0.entity.ContentComment">
+        SELECT
+        cc.comment_id,
+        cc.content_id,
+        cc.answer_id,
+        cc.parent_id,
+        cc.reply_comment_id,
+        cc.reply_user_id,
+        cc.user_id,
+        cc.content,
+        cc.like_count,
+        cc.create_time,
+        cc.update_time
+        FROM tb_content_comment cc
+        WHERE cc.content_id = #{contentId}
+        AND cc.parent_id IS NULL
+        AND cc.is_deleted = 0
+        AND cc.audit_status = 1
+        <if test="answerId != null">
+            AND cc.answer_id = #{answerId}
+        </if>
+        <choose>
+            <when test="sortType == 2">
+                ORDER BY cc.like_count DESC, cc.create_time DESC
+            </when>
+            <otherwise>
+                ORDER BY cc.create_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectReplyCountsByParentIds" resultType="com.quanta.demo0.entity.ReplyCountRow">
+        SELECT
+        cc.parent_id,
+        COUNT(*) AS reply_count
+        FROM tb_content_comment cc
+        WHERE cc.is_deleted = 0
+        AND cc.audit_status = 1
+        AND cc.parent_id IN
+        <foreach collection="parentIds" item="id" open="(" close=")" separator=",">
+        #{id}</foreach>
+        GROUP BY cc.parent_id
+
+    </select>
+    <select id="selectTopRepliesByParentIds" resultType="com.quanta.demo0.entity.ContentComment">
+        SELECT * FROM (
+        SELECT
+        comment_id,
+        content_id,
+        answer_id,
+        parent_id,
+        reply_comment_id,
+        reply_user_id,
+        user_id,
+        content,
+        like_count,
+        create_time,
+        update_time,
+        ROW_NUMBER() OVER (
+        PARTITION BY parent_id
+        ORDER BY create_time ASC
+        ) AS rn
+        FROM tb_content_comment
+        WHERE parent_id IN
+        <foreach collection="parentIds" item="id" open="(" close=")" separator=",">
+        #{id}</foreach>
+        AND is_deleted = 0
+        AND audit_status = 1
+        ) cc
+        WHERE cc.rn &lt;= #{i}
+    </select>
+    <select id="selectCommentLikeIds" resultType="java.lang.Long">
+        SELECT
+        comment_id
+        FROM tb_comment_like
+        WHERE user_id = #{userId}
+        AND comment_id IN
+        <foreach collection="allCommentIds" item="id" open="(" close=")" separator=",">
+        #{id}</foreach>
+        
+    </select>
+    <select id="selectByParentId" resultType="com.quanta.demo0.entity.ContentComment">
+        SELECT
+        cc.comment_id,
+        cc.content_id,
+        cc.answer_id,
+        cc.parent_id,
+        cc.reply_comment_id,
+        cc.reply_user_id,
+        cc.user_id,
+        cc.content,
+        cc.like_count,
+        cc.create_time,
+        cc.update_time
+        FROM tb_content_comment cc
+        WHERE cc.parent_id = #{parentCommentId}
+        AND cc.is_deleted = 0
+        AND cc.audit_status = 1
+        <choose>
+            <when test="sortType == 2">
+                ORDER BY cc.create_time DESC, cc.comment_id DESC
+            </when>
+            <otherwise>
+                ORDER BY cc.create_time ASC, cc.comment_id ASC
+            </otherwise>
+        </choose>
+    </select>
+    <!-- 管理端 - 分页查询评论列表 -->
+    <select id="pageAdmin" resultType="com.quanta.demo0.entity.ContentComment">
+        SELECT * FROM tb_content_comment
+        <where>
+            is_deleted = 0
+            <if test="query.contentId != null">
+                AND content_id = #{query.contentId}
+            </if>
+            <if test="query.auditStatus != null">
+                AND audit_status = #{query.auditStatus}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+    <!-- 管理端 - 分页查询评论举报列表 -->
+    <select id="pageReport" resultType="com.quanta.demo0.entity.CommentReport">
+        SELECT * FROM tb_comment_report
+        <where>
+            is_deleted = 0
+            <if test="query.status != null">
+                AND status = #{query.status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+    <!-- SQL 同时匹配旧状态，只有先到达的审核操作可以成功更新。 -->
+    <update id="updateAuditStatusIfCurrent">
+        UPDATE tb_content_comment
+        SET audit_status = #{newAuditStatus}, reject_reason = #{rejectReason}, audit_time = CURRENT_TIMESTAMP,
+            audit_user_id = #{auditUserId}, update_time = CURRENT_TIMESTAMP
+        WHERE comment_id = #{commentId} AND audit_status = #{oldAuditStatus} AND is_deleted = 0
+    </update>
+
+    <select id="selectImagesByCommentId" resultType="java.lang.String">
+        SELECT image_url FROM tb_comment_image
+        WHERE comment_id = #{commentId}
+    </select>
+</mapper>

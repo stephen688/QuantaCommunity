@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "我的发布",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "feed-skeleton": "/components/feed-skeleton/index",
+    "feed-switch-bar": "/components/feed-switch-bar/index",
+    "state-block": "/components/state-block/index",
+    "content-card": "/components/content-card/index",
+    "page-list-footer": "/components/page-list-footer/index"
+  }
+}

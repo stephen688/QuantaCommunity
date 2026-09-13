@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "我的",
+  "usingComponents": {
+    "profile-header": "/components/profile-header/index",
+    "entry-grid": "/components/entry-grid/index",
+    "entry-list-item": "/components/entry-list-item/index",
+    "auth-intercept-modal": "/components/auth-intercept-modal/index"
+  }
+}

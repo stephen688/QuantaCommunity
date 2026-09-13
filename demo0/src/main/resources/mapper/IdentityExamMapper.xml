@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.mapper.IdentityExamMapper">
+    <!--
+      认证审核列表分页查询联表SQL
+      入参：pageNum, pageSize, auditStatus（可选）
+      返回：UserAuthListVO
+    -->
+    <select id="list" resultType="com.quanta.demo0.vo.IdentityExamVO">
+        SELECT
+        ua.auth_id AS authId,
+        ua.user_id AS userId,
+        ua.real_name AS realName,
+        ua.school_id AS schoolId,
+        ua.create_time AS createTime,
+        ua.audit_status AS auditStatus
+        FROM tb_user_auth ua
+        <where>
+            <if test="auditStatus != null">
+                AND ua.audit_status = #{auditStatus}
+            </if>
+
+            <!-- startTime/endTime 在 DTO 中是 LocalDate -->
+            <if test="startTime != null">
+                AND ua.create_time &gt;= #{startTime}
+            </if>
+
+            <!-- 含结束日期当天：小于 next day 00:00:00 -->
+            <if test="endTime != null">
+                AND ua.create_time &lt; DATE_ADD(#{endTime}, INTERVAL 1 DAY)
+            </if>
+        </where>
+        ORDER BY ua.create_time DESC
+    </select>
+
+</mapper>

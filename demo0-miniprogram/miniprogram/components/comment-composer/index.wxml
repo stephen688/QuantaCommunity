@@ -1,0 +1,30 @@
+<view class="cc card">
+  <textarea
+    class="cc__input"
+    value="{{draft}}"
+    placeholder="{{placeholder}}"
+    maxlength="{{maxlength}}"
+    disabled="{{disabled || submitting}}"
+    focus="{{autoFocus}}"
+    auto-height
+    show-confirm-bar="{{false}}"
+    cursor-spacing="{{cursorSpacing}}"
+    adjust-position="{{true}}"
+    hold-keyboard="{{holdKeyboard}}"
+    bindinput="onInput"
+  />
+  <view class="cc__footer">
+    <text class="cc__hint">{{hintText}}</text>
+    <button
+      class="cc__btn"
+      size="mini"
+      type="primary"
+      loading="{{submitting}}"
+      disabled="{{sendDisabled}}"
+      hover-class="cc__btn--hover"
+      bindtap="onSubmitTap"
+    >
+      发送
+    </button>
+  </view>
+</view>

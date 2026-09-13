@@ -1,0 +1,157 @@
+# Phase 0–1：环境检查、登录、JWT / 管理端 403
+#
+# 前置：demo0 已启动（port 9191），MySQL demo + Redis db1 可用
+# 变量：复制 ../env.example.sh → ../env.sh；或 IntelliJ 选用 http-client.env.json → dev
+# 执行顺序：自上而下；P0-02 → P1-05/06 依赖 userToken；P0-03 + P1-07 依赖管理员 SQL
+# 执行：IntelliJ HTTP Client / VS Code REST Client；响应脚本写入 client.global / env 同名变量
+# 记录：结果仅更新 ../RESULTS.md
+#
+# 管理员准备（P0-03 / P1-07 前执行一次）：
+#   UPDATE user SET is_admin = 1 WHERE openid = 'test_openid_123456';
+#
+# contentType（以 Service 为准）：1=生活求助，2=专业问答
+
+@baseUrl = {{baseUrl}}
+@userToken = {{userToken}}
+@adminToken = {{adminToken}}
+
+###############################################################################
+# Phase 0 — 环境与账号
+###############################################################################
+
+### P0-01 连通性（无 Token → HTTP 401，证明服务与 JWT 拦截器已加载）
+# @no-cookie-jar
+GET {{baseUrl}}/user/info
+
+> {%
+  client.test("P0-01 app reachable", function () {
+    client.assert(response.status === 401, "expected HTTP 401 without token");
+  });
+%}
+
+### P0-02 正向登录（code=test）→ 写回 USER_TOKEN / USER_ID
+# @name loginTest
+POST {{baseUrl}}/user/login
+Content-Type: application/json
+
+{
+  "code": "test"
+}
+
+> {%
+  client.test("P0-02 login", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200, "body.code should be 200");
+    client.assert(response.body.data && response.body.data.token, "missing data.token");
+  });
+  client.global.set("userToken", response.body.data.token);
+  client.global.set("USER_TOKEN", response.body.data.token);
+  client.global.set("userId", String(response.body.data.id));
+  client.global.set("USER_ID", String(response.body.data.id));
+%}
+
+### P0-03 管理员 Token（需先执行 SQL，再本请求）
+# UPDATE user SET is_admin = 1 WHERE openid = 'test_openid_123456';
+# 必须用新 Token（JWT + DB 校验 is_admin）
+# @name loginAdmin
+POST {{baseUrl}}/user/login
+Content-Type: application/json
+
+{
+  "code": "test"
+}
+
+> {%
+  if (response.body.code === 200 && response.body.data.token) {
+    client.global.set("adminToken", response.body.data.token);
+    client.global.set("ADMIN_TOKEN", response.body.data.token);
+  }
+%}
+
+###############################################################################
+# Phase 1 — 登录与鉴权
+###############################################################################
+
+### P1-01 空 code → body.code=400
+POST {{baseUrl}}/user/login
+Content-Type: application/json
+
+{
+  "code": ""
+}
+
+> {%
+  client.test("P1-01 empty code", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 400);
+  });
+%}
+
+### P1-02 缺省 code 字段 → body.code=400
+POST {{baseUrl}}/user/login
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("P1-02 missing code", function () {
+    client.assert(response.body.code === 400);
+  });
+%}
+
+### P1-03 无 Token 访问 /user/info → HTTP 401（空 body）
+GET {{baseUrl}}/user/info
+
+> {%
+  client.test("P1-03 no token", function () {
+    client.assert(response.status === 401);
+  });
+%}
+
+### P1-04 错误 Token → HTTP 401
+GET {{baseUrl}}/user/info
+authorization: invalid-token-for-test
+
+> {%
+  client.test("P1-04 invalid token", function () {
+    client.assert(response.status === 401);
+  });
+%}
+
+### P1-05 登录后查询用户信息 → body.code=200
+GET {{baseUrl}}/user/info
+authorization: {{userToken}}
+
+> {%
+  client.test("P1-05 user info", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data, "data should exist");
+  });
+%}
+
+### P1-06 普通用户访问管理端 → HTTP 403
+GET {{baseUrl}}/admin/user/page?pageNum=1&pageSize=10
+authorization: {{userToken}}
+
+> {%
+  client.test("P1-06 user forbidden on admin", function () {
+    client.assert(response.status === 403);
+  });
+%}
+
+### P1-07 管理员访问管理端 → body.code=200
+# 依赖 P0-03：DB is_admin=1 且 adminToken 已写入
+GET {{baseUrl}}/admin/user/page?pageNum=1&pageSize=10
+authorization: {{adminToken}}
+
+> {%
+  client.test("P1-07 admin page", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    client.assert(response.body.data, "page data should exist");
+  });
+%}
+
+### P1-08 登出后会话失效（可选：调用登出后重复 P1-05，预期 HTTP 401）
+# 若项目暂无登出接口，可手动 DEL Redis login:token:{userId} 后重试 P1-05

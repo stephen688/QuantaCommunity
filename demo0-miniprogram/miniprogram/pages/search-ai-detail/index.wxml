@@ -1,0 +1,48 @@
+<view class="sad">
+  <feed-skeleton wx:if="{{loading}}" variant="detail" count="{{1}}" />
+
+  <view wx:elif="{{errorType && !summary}}" class="sad__state">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <scroll-view wx:else class="sad__scroll" scroll-y>
+    <view class="sad__head card">
+      <text class="sad__kw">{{keyword}}</text>
+      <text class="sad__tag">{{filterLabel}}</text>
+    </view>
+
+    <view class="sad__body card">
+      <text class="sad__title">完整总结</text>
+      <text wx:if="{{summary}}" class="sad__content">{{summary}}</text>
+      <view wx:else class="sad__empty">
+        <text class="sad__empty-text">暂未生成总结</text>
+        <text wx:if="{{emptyHint}}" class="sad__empty-sub">{{emptyHint}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{sourceList.length}}" class="sad__sources">
+      <text class="sad__sources-title">相关来源</text>
+      <view class="sad__cards">
+        <content-card
+          wx:for="{{sourceList}}"
+          wx:key="contentId"
+          item="{{item}}"
+          showAuthor="{{true}}"
+          data-content-id="{{item.contentId}}"
+          data-content-type="{{item.contentType}}"
+          bind:cardtap="onCardTap"
+          bind:tapauthor="onCardAuthorTap"
+          bind:interactionchange="onCardInteractionChange"
+        />
+      </view>
+    </view>
+
+    <view class="sad__safe-bottom" />
+  </scroll-view>
+</view>

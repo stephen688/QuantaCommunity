@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.mapper.QuestionMapper">
+    <!-- 插入回答 -->
+    <insert id="insertAnswer" useGeneratedKeys="true" keyProperty="answerId">
+        INSERT INTO tb_question_answer
+        (question_id, user_id, content, like_count, comment_count, is_accepted, audit_status, is_deleted, create_time, update_time)
+        VALUES
+            (#{questionId}, #{userId}, #{content}, #{likeCount}, #{commentCount}, #{isAccepted}, #{auditStatus}, #{isDeleted}, #{createTime}, #{updateTime})
+    </insert>
+    <!-- 插入回答点赞记录 -->
+    <insert id="insertAnswerLiked" useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO tb_answer_like
+            (answer_id, user_id, create_time)
+        VALUES
+            (#{answerId}, #{userId}, #{createTime})
+    </insert>
+    <update id="softDeleteAnswers" parameterType="java.lang.Long">
+            update tb_question_answer set is_deleted = 1
+                  where question_id = #{questionId}
+                  and is_deleted = 0
+        </update>
+    <!-- 管理端 - 更新回答信息 -->
+    <update id="updateAnswer">
+        UPDATE tb_question_answer
+        <set>
+            <if test="auditStatus != null">audit_status = #{auditStatus},</if>
+            <if test="rejectReason != null and rejectReason != ''">reject_reason = #{rejectReason},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE answer_id = #{answerId}
+    </update>
+
+    <!--
+    只有 audit_status=0 才能被 AI 审核修改。
+    MySQL 条件更新可以防止 AI 和管理员同时修改成功。
+-->
+    <update id="updateAnswerAuditStatusIfPending">
+        UPDATE tb_question_answer
+        SET audit_status = #{auditStatus},
+            reject_reason = #{rejectReason},
+            update_time = CURRENT_TIMESTAMP
+        WHERE answer_id = #{answerId}
+          AND audit_status = 0
+          AND is_deleted = 0
+    </update>
+
+    <!-- 管理员只能修改自己刚刚读取到的状态，状态已被 AI 改变时更新 0 行。 -->
+    <update id="updateAnswerAuditStatusIfCurrent">
+        UPDATE tb_question_answer
+        SET audit_status = #{newAuditStatus},
+            reject_reason = #{rejectReason},
+            update_time = CURRENT_TIMESTAMP
+        WHERE answer_id = #{answerId}
+          AND audit_status = #{oldAuditStatus}
+          AND is_deleted = 0
+    </update>
+
+    <!-- 查询问题的回答列表 -->
+    <select id="selectAnswersByQuestionId" resultType="com.quanta.demo0.entity.QuestionAnswer">
+        SELECT * FROM tb_question_answer
+        WHERE question_id = #{questionId}
+          AND is_deleted = 0
+          AND audit_status = 1
+        ORDER BY is_accepted DESC, like_count DESC, create_time DESC
+    </select>
+    <!-- 管理端 - 分页查询回答列表 -->
+    <select id="pageAdmin" resultType="com.quanta.demo0.entity.QuestionAnswer">
+        SELECT * FROM tb_question_answer
+        <where>
+            is_deleted = 0
+            <if test="query.contentId != null">
+                AND question_id = #{query.contentId}
+            </if>
+            <if test="query.auditStatus != null">
+                AND audit_status = #{query.auditStatus}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+    <!-- 分页查询所有有效回答（供向量库全量重建使用） -->
+    <select id="selectAllAnswersForReindex" resultType="com.quanta.demo0.entity.QuestionAnswer">
+        SELECT * FROM tb_question_answer
+        WHERE is_deleted = 0
+        ORDER BY answer_id ASC
+        LIMIT #{offset}, #{limit}
+    </select>
+</mapper>

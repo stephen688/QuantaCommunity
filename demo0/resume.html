@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人简历 - 邓景文</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+            background: #fff;
+            color: #000;
+            font-size: 12.5px;
+            line-height: 1.55;
+            padding: 25px 30px;
+        }
+        .page {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+        /* 顶部个人信息 */
+        .personal-info {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: #000;
+            margin-top: 6px;
+            letter-spacing: 0.5px;
+        }
+        .personal-info span {
+            margin: 0 12px;
+        }
+        /* 标题 */
+        .section-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1.5px solid #000;
+        }
+        .section {
+            margin-bottom: 12px;
+        }
+        .section:last-child {
+            margin-bottom: 0;
+        }
+        /* 优势列表 */
+        .advantage-list {
+            list-style: none;
+        }
+        .advantage-list li {
+            padding-left: 14px;
+            position: relative;
+            margin-bottom: 3px;
+            text-align: justify;
+        }
+        .advantage-list li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: #000;
+            font-size: 12px;
+        }
+        .advantage-list li strong {
+            font-weight: 700;
+            color: #000;
+        }
+        /* 项目 */
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 4px;
+        }
+        .project-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #000;
+        }
+        .project-role {
+            font-size: 12px;
+            color: #333;
+            margin-left: 8px;
+            font-weight: 400;
+        }
+        .project-date {
+            font-size: 12px;
+            color: #555;
+            white-space: nowrap;
+        }
+        .project-meta {
+            margin-bottom: 4px;
+        }
+        .meta-row {
+            font-size: 12px;
+            color: #333;
+            margin-bottom: 2px;
+            line-height: 1.5;
+        }
+        .meta-label {
+            font-weight: 700;
+            color: #000;
+        }
+        .project-desc {
+            font-size: 12.5px;
+            color: #000;
+            margin-bottom: 5px;
+            text-align: justify;
+        }
+        .project-subtitle {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 3px;
+        }
+        .project-achievements {
+            list-style: none;
+            counter-reset: achievement;
+        }
+        .project-achievements li {
+            counter-increment: achievement;
+            padding-left: 22px;
+            position: relative;
+            margin-bottom: 2px;
+            text-align: justify;
+        }
+        .project-achievements li::before {
+            content: counter(achievement) '.';
+            position: absolute;
+            left: 0;
+            top: 0;
+            font-weight: 700;
+            color: #000;
+        }
+        .project-achievements li strong {
+            font-weight: 700;
+        }
+        @media print {
+            body { padding: 15px 20px; }
+            .page { max-width: 100%; }
+        }
+        @page { size: A4; margin: 15mm; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- 个人信息 -->
+        <div class="section">
+            <div class="section-title">个人信息</div>
+            <div class="personal-info">
+                <span>邓景文</span>
+                <span>|</span>
+                <span>广东外语外贸大学</span>
+                <span>|</span>
+                <span>应聘岗位：后端经理</span>
+            </div>
+        </div>
+
+        <!-- 个人优势 -->
+        <div class="section">
+            <div class="section-title">个人优势</div>
+            <ul class="advantage-list">
+                <li>具备扎实的 <strong>Java 基础</strong>，熟悉面向对象编程思想，熟练掌握集合、多线程等核心特性，理解数组与集合的底层实现机制，代码编写规范。</li>
+                <li>熟练使用 <strong>MySQL 数据库</strong>，能够编写常用 SQL 语句，理解事务与锁机制，掌握索引优化及 SQL 性能调优思路。</li>
+                <li>熟悉 <strong>Redis</strong> 的基本数据类型，了解缓存应用场景、数据淘汰策略及过期机制，实际项目中应用于用户登录态管理、关注关系缓存、内容点赞/收藏状态缓存、关注流 Feed 分发等场景。</li>
+                <li>熟练使用 <strong>Spring Boot 3 + MyBatis</strong> 框架进行项目开发，理解 Spring 的 IOC/AOP 原理，掌握 RESTful API 设计规范，具备 <strong>JWT + Redis 双重校验</strong> 的认证鉴权实战经验。</li>
+                <li>掌握 <strong>RabbitMQ 消息队列</strong>，实际项目中应用于内容发布后的关注流异步推送、AI 审核任务异步处理、热度分数更新等场景，理解消息可靠性保障与手动 ACK 机制。</li>
+                <li>掌握 <strong>Elasticsearch 搜索引擎</strong>，了解其核心概念、基本数据结构与查询语法，实际项目中应用于内容全文检索、搜索高亮、分页排序等业务开发。</li>
+                <li>掌握 <strong>Spring AI 框架</strong>，实际项目中接入通义千问（DashScope）实现 AI 内容审核、智能问答等能力，了解 RAG（检索增强生成）架构与向量检索原理。</li>
+                <li>熟悉 <strong>WebSocket 实时通信</strong>，实际项目中应用于系统通知实时推送，结合 RabbitMQ 实现离线消息补全。</li>
+                <li>掌握 Git/Gitee 代码版本管理工具，能够使用 Maven 进行项目构建和依赖管理。</li>
+            </ul>
+        </div>
+
+        <!-- 项目经历 -->
+        <div class="section">
+            <div class="section-title">项目经历</div>
+            <div class="project">
+                <div class="project-header">
+                    <div>
+                        <span class="project-name">QuantaCommunity</span>
+                        <span class="project-role">后端核心开发</span>
+                    </div>
+                    <span class="project-date">2026.4 - 2026.6</span>
+                </div>
+                <div class="project-meta">
+                    <div class="meta-row">
+                        <span class="meta-label">技术栈：</span>Java 17、Spring Boot 3.x、MySQL、MyBatis、Redis、RabbitMQ、Elasticsearch、Spring AI、WebSocket、阿里云 OSS、Knife4j、Maven
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">工具链：</span>Lombok、Hutool、Jackson、FastJSON、PageHelper、JWT
+                    </div>
+                </div>
+                <div class="project-desc">
+                    独立开发面向高校校友的社区平台，覆盖内容发布与审核、关注社交、全文检索、AI 智能问答、消息通知等核心业务；完成数据库设计、接口开发、性能优化全流程开发。
+                </div>
+                <div class="project-subtitle">核心职责与成果：</div>
+                <ol class="project-achievements">
+                    <li><strong>核心业务开发：</strong>基于 Spring Boot 3.x 完成社区全模块后端开发，独立实现用户认证、内容发布、评论互动、关注社交、问答系统等核心接口，保障模块稳定联动。</li>
+                    <li><strong>权限安全设计：</strong>采用 JWT + Redis 双重校验实现用户认证与权限管控，完成账号封禁、无感续期功能；通过 ThreadLocal 传递用户上下文，避免方法参数层层传递，提升系统安全性。</li>
+                    <li><strong>数据层优化：</strong>使用 MyBatis 简化单表操作，自定义 ResultMap 实现多表关联查询；通过 SQL 索引优化，降低数据库 IO 开销，提升数据查询效率。</li>
+                    <li><strong>多级缓存方案：</strong>结合 Redis 分布式缓存，针对用户登录态、关注关系、内容点赞/收藏状态、推荐流等热点数据做缓存优化；通过 ZSET 实现关注流 Feed 分发，支持按内容类型分类推送。</li>
+                    <li><strong>异步与消息处理：</strong>接入 RabbitMQ 实现内容发布后的关注流异步推送、AI 审核任务异步处理、热度分数异步更新、系统通知异步推送；采用手动 ACK 机制保障消息可靠性，避免消息丢失。</li>
+                    <li><strong>AI 能力集成：</strong>基于 Spring AI 框架接入通义千问（DashScope），实现 RAG（检索增强生成）架构的智能问答；结合 Elasticsearch 全文检索与向量检索双路召回，提升搜索准确率。</li>
+                    <li><strong>内容审核体系：</strong>接入阿里云内容安全 API，实现文本与图片的 AI 自动审核；设计审核状态流转机制（待审核→通过/驳回/疑似），支持疑似内容转人工审核，保障社区内容合规。</li>
+                    <li><strong>实时通信：</strong>基于 WebSocket 实现系统通知实时推送，结合 RabbitMQ 实现离线消息补全，确保用户在线实时收通知、离线拉列表补全。</li>
+                    <li><strong>效率提升：</strong>集成 Lombok、Hutool 等工具简化开发；使用 Knife4j 自动生成接口文档；独立完成数据库表设计、接口文档编写，具备全流程项目开发能力。</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

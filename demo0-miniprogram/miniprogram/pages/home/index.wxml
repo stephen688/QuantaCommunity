@@ -1,0 +1,117 @@
+﻿<view class="home-page">
+  <view class="home">
+  <view class="home__header">
+    <view class="home__header-row">
+      <view class="home__categories">
+        <view
+          wx:for="{{categoryTabs}}"
+          wx:key="key"
+          class="home__cat {{filter === item.key ? 'home__cat--active' : ''}}"
+          hover-class="home__cat--hover"
+          hover-stay-time="100"
+          data-key="{{item.key}}"
+          bindtap="onHomeCategoryTap"
+        >
+          <view class="home__cat-picto">
+            <view wx:if="{{item.icon === 'all'}}" class="home__picto home__picto--all">
+              <view class="home__picto-all-dot" wx:for="{{[1,2,3,4]}}" wx:key="*this" />
+            </view>
+            <view wx:elif="{{item.icon === 'life'}}" class="home__picto home__picto--life">
+              <view class="home__picto-life-inner" />
+            </view>
+            <view wx:else class="home__picto home__picto--pro">
+              <view class="home__picto-pro-line" />
+              <view class="home__picto-pro-line home__picto-pro-line--mid" />
+              <view class="home__picto-pro-line home__picto-pro-line--short" />
+            </view>
+          </view>
+          <text class="home__cat-label">{{item.label}}</text>
+        </view>
+      </view>
+      <view class="home__aside">
+        <view
+          class="home__search"
+          hover-class="home__search--hover"
+          hover-stay-time="100"
+          bindtap="onSearchTap"
+        >
+          <view class="home__search-inner">
+            <view class="home__search-ico-wrap">
+              <view class="home__search-ico" />
+              <view class="home__search-handle" />
+            </view>
+            <text class="home__search-placeholder">搜索校友与内容</text>
+          </view>
+        </view>
+        <view class="home__scene-track" role="tablist" aria-label="推荐排序">
+          <view
+            wx:for="{{feedSceneTabs}}"
+            wx:key="key"
+            class="home__scene-seg {{scene === item.key ? 'home__scene-seg--active' : ''}}"
+            hover-class="home__scene-seg--hover"
+            hover-stay-time="100"
+            data-key="{{item.key}}"
+            bindtap="onHomeSceneTap"
+          >
+            <text class="home__scene-label">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <feed-switch-bar wx:if="{{switching}}" />
+  </view>
+
+  <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0 && !switching}}" variant="home" />
+
+  <view wx:elif="{{errorType && list.length === 0}}" class="home__state">
+    <state-block
+      type="{{errorType}}"
+      variant="network"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <view
+    wx:elif="{{!loading && !errorType && list.length === 0}}"
+    class="home__state feed-panel {{switching ? 'feed-panel--switching' : ''}}"
+  >
+    <state-block
+      type="empty"
+      variant="bulletin"
+      title="{{emptyTitle}}"
+      description="{{emptyDesc}}"
+      actionText="去发布"
+      bind:action="onEmptyAction"
+    />
+  </view>
+
+  <view wx:else class="home__feed feed-panel content-reveal {{switching ? 'feed-panel--switching' : ''}}">
+    <view class="home__cards feed-panel__body">
+      <content-card
+        wx:for="{{list}}"
+        wx:key="contentId"
+        item="{{item}}"
+        data-content-id="{{item.contentId}}"
+        data-content-type="{{item.contentType}}"
+        showAuthor="{{true}}"
+        bind:cardtap="onCardTap"
+        bind:tapauthor="onCardAuthorTap"
+        bind:interactionchange="onCardInteractionChange"
+      />
+    </view>
+    <page-list-footer
+      visible="{{list.length > 0 && !switching}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onRetryLoadMore"
+    />
+    <view class="home__safe-bottom" />
+  </view>
+</view>
+
+  <auth-intercept-modal />
+</view>

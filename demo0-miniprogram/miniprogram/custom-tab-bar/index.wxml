@@ -1,0 +1,84 @@
+<view class="tabbar {{safeBottom > 0 ? 'tabbar--safe' : ''}}">
+  <view class="tabbar__inner">
+    <view
+      class="tabbar__item {{selected === 0 ? 'tabbar__item--active' : ''}}"
+      hover-class="tabbar__item--hover"
+      hover-stay-time="100"
+      data-index="0"
+      bindtap="onTabTap"
+    >
+      <image
+        class="tabbar__icon"
+        src="{{selected === 0 ? '/assets/tabbar/home-active.svg' : '/assets/tabbar/home.svg'}}"
+        mode="aspectFit"
+        aria-hidden="true"
+      />
+      <text class="tabbar__label">首页</text>
+    </view>
+
+    <view
+      class="tabbar__item {{selected === 1 ? 'tabbar__item--active' : ''}}"
+      hover-class="tabbar__item--hover"
+      hover-stay-time="100"
+      data-index="1"
+      bindtap="onTabTap"
+    >
+      <image
+        class="tabbar__icon"
+        src="{{selected === 1 ? '/assets/tabbar/follow-active.svg' : '/assets/tabbar/follow.svg'}}"
+        mode="aspectFit"
+        aria-hidden="true"
+      />
+      <text class="tabbar__label">关注</text>
+    </view>
+
+    <view
+      class="tabbar__item tabbar__item--publish"
+      hover-class="tabbar__item--hover"
+      hover-stay-time="100"
+      bindtap="onPublishTap"
+    >
+      <view class="tabbar__publish" hover-class="tabbar__publish--hover" hover-stay-time="100">
+        <view class="tabbar__publish-plus" aria-hidden="true">
+          <view class="tabbar__pub-line tabbar__pub-line--h" />
+          <view class="tabbar__pub-line tabbar__pub-line--v" />
+        </view>
+      </view>
+    </view>
+
+    <view
+      class="tabbar__item {{selected === 2 ? 'tabbar__item--active' : ''}}"
+      hover-class="tabbar__item--hover"
+      hover-stay-time="100"
+      data-index="2"
+      bindtap="onTabTap"
+    >
+      <view class="tabbar__label-wrap">
+        <image
+          class="tabbar__icon"
+          src="{{selected === 2 ? '/assets/tabbar/message-active.svg' : '/assets/tabbar/message.svg'}}"
+          mode="aspectFit"
+          aria-hidden="true"
+        />
+        <text class="tabbar__label">消息</text>
+        <text wx:if="{{badgeText}}" class="tabbar__badge">{{badgeText}}</text>
+      </view>
+    </view>
+
+    <view
+      class="tabbar__item {{selected === 3 ? 'tabbar__item--active' : ''}}"
+      hover-class="tabbar__item--hover"
+      hover-stay-time="100"
+      data-index="3"
+      bindtap="onTabTap"
+    >
+      <image
+        class="tabbar__icon"
+        src="{{selected === 3 ? '/assets/tabbar/mine-active.svg' : '/assets/tabbar/mine.svg'}}"
+        mode="aspectFit"
+        aria-hidden="true"
+      />
+      <text class="tabbar__label">我的</text>
+    </view>
+  </view>
+</view>

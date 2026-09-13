@@ -1,0 +1,81 @@
+/* Quanta 标志 — QT 贴图 + 暖色设计系统圆角卡片外框 */
+
+.quanta-mark {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.quanta-mark__frame {
+  position: relative;
+  width: 192rpx;
+  height: 192rpx;
+  border-radius: 52rpx;
+  overflow: hidden;
+  background: linear-gradient(155deg, #1c1c20 0%, #141418 36%, #0d0d10 68%, #111114 100%);
+  box-shadow:
+    0 6rpx 16rpx rgba(0, 0, 0, 0.22),
+    0 24rpx 48rpx rgba(61, 42, 31, 0.18),
+    0 0 0 1rpx rgba(255, 255, 255, 0.06),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 48rpx rgba(254, 102, 3, 0.06);
+}
+
+.quanta-mark__shine {
+  position: absolute;
+  top: 0;
+  left: 6%;
+  right: 6%;
+  height: 42%;
+  border-radius: 52rpx 52rpx 62% 62%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.04) 42%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.quanta-mark__img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform: scale(1.04);
+  transform-origin: center center;
+}
+
+/* 超小（授权弹窗） */
+.quanta-mark--xs .quanta-mark__frame {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 14rpx;
+  box-shadow:
+    0 2rpx 6rpx rgba(0, 0, 0, 0.18),
+    0 0 0 1rpx rgba(255, 255, 255, 0.05),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.08);
+}
+
+.quanta-mark--xs .quanta-mark__shine {
+  border-radius: 14rpx 14rpx 58% 58%;
+}
+
+/* 小（弹层） */
+.quanta-mark--sm .quanta-mark__frame {
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: 40rpx;
+  box-shadow:
+    0 4rpx 12rpx rgba(0, 0, 0, 0.2),
+    0 18rpx 36rpx rgba(61, 42, 31, 0.16),
+    0 0 0 1rpx rgba(255, 255, 255, 0.06),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 36rpx rgba(254, 102, 3, 0.05);
+}
+
+.quanta-mark--sm .quanta-mark__shine {
+  border-radius: 40rpx 40rpx 60% 60%;
+}

@@ -1,0 +1,41 @@
+<view class="ml">
+  <feed-skeleton wx:if="{{loading && !refreshing && list.length === 0}}" variant="assets" />
+
+  <view wx:elif="{{errorType && list.length === 0}}" class="ml__state">
+    <state-block
+      type="{{errorType}}"
+      title="{{stateTitle}}"
+      description="{{errorMessage}}"
+      actionText="{{stateActionText}}"
+      bind:action="onStateAction"
+    />
+  </view>
+
+  <view wx:elif="{{!loading && !errorType && list.length === 0}}" class="ml__state">
+    <state-block type="empty" variant="collect" title="还没有点赞内容" description="在首页或搜索里给喜欢的帖子点个赞吧" />
+  </view>
+
+  <view wx:else class="ml__feed content-reveal">
+    <view class="ml__cards">
+      <content-card
+        wx:for="{{list}}"
+        wx:key="contentId"
+        item="{{item}}"
+        data-content-id="{{item.contentId}}"
+        data-content-type="{{item.contentType}}"
+        showAuthor="{{true}}"
+        bind:cardtap="onCardTap"
+        bind:tapauthor="onCardAuthorTap"
+        bind:interactionchange="onCardInteractionChange"
+      />
+    </view>
+    <page-list-footer
+      visible="{{list.length > 0}}"
+      loading-more="{{loadingMore}}"
+      load-error="{{loadMoreError}}"
+      finished="{{finished}}"
+      bind:retry="onFooterRetry"
+    />
+    <view class="ml__safe-bottom" />
+  </view>
+</view>

@@ -1,0 +1,20 @@
+.ml {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 24rpx 48rpx;
+  background-color: var(--color-bg, #f7f5f0);
+}
+
+.ml__state {
+  padding: 48rpx 0;
+}
+
+.ml__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.ml__safe-bottom {
+  height: var(--space-tabbar-safe);
+}

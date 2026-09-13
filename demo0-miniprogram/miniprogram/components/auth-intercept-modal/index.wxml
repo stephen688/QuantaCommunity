@@ -1,0 +1,40 @@
+<view
+  wx:if="{{show}}"
+  class="auth-modal {{panelIn ? 'auth-modal--in' : ''}}"
+  catchtouchmove="noop"
+  aria-modal="true"
+  role="dialog"
+  aria-label="{{title}}"
+>
+  <view
+    class="auth-modal__mask"
+    hover-class="auth-modal__mask--hover"
+    hover-stay-time="100"
+    bindtap="onMaskTap"
+    aria-hidden="true"
+  />
+  <view class="auth-modal__panel">
+    <view class="auth-modal__icon" aria-hidden="true">
+      <view class="auth-modal__shield" />
+    </view>
+    <text class="auth-modal__title">{{title}}</text>
+    <text class="auth-modal__desc">{{description}}</text>
+    <text wx:if="{{reason}}" class="auth-modal__reason">{{reason}}</text>
+
+    <button
+      class="auth-modal__btn auth-modal__btn--primary"
+      hover-class="auth-modal__btn--hover"
+      bindtap="onConfirmTap"
+    >
+      去实名认证
+    </button>
+    <view
+      class="auth-modal__btn auth-modal__btn--ghost"
+      hover-class="auth-modal__btn--hover"
+      hover-stay-time="100"
+      bindtap="onCancelTap"
+    >
+      <text>稍后再说</text>
+    </view>
+  </view>
+</view>

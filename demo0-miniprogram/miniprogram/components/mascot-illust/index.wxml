@@ -1,0 +1,78 @@
+<!-- 登录页团宠：纯视图/CSS 绘制，非贴图 -->
+<view
+  class="mascot-illust-wrap {{motionReduced ? 'motion-reduced' : ''}}"
+  style="width: {{size}}rpx; height: {{size}}rpx; transform: rotate({{rotate}}deg) scaleX({{flip ? -1 : 1}});"
+  aria-hidden="true"
+>
+  <view class="mascot-illust mascot-illust--{{type}}">
+  <!-- 白猫 · 参考图还原（透明 PNG，保留淡紫斑纹质感） -->
+  <view wx:if="{{type === 'white'}}" class="mi mi-white">
+    <image class="mi-white__draw" src="/assets/mascots/cat-white.png" mode="widthFix" show-menu-by-longpress="{{false}}" />
+  </view>
+
+  <!-- 橘猫 · 眯眼坐姿 -->
+  <view wx:elif="{{type === 'orange'}}" class="mi mi-orange">
+    <view class="mi-orange__hex mi-orange__hex--1" />
+    <view class="mi-orange__hex mi-orange__hex--2" />
+    <view class="mi-orange__tail">
+      <view class="mi-orange__tail-tip" />
+    </view>
+    <view class="mi-orange__body">
+      <view class="mi-orange__chest" />
+      <view class="mi-orange__paw mi-orange__paw--l" />
+      <view class="mi-orange__paw mi-orange__paw--r" />
+    </view>
+    <view class="mi-orange__head">
+      <view class="mi-orange__ear mi-orange__ear--l">
+        <view class="mi-orange__ear-in" />
+      </view>
+      <view class="mi-orange__ear mi-orange__ear--r">
+        <view class="mi-orange__ear-in" />
+      </view>
+      <view class="mi-orange__tuft" />
+      <view class="mi-orange__eye mi-orange__eye--l" />
+      <view class="mi-orange__eye mi-orange__eye--r" />
+      <view class="mi-orange__brow mi-orange__brow--l" />
+      <view class="mi-orange__brow mi-orange__brow--r" />
+      <view class="mi-orange__muzzle" />
+      <view class="mi-orange__nose" />
+      <view class="mi-orange__mouth" />
+    </view>
+  </view>
+
+  <!-- 书猫 · 戴眼镜读书 -->
+  <view wx:else class="mi mi-book">
+    <view class="mi-book__ear mi-book__ear--l">
+      <view class="mi-book__ear-in" />
+    </view>
+    <view class="mi-book__ear mi-book__ear--r">
+      <view class="mi-book__ear-in" />
+    </view>
+    <view class="mi-book__head">
+      <view class="mi-book__fur-cap" />
+      <view class="mi-book__muzzle" />
+      <view class="mi-book__glass mi-book__glass--l" />
+      <view class="mi-book__glass mi-book__glass--r" />
+      <view class="mi-book__glass-bridge" />
+      <view class="mi-book__eye mi-book__eye--l">
+        <view class="mi-book__eye-hi" />
+      </view>
+      <view class="mi-book__eye mi-book__eye--r">
+        <view class="mi-book__eye-hi" />
+      </view>
+      <view class="mi-book__blush mi-book__blush--l" />
+      <view class="mi-book__blush mi-book__blush--r" />
+      <view class="mi-book__nose" />
+      <view class="mi-book__mouth" />
+      <view class="mi-book__tongue" />
+    </view>
+    <view class="mi-book__book">
+      <view class="mi-book__book-spine" />
+    </view>
+    <view class="mi-book__paw mi-book__paw--l" />
+    <view class="mi-book__paw mi-book__paw--r" />
+    <view class="mi-book__foot mi-book__foot--l" />
+    <view class="mi-book__foot mi-book__foot--r" />
+  </view>
+  </view>
+</view>

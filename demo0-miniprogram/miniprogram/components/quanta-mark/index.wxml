@@ -1,0 +1,11 @@
+<!-- QT 标识 + 设计系统圆角外框（避免参考图直角黑底） -->
+<view class="quanta-mark {{sizeClass}}" aria-hidden="true">
+  <view class="quanta-mark__frame">
+    <view class="quanta-mark__shine" />
+    <image
+      class="quanta-mark__img"
+      src="/images/quanta-mark-ref.png"
+      mode="aspectFill"
+    />
+  </view>
+</view>

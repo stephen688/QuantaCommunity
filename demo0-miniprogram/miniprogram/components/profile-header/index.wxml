@@ -1,0 +1,64 @@
+<view class="ph card">
+  <block wx:if="{{loading}}">
+    <view class="ph__skel">
+      <view class="ph__skel-avatar skel-line" />
+      <view class="ph__skel-main">
+        <view class="ph__skel-line skel-line" />
+        <view class="ph__skel-line ph__skel-line--short skel-line" />
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{hasError}}">
+    <view class="ph__err">
+      <text class="ph__err-title">资料加载失败</text>
+      <text class="ph__err-desc">{{errorMessage || '请检查网络后重试'}}</text>
+      <button class="ph__err-btn" size="mini" bindtap="onRetryTap">重试</button>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="ph__top">
+      <view class="ph__row">
+        <image wx:if="{{showAvatar}}" class="ph__avatar" src="{{avatarUrl}}" mode="aspectFill" />
+        <view wx:else class="ph__avatar ph__avatar--ph">
+          <text class="ph__avatar-letter">{{avatarLetter}}</text>
+        </view>
+        <view class="ph__main">
+          <view class="ph__name-row">
+            <text class="ph__name">{{displayName}}</text>
+            <view class="ph__edit" hover-class="ph__edit--hover" bindtap="onEditTap">
+              <text class="ph__edit-text">编辑</text>
+            </view>
+          </view>
+          <view wx:if="{{authBadgeText}}" class="ph__badge-row">
+            <text class="ph__badge ph__badge--{{authBadgeTone}}">{{authBadgeText}}</text>
+            <text wx:if="{{identityTypeText}}" class="ph__id-type">{{identityTypeText}}</text>
+          </view>
+          <view wx:if="{{identityLineText}}" class="ph__identity">
+            <text class="ph__identity-text">{{identityLineText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{showStats}}" class="ph__stats">
+      <view class="ph__stat">
+        <text class="ph__stat-num">{{statPosts}}</text>
+        <text class="ph__stat-label">发布</text>
+      </view>
+      <view class="ph__stat-div" />
+      <view class="ph__stat">
+        <text class="ph__stat-num">{{statFollowing}}</text>
+        <text class="ph__stat-label">关注</text>
+      </view>
+      <view class="ph__stat-div" />
+      <view class="ph__stat">
+        <text class="ph__stat-num">{{statFollowers}}</text>
+        <text class="ph__stat-label">粉丝</text>
+      </view>
+    </view>
+
+    <text wx:if="{{bioText}}" class="ph__bio">{{bioText}}</text>
+  </block>
+</view>

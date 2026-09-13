@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.mapper.SearchMapper">
+    <insert id="insertSearchHistory" keyProperty="id" useGeneratedKeys="true">
+        insert into tb_user_search_history
+        (user_id,keyword,create_time,is_deleted)
+        values
+        (#{userId},#{keyword},#{createTime},#{isDeleted})
+    </insert>
+
+
+    <update id="updateSearchTime">
+        update tb_user_search_history
+        set create_time = CURRENT_TIMESTAMP()
+        where user_id=#{userId}
+          and keyword=#{keyword}
+        and is_deleted = 0
+    </update>
+    <update id="softDeleteAllByUserId">
+        update tb_user_search_history
+        set is_deleted = 1,update_time = CURRENT_TIMESTAMP()
+        where user_id=#{userId}
+        and is_deleted = 0
+    </update>
+    <update id="softDeleteSearchHistoryByIdAndUserId">
+        update tb_user_search_history
+        set is_deleted = 1,update_time = CURRENT_TIMESTAMP()
+        where id=#{id}
+        and user_id=#{userId}
+        and is_deleted = 0
+    </update>
+    <select id="selectHotKeywords" resultType="java.lang.String">
+        SELECT keyword
+        FROM tb_user_search_history
+        WHERE is_deleted = 0
+          AND keyword IS NOT NULL AND TRIM(keyword) &lt;&gt; ''
+        GROUP BY keyword
+        ORDER BY COUNT(*) DESC, MAX(COALESCE(update_time, create_time)) DESC
+        LIMIT #{limit}
+    </select>
+</mapper>
+

@@ -1,0 +1,24 @@
+{
+  "avatars": {
+    "1": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-1.jpg",
+    "3": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-3.jpg",
+    "4": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-4.jpg",
+    "5": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-5.jpg",
+    "6": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-6.jpg",
+    "7": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-7.jpg",
+    "9": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-9.jpg",
+    "10": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/avatars/user-10.jpg"
+  },
+  "posts": {
+    "3": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/posts/content-3.jpg",
+    "4": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/posts/content-4.jpg",
+    "6": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/posts/content-6.jpg",
+    "10": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/posts/content-10.jpg",
+    "11": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/posts/content-11.jpg",
+    "12": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/posts/content-12.jpg",
+    "13": "https://java-ai13580089828.oss-cn-beijing.aliyuncs.com/dev-seed/posts/content-13.jpg"
+  },
+  "source": "unsplash",
+  "upload_mode": "oss",
+  "uploaded_at": "2026-05-17T14:20:11.141635"
+}

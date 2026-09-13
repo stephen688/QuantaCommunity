@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quanta — Warm Palette Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* QUANTA · SUNLIT AMBER PALETTE */
+:root {
+  --bg-base:        #FFFAF2;
+  --bg-warm:        #FFF3E0;
+  --bg-mid:         #FFE8CC;
+  --bg-card:        #FFFFFF;
+  --bg-overlay:     rgba(45, 26, 15, 0.35);
+  --brand-deep:     #C2410C;
+  --brand-primary:  #E85D04;
+  --brand-mid:      #F97316;
+  --brand-soft:     #FB923C;
+  --amber:          #F59E0B;
+  --sun:            #FFD93D;
+  --brand-pale:     #FFF0E5;
+  --text-primary:   #2D1A0F;
+  --text-secondary: #6B4D3A;
+  --text-tertiary:  #9B7A65;
+  --text-link:      #D97706;
+  --text-on-brand:  #FFFFFF;
+  --success:        #2A6B47;
+  --danger:         #DC2626;
+  --like-active:    #E85D04;
+  --favorite:       #F59E0B;
+  --favorite-bg:    #FFFBEB;
+  --border:         rgba(45, 26, 15, 0.08);
+  --divider:        rgba(45, 26, 15, 0.05);
+  --card-shadow:    0 2px 12px rgba(45, 26, 15, 0.05);
+  --btn-shadow:     0 10px 28px rgba(232, 93, 4, 0.22);
+  --radius-card: 16px;
+  --radius-chip: 999px;
+  --radius-btn:  999px;
+  --space-xs: 8px;
+  --space-sm: 16px;
+  --space-md: 24px;
+  --space-lg: 32px;
+  --space-xl: 48px;
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Nunito', -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-base);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,217,61,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 100%, rgba(254,102,3,0.10) 0%, transparent 55%),
+    linear-gradient(180deg, var(--bg-base) 0%, var(--bg-warm) 100%);
+  min-height: 100vh;
+  background-attachment: fixed;
+}
+.hero { text-align: center; padding: 64px 24px 40px; position: relative; overflow: hidden; }
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; left: 50%; transform: translateX(-50%);
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(255,217,61,0.25) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: heroGlow 6s ease-in-out infinite alternate;
+}
+@keyframes heroGlow {
+  0% { transform: translateX(-50%) scale(1); opacity: 0.7; }
+  100% { transform: translateX(-50%) scale(1.12); opacity: 1; }
+}
+.hero-badge {
+  display: inline-block;
+  background: var(--brand-pale);
+  color: var(--brand-primary);
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  padding: 6px 18px;
+  border-radius: var(--radius-chip);
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+  animation: fadeUp 0.5s var(--ease-spring) both;
+}
+.hero h1 {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 52px;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
+  animation: fadeUp 0.5s var(--ease-spring) 0.08s both;
+}
+.hero h1 span {
+  background: linear-gradient(135deg, var(--brand-primary), var(--amber));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub {
+  font-size: 17px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+  animation: fadeUp 0.5s var(--ease-spring) 0.16s both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.container { max-width: 840px; margin: 0 auto; padding: 0 24px 80px; }
+.section-title {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::before {
+  content: '';
+  width: 4px;
+  height: 22px;
+  background: linear-gradient(180deg, var(--brand-primary), var(--amber));
+  border-radius: 2px;
+}
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 48px;
+}
+.swatch {
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition: transform 0.2s var(--ease-spring), box-shadow 0.2s var(--ease-spring);
+}
+.swatch:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(45, 26, 15, 0.1); }
+.swatch__color { height: 80px; }
+.swatch__label { padding: 10px 12px; }
+.swatch__name { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 2px; }
+.swatch__hex { font-size: 11px; color: var(--text-tertiary); font-family: 'SF Mono', 'Fira Code', monospace; }
+.swatch__role { font-size: 11px; color: var(--brand-mid); font-weight: 500; margin-top: 3px; }
+.temp-ladder { display: flex; height: 40px; border-radius: 20px; overflow: hidden; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(45,26,15,0.06); }
+.temp-step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'Fredoka', sans-serif;
+  letter-spacing: 0.03em;
+  transition: flex 0.3s var(--ease-spring);
+}
+.temp-step:hover { flex: 1.6; }
+.temp-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-tertiary); margin-bottom: 48px; padding: 0 4px; }
+.preview-label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+.phone-frame {
+  width: 375px;
+  margin: 0 auto 32px;
+  background: var(--bg-card);
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(45, 26, 15, 0.12), 0 0 0 8px #2D1A0F, 0 0 0 10px rgba(45, 26, 15, 0.3);
+}
+.phone-status { height: 44px; background: var(--bg-warm); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.phone-nav { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--divider); }
+.phone-nav__title { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 17px; color: var(--text-primary); }
+.phone-nav__icon { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-warm); }
+.phone-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 480px; }
+.search-capsule { display: flex; align-items: center; gap: 10px; padding: 10px 18px; background: var(--bg-warm); border: 1.5px solid var(--border); border-radius: var(--radius-chip); transition: all 0.2s var(--ease-standard); }
+.search-capsule:hover { border-color: var(--brand-soft); background: var(--brand-pale); }
+.search-capsule__icon { width: 18px; height: 18px; border: 2px solid var(--text-tertiary); border-radius: 50%; position: relative; flex-shrink: 0; }
+.search-capsule__icon::after { content: ''; position: absolute; bottom: -2px; right: -3px; width: 6px; height: 2px; background: var(--text-tertiary); border-radius: 1px; transform: rotate(45deg); }
+.search-capsule__text { font-size: 14px; color: var(--text-tertiary); }
+.cat-tabs { display: flex; gap: 8px; }
+.cat-tab {
+  flex: 1; padding: 9px 0; text-align: center; font-size: 13px; font-weight: 600;
+  font-family: 'Fredoka', sans-serif; border-radius: var(--radius-chip);
+  background: var(--bg-warm); color: var(--text-secondary);
+  transition: all 0.2s var(--ease-spring); cursor: pointer; border: none;
+}
+.cat-tab:hover { background: var(--brand-pale); color: var(--brand-primary); }
+.cat-tab--active {
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-mid));
+  color: #FFFFFF; box-shadow: 0 4px 14px rgba(232, 93, 4, 0.28); transform: scale(1.03);
+}
+.content-card {
+  background: var(--bg-card); border-radius: var(--radius-card); padding: 20px;
+  border: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px;
+  transition: all 0.2s var(--ease-spring);
+}
+.content-card:hover { box-shadow: 0 6px 20px rgba(45, 26, 15, 0.08); transform: translateY(-1px); border-color: rgba(232, 93, 4, 0.15); }
+.card-author { display: flex; align-items: center; gap: 10px; }
+.card-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-soft), var(--amber)); }
+.card-meta { display: flex; flex-direction: column; }
+.card-name { font-weight: 700; font-size: 13px; color: var(--text-primary); }
+.card-time { font-size: 11px; color: var(--text-tertiary); }
+.card-title { font-weight: 700; font-size: 16px; line-height: 1.45; color: var(--text-primary); }
+.card-body { font-size: 14px; line-height: 1.6; color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.card-image { width: 100%; aspect-ratio: 16/10; border-radius: 10px; background: linear-gradient(135deg, var(--brand-pale), var(--bg-warm)); }
+.card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-chip); }
+.tag--life { background: var(--brand-pale); color: var(--brand-primary); }
+.tag--pro { background: #FEF3C7; color: #B45309; }
+.tag--audit { background: #FEF2F2; color: #DC2626; }
+.tag--approved { background: #F0FDF4; color: #166534; }
+.card-actions { display: flex; gap: 20px; padding-top: 4px; }
+.card-action { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text-tertiary); cursor: pointer; transition: color 0.15s ease; }
+.card-action:hover { color: var(--brand-primary); }
+.card-action--liked { color: var(--like-active); }
+.btn-cta {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 14px 24px; background: linear-gradient(135deg, var(--brand-primary), var(--brand-mid));
+  color: #FFFFFF; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 17px;
+  border: none; border-radius: var(--radius-btn); box-shadow: 0 8px 24px rgba(232, 93, 4, 0.24);
+  cursor: pointer; transition: all 0.24s var(--ease-spring);
+}
+.btn-cta:hover { transform: scale(0.98); box-shadow: 0 12px 28px rgba(232, 93, 4, 0.32); }
+.btn-secondary {
+  display: flex; align-items: center; justify-content: center; width: 100%;
+  padding: 12px 24px; background: var(--bg-card); color: var(--text-primary);
+  font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 15px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-btn); cursor: pointer;
+  transition: all 0.2s var(--ease-spring);
+}
+.btn-secondary:hover { border-color: var(--brand-soft); background: var(--brand-pale); }
+.badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.badge { font-size: 11px; font-weight: 700; font-family: 'Fredoka', sans-serif; padding: 5px 12px; border-radius: var(--radius-chip); }
+.badge--best { background: linear-gradient(135deg, var(--brand-pale), #FFF7ED); color: var(--brand-primary); border: 1px solid rgba(232, 93, 4, 0.2); }
+.badge--hot { background: var(--brand-primary); color: #FFFFFF; }
+.badge--new { background: #FFFBEB; color: #B45309; border: 1px solid rgba(245, 158, 11, 0.25); }
+.badge--accent { background: #FFFBEB; color: var(--amber); }
+.action-bar { display: flex; align-items: center; gap: 14px; padding: 12px 18px; background: var(--bg-card); border-top: 1px solid var(--divider); }
+.action-bar__input { flex: 1; padding: 10px 16px; background: var(--bg-warm); border-radius: var(--radius-chip); font-size: 13px; color: var(--text-tertiary); border: none; }
+.action-bar__btns { display: flex; gap: 4px; }
+.action-bar__btn { padding: 4px 10px; font-size: 10px; font-weight: 600; color: var(--text-tertiary); cursor: pointer; background: none; border: none; }
+.action-bar__btn--active { color: var(--like-active); }
+.tab-bar { display: flex; padding: 6px 20px 20px; gap: 4px; }
+.tab-bar__item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; color: var(--text-tertiary); cursor: pointer; padding: 4px 0; }
+.tab-bar__item--active { color: var(--brand-primary); }
+.tab-bar__dot { width: 22px; height: 22px; border-radius: 6px; background: var(--bg-warm); transition: all 0.2s var(--ease-spring); }
+.tab-bar__item--active .tab-bar__dot { background: var(--brand-primary); border-radius: 8px; }
+.tab-bar__publish {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-mid));
+  box-shadow: 0 6px 20px rgba(232, 93, 4, 0.3);
+  display: flex; align-items: center; justify-content: center;
+  color: #FFF; font-size: 20px; font-weight: 700; cursor: pointer; margin-top: -12px;
+}
+.reply-thread { margin-left: 16px; border-left: 3px solid var(--divider); padding-left: 16px; display: flex; flex-direction: column; gap: 8px; }
+.reply-item { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.reply-item strong { color: var(--text-link); font-weight: 600; }
+.loading-dots { display: flex; gap: 6px; align-items: center; justify-content: center; padding: 20px; }
+.loading-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-primary); animation: dotBounce 1.2s ease-in-out infinite; }
+.loading-dot:nth-child(2) { animation-delay: 0.15s; }
+.loading-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dotBounce { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.7); } 40% { opacity: 1; transform: scale(1); } }
+.progress-wrap { height: 6px; background: var(--bg-warm); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand-primary), var(--amber)); border-radius: 3px; transition: width 0.6s var(--ease-spring); }
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 48px; }
+.comp-col { border-radius: 20px; overflow: hidden; border: 1px solid var(--border); }
+.comp-col__head { padding: 14px 18px; font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 14px; text-align: center; }
+.comp-col__head--old { background: #E8F2EF; color: #1E5A4C; }
+.comp-col__head--new { background: linear-gradient(135deg, var(--brand-pale), #FFF7ED); color: var(--brand-primary); }
+.comp-col__body { padding: 14px; background: var(--bg-card); display: flex; flex-direction: column; gap: 10px; }
+.comp-item { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 8px 0; border-bottom: 1px solid var(--divider); }
+.comp-item:last-child { border-bottom: none; }
+.comp-swatch { width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; }
+.empty-state { text-align: center; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.empty-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--brand-pale); display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--brand-soft); }
+.empty-title { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 16px; color: var(--text-primary); }
+.empty-desc { font-size: 13px; color: var(--text-tertiary); line-height: 1.5; }
+.empty-link { font-size: 13px; font-weight: 600; color: var(--text-link); padding: 8px 18px; border: 1.5px dashed var(--brand-soft); border-radius: var(--radius-chip); cursor: pointer; }
+.notif-item { display: flex; gap: 12px; padding: 14px 16px; border-radius: 12px; cursor: pointer; position: relative; }
+.notif-item:hover { background: var(--brand-pale); }
+.notif-item--unread { background: rgba(232, 93, 4, 0.03); }
+.notif-item--unread::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 28px; background: var(--brand-primary); border-radius: 2px; }
+.notif-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-pale), var(--bg-warm)); flex-shrink: 0; }
+.notif-content { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.notif-text { font-size: 13px; color: var(--text-primary); line-height: 1.45; }
+.notif-text strong { color: var(--brand-primary); font-weight: 700; }
+.notif-time { font-size: 11px; color: var(--text-tertiary); }
+.section-divider { display: flex; align-items: center; gap: 12px; margin: 32px 0 24px; }
+.section-divider__line { flex: 1; height: 1px; background: var(--divider); }
+.section-divider__label { font-size: 11px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; font-family: 'Fredoka', sans-serif; }
+.stat-row { display: flex; gap: 16px; }
+.stat-item { flex: 1; text-align: center; padding: 12px 8px; background: var(--bg-warm); border-radius: 12px; }
+.stat-num { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 24px; color: var(--text-primary); font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 11px; color: var(--text-tertiary); font-weight: 500; margin-top: 2px; }
+.comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 48px; }
+.map-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 48px; }
+.map-table th { text-align: left; padding: 12px 16px; background: var(--bg-warm); font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 12px; color: var(--text-secondary); }
+.map-table td { padding: 11px 16px; border-top: 1px solid var(--divider); vertical-align: middle; }
+.map-table tr:hover td { background: rgba(255,240,229,0.4); }
+.map-dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: middle; margin-right: 8px; }
+.map-role { font-weight: 600; color: var(--text-primary); }
+.phase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 48px; }
+.phase-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.phase-card h3 { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+.phase-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.phase-card code { background: var(--bg-warm); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+.principle-box { background: linear-gradient(135deg, var(--brand-pale), #FFF7ED); border: 1px solid rgba(232,93,4,0.12); border-radius: 16px; padding: 20px 24px; margin-bottom: 48px; }
+.principle-box h3 { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 15px; margin-bottom: 6px; color: var(--brand-primary); }
+.principle-box p { font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
+@media (max-width: 600px) {
+  .comparison, .comp-grid, .phase-grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 36px; }
+  .phone-frame { width: 100%; border-radius: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-badge">Design System v2</div>
+  <h1>Quanta <span>Sunlit Amber</span></h1>
+  <p class="hero-sub">Layered warm palette — temperature hierarchy, not monochrome orange</p>
+</header>
+
+<div class="container">
+
+<div class="section-title">Color Temperature Ladder</div>
+<div class="temp-ladder">
+  <div class="temp-step" style="background:#C2410C;color:#fff;">HOT</div>
+  <div class="temp-step" style="background:#E85D04;color:#fff;"></div>
+  <div class="temp-step" style="background:#F97316;color:#fff;"></div>
+  <div class="temp-step" style="background:#FB923C;color:#fff;"></div>
+  <div class="temp-step" style="background:#F59E0B;color:#fff;"></div>
+  <div class="temp-step" style="background:#FFD93D;color:#2D1A0F;"></div>
+  <div class="temp-step" style="background:#FFF0E5;color:#2D1A0F;"></div>
+  <div class="temp-step" style="background:#FFF3E0;color:#2D1A0F;">COOL</div>
+</div>
+<div class="temp-labels">
+  <span>Urgent</span><span>Primary CTA</span><span>Active</span><span>Hover</span><span>Badges</span><span>Decorative</span><span>Light BG</span><span>Surface</span>
+</div>
+
+<div class="section-title">Full Palette</div>
+<div class="swatch-grid">
+  <div class="swatch"><div class="swatch__color" style="background:#FFFAF2;"></div><div class="swatch__label"><div class="swatch__name">Base Cream</div><div class="swatch__hex">#FFFAF2</div><div class="swatch__role">Page background</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#FFF3E0;"></div><div class="swatch__label"><div class="swatch__name">Warm Tint</div><div class="swatch__hex">#FFF3E0</div><div class="swatch__role">Sections</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#FFE8CC;"></div><div class="swatch__label"><div class="swatch__name">Mid Cream</div><div class="swatch__hex">#FFE8CC</div><div class="swatch__role">Gradients</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#FFFFFF;border-bottom:1px solid #eee;"></div><div class="swatch__label"><div class="swatch__name">Card White</div><div class="swatch__hex">#FFFFFF</div><div class="swatch__role">Cards</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#E85D04;"></div><div class="swatch__label"><div class="swatch__name">Brand Primary</div><div class="swatch__hex">#E85D04</div><div class="swatch__role">CTA</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#F97316;"></div><div class="swatch__label"><div class="swatch__name">Brand Mid</div><div class="swatch__hex">#F97316</div><div class="swatch__role">Selected</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#FB923C;"></div><div class="swatch__label"><div class="swatch__name">Brand Soft</div><div class="swatch__hex">#FB923C</div><div class="swatch__role">Hover</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#F59E0B;"></div><div class="swatch__label"><div class="swatch__name">Amber</div><div class="swatch__hex">#F59E0B</div><div class="swatch__role">Badges</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#FFD93D;"></div><div class="swatch__label"><div class="swatch__name">Sun Yellow</div><div class="swatch__hex">#FFD93D</div><div class="swatch__role">Decorative</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#FFF0E5;"></div><div class="swatch__label"><div class="swatch__name">Pale Orange</div><div class="swatch__hex">#FFF0E5</div><div class="swatch__role">Tag fill</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#2D1A0F;"></div><div class="swatch__label"><div class="swatch__name">Text Primary</div><div class="swatch__hex">#2D1A0F</div><div class="swatch__role">Warm brown</div></div></div>
+  <div class="swatch"><div class="swatch__color" style="background:#D97706;"></div><div class="swatch__label"><div class="swatch__name">Link Amber</div><div class="swatch__hex">#D97706</div><div class="swatch__role">Links</div></div></div>
+</div>
+
+<div class="section-title">Before / After: Color Architecture</div>
+<div class="comparison">
+  <div class="comp-col">
+    <div class="comp-col__head comp-col__head--old">Current · Deep Green System</div>
+    <div class="comp-col__body">
+      <div class="comp-item"><span>Brand</span><span style="display:flex;align-items:center;gap:6px;"><span class="comp-swatch" style="background:#1E5A4C;"></span>#1E5A4C</span></div>
+      <div class="comp-item"><span>CTA</span><span>Same as brand</span></div>
+      <div class="comp-item"><span>Background</span><span style="display:flex;align-items:center;gap:6px;"><span class="comp-swatch" style="background:#F7F5F0;"></span>Cool beige</span></div>
+      <div class="comp-item"><span>Brand light</span><span style="display:flex;align-items:center;gap:6px;"><span class="comp-swatch" style="background:#E8F2EF;"></span>Mint green</span></div>
+      <div class="comp-item" style="font-size:12px;color:var(--text-tertiary);border:none;">Single-dimension green. No temperature hierarchy.</div>
+    </div>
+  </div>
+  <div class="comp-col">
+    <div class="comp-col__head comp-col__head--new">Proposed · Sunlit Amber System</div>
+    <div class="comp-col__body">
+      <div class="comp-item"><span>Brand</span><span style="display:flex;align-items:center;gap:6px;"><span class="comp-swatch" style="background:#E85D04;"></span>#E85D04</span></div>
+      <div class="comp-item"><span>CTA gradient</span><span style="display:flex;align-items:center;gap:6px;"><span class="comp-swatch" style="background:linear-gradient(135deg,#E85D04,#F97316);"></span>#E85D04 → #F97316</span></div>
+      <div class="comp-item"><span>Background</span><span style="display:flex;align-items:center;gap:6px;"><span class="comp-swatch" style="background:#FFFAF2;"></span>Warm cream</span></div>
+      <div class="comp-item"><span>Brand light</span><span style="display:flex;align-items:center;gap:6px;"><span class="comp-swatch" style="background:#FFF0E5;"></span>Pale orange</span></div>
+      <div class="comp-item" style="font-size:12px;color:var(--text-secondary);border:none;">5 warm tones with hot→warm→mellow→pale hierarchy.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Live Preview · Home Feed</div>
+<div class="phone-frame">
+  <div class="phone-status">9:41</div>
+  <div class="phone-nav">
+    <div class="phone-nav__icon"></div>
+    <div class="phone-nav__title">校友圈</div>
+    <div class="phone-nav__icon"></div>
+  </div>
+  <div class="phone-body">
+    <div class="search-capsule">
+      <div class="search-capsule__icon"></div>
+      <span class="search-capsule__text">搜索校友、问题或内容…</span>
+    </div>
+    <div class="cat-tabs">
+      <button class="cat-tab cat-tab--active" type="button">全部</button>
+      <button class="cat-tab" type="button">生活</button>
+      <button class="cat-tab" type="button">专业</button>
+    </div>
+    <div class="content-card">
+      <div class="card-author">
+        <div class="card-avatar"></div>
+        <div class="card-meta">
+          <span class="card-name">张明远</span>
+          <span class="card-time">2 小时前 · 计算机系 2019</span>
+        </div>
+      </div>
+      <div class="card-title">在硅谷做 AI 工程师的第三年，我学到的事</div>
+      <div class="card-body">从 BAT 离职来到湾区已经三年。技术能力只是基础，沟通和影响力才是加速器…</div>
+      <div class="card-tags">
+        <span class="tag tag--pro">专业</span>
+        <span class="tag tag--approved">已通过</span>
+      </div>
+      <div class="card-actions">
+        <span class="card-action card-action--liked">♥ 128</span>
+        <span class="card-action">💬 36</span>
+        <span class="card-action">☆ 收藏</span>
+      </div>
+    </div>
+    <div class="content-card">
+      <div class="card-author">
+        <div class="card-avatar" style="background:linear-gradient(135deg,#FFD93D,#FB923C);"></div>
+        <div class="card-meta">
+          <span class="card-name">李晓华</span>
+          <span class="card-time">5 小时前 · 金融系 2020</span>
+        </div>
+      </div>
+      <div class="card-title">校友咖啡厅探店：隐藏在静安寺的宝藏小店</div>
+      <div class="card-image"></div>
+      <div class="card-tags">
+        <span class="tag tag--life">生活</span>
+        <span class="badge badge--hot" style="font-size:10px;padding:3px 8px;">热门</span>
+      </div>
+      <div class="card-actions">
+        <span class="card-action">♥ 256</span>
+        <span class="card-action">💬 89</span>
+        <span class="card-action">☆ 收藏</span>
+      </div>
+    </div>
+    <div class="loading-dots">
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+    </div>
+  </div>
+  <div class="action-bar">
+    <div class="action-bar__input">在回答下评论…</div>
+    <div class="action-bar__btns">
+      <div class="action-bar__btn action-bar__btn--active">♥ 32</div>
+      <div class="action-bar__btn">☆ 12</div>
+      <div class="action-bar__btn">💬 8</div>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <div class="tab-bar__item tab-bar__item--active"><div class="tab-bar__dot"></div>首页</div>
+    <div class="tab-bar__item"><div class="tab-bar__dot"></div>关注</div>
+    <div class="tab-bar__publish">+</div>
+    <div class="tab-bar__item"><div class="tab-bar__dot"></div>消息</div>
+    <div class="tab-bar__item"><div class="tab-bar__dot"></div>我的</div>
+  </div>
+</div>
+
+<div class="section-divider">
+  <div class="section-divider__line"></div>
+  <div class="section-divider__label">Component Detail Previews</div>
+  <div class="section-divider__line"></div>
+</div>
+
+<div class="comp-grid">
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="preview-label">Buttons</div>
+    <button class="btn-cta" type="button">微信一键登录</button>
+    <button class="btn-secondary" type="button">跳过，先看看</button>
+    <button class="btn-cta" type="button" style="opacity:0.65;">提交中…</button>
+  </div>
+  <div>
+    <div class="preview-label">Badges &amp; Status Tags</div>
+    <div class="badge-row">
+      <span class="badge badge--best">最佳回答</span>
+      <span class="badge badge--hot">热门</span>
+      <span class="badge badge--new">新问题</span>
+      <span class="badge badge--accent">精选</span>
+    </div>
+    <div class="badge-row" style="margin-top:10px;">
+      <span class="tag tag--pro">专业</span>
+      <span class="tag tag--life">生活</span>
+      <span class="tag tag--audit">审核中</span>
+      <span class="tag tag--approved">已通过</span>
+    </div>
+  </div>
+  <div>
+    <div class="preview-label">Profile Stats</div>
+    <div class="stat-row">
+      <div class="stat-item"><div class="stat-num">128</div><div class="stat-label">发布</div></div>
+      <div class="stat-item"><div class="stat-num">356</div><div class="stat-label">关注</div></div>
+      <div class="stat-item"><div class="stat-num">1.2k</div><div class="stat-label">粉丝</div></div>
+    </div>
+    <div class="progress-wrap" style="margin-top:12px;"><div class="progress-fill" style="width:72%;"></div></div>
+    <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;text-align:right;">资料完整度 72%</div>
+  </div>
+  <div>
+    <div class="preview-label">Notification Items</div>
+    <div class="notif-item notif-item--unread">
+      <div class="notif-avatar"></div>
+      <div class="notif-content">
+        <div class="notif-text"><strong>张明远</strong> 赞了你的回答</div>
+        <div class="notif-time">3 分钟前</div>
+      </div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-avatar" style="background:linear-gradient(135deg,#FFD93D,#F97316);"></div>
+      <div class="notif-content">
+        <div class="notif-text"><strong>李晓华</strong> 评论了你的内容</div>
+        <div class="notif-time">1 小时前</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="preview-label">Comment Reply Nesting</div>
+    <div style="font-size:13px;color:var(--text-primary);margin-bottom:8px;"><strong>王学长</strong> 这个问题问得好，分享一下我的看法。</div>
+    <div class="reply-thread">
+      <div class="reply-item"><strong>楼主</strong> 谢谢学长！系统设计轮一般会考察哪些方面？</div>
+      <div class="reply-item"><strong>王学长</strong> 主要是分布式系统的一致性、可用性权衡。</div>
+    </div>
+  </div>
+  <div>
+    <div class="preview-label">Empty State</div>
+    <div class="empty-state" style="padding:20px;border:1px solid var(--border);border-radius:16px;">
+      <div class="empty-icon">空</div>
+      <div class="empty-title">还没有回答</div>
+      <div class="empty-desc">来写第一个回答吧</div>
+      <div class="empty-link">重试加载</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Semantic Color → UI Element Mapping</div>
+<table class="map-table">
+  <thead>
+    <tr>
+      <th>Token</th>
+      <th>Color</th>
+      <th>Applied To</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="map-role">--color-brand</td><td><span class="map-dot" style="background:#E85D04;"></span>#E85D04</td><td>CTA, active tab</td><td>Hot — Primary</td></tr>
+    <tr><td class="map-role">--color-brand-mid</td><td><span class="map-dot" style="background:#F97316;"></span>#F97316</td><td>Gradients, selected</td><td>Warm — Active</td></tr>
+    <tr><td class="map-role">--color-brand-soft</td><td><span class="map-dot" style="background:#FB923C;"></span>#FB923C</td><td>Hover accents</td><td>Mellow</td></tr>
+    <tr><td class="map-role">--color-amber</td><td><span class="map-dot" style="background:#F59E0B;"></span>#F59E0B</td><td>Badges, favorite</td><td>Amber pop</td></tr>
+    <tr><td class="map-role">--color-sun</td><td><span class="map-dot" style="background:#FFD93D;"></span>#FFD93D</td><td>Decorative glow</td><td>Atmospheric</td></tr>
+    <tr><td class="map-role">--color-brand-pale</td><td><span class="map-dot" style="background:#FFF0E5;"></span>#FFF0E5</td><td>Tag backgrounds</td><td>Whisper</td></tr>
+    <tr><td class="map-role">--color-bg-base</td><td><span class="map-dot" style="background:#FFFAF2;"></span>#FFFAF2</td><td>Page background</td><td>Cream canvas</td></tr>
+  </tbody>
+</table>
+
+<div class="section-title">Implementation Strategy</div>
+<div class="phase-grid">
+  <div class="phase-card"><h3>Phase 1: Token Swap</h3><p>Replace <code>app.wxss</code> CSS variables. Pages auto-adopt via <code>var()</code>.</p></div>
+  <div class="phase-card"><h3>Phase 2: Gradient Depth</h3><p>Add warm gradients to CTA, tab bar publish, progress bars.</p></div>
+  <div class="phase-card"><h3>Phase 3: Temperature Refinement</h3><p>Per-component tuning: hot for CTAs, pale for backgrounds.</p></div>
+  <div class="phase-card"><h3>Phase 4: Atmosphere</h3><p>Subtle warm blobs on key pages, toned down from login.</p></div>
+</div>
+
+<div class="principle-box">
+  <h3>Key Design Principle</h3>
+  <p>
+    This is <strong>not</strong> "make everything orange." It's a <strong>temperature spectrum</strong>:
+    deep burnt orange for primary actions, warm mid for selected states, mellow for hover,
+    amber for badges, sun yellow for atmosphere, pale orange for surfaces.
+    Each shade has a specific semantic role.
+  </p>
+</div>
+
+</div>
+
+</body>
+</html>

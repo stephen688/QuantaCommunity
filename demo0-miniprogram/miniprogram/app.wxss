@@ -1,0 +1,299 @@
+/** 校友社区全局 Design Token — 与 design-system/校友社区 MASTER.md & implementation-priority 对齐 */
+
+page {
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+
+  /* ---------- 色彩（MASTER §2.1） ---------- */
+  --color-bg: #f7f5f0;
+  --color-card-bg: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-text-primary: #1a1d21;
+  --color-text-secondary: #5c6370;
+  --color-text-tertiary: #6b7280;
+  --color-text-disabled: #9ca3af;
+  --color-brand: #1e5a4c;
+  --color-brand-light: #e8f2ef;
+  --color-brand-muted: rgba(30, 90, 76, 0.12);
+  --color-accent-warm: #b45309;
+  --color-accent-warm-light: #fdf6ec;
+  --color-cta: #1e5a4c;
+  --color-border: rgba(26, 29, 33, 0.08);
+  --color-divider: rgba(26, 29, 33, 0.06);
+  --color-success: #2a6b47;
+  --color-warning: #b45309;
+  --color-danger: #c43d3d;
+  --color-unread: #c43d3d;
+
+  /* ---------- Phase3 token delta ---------- */
+  --color-link: #5c6b62;
+  --color-link-pressed: #4a574f;
+  --color-favorite-active: #f59e0b;
+  --color-favorite-active-bg: #fef9c3;
+  --color-chip-neutral-bg: #f0ede7;
+  --color-chip-neutral-text: #5c6370;
+  --color-stat: #5c6370;
+  --color-like-active: #ef4444;
+  --color-stat-active: #ef4444;
+
+  /* 生活 / 专业分区（弱化饱和，MASTER §2.1） */
+  --color-content-life-bg: #f0ebe3;
+  --color-content-life-text: #6b5b4f;
+  --color-content-pro-bg: #edeae4;
+  --color-content-pro-text: #1e5a4c;
+
+  /* ---------- 字体（MASTER §2.2，小程序系统栈） ---------- */
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Noto Sans SC",
+    "Microsoft YaHei", sans-serif;
+  --font-display: 40rpx;
+  --font-title: 34rpx;
+  --font-body: 28rpx;
+  --font-body-medium: 28rpx;
+  --font-caption: 24rpx;
+  --font-label: 22rpx;
+
+  /* ---------- 圆角（MASTER §2.3） ---------- */
+  --radius-card: 16rpx;
+  --radius-chip: 999rpx;
+  --radius-input: 12rpx;
+  --radius-button: 999rpx;
+  --radius-avatar: 50%;
+  --radius-publish-fab: 56rpx;
+
+  /* ---------- 阴影（MASTER §2.4） ---------- */
+  --shadow-none: none;
+  --shadow-card: 0 2rpx 12rpx rgba(26, 29, 33, 0.06);
+  --shadow-fab: 0 10rpx 24rpx rgba(30, 90, 76, 0.22);
+
+  /* ---------- 间距（MASTER §2.5） ---------- */
+  --space-xs: 8rpx;
+  --space-sm: 16rpx;
+  --space-md: 24rpx;
+  --space-lg: 32rpx;
+  --space-xl: 48rpx;
+  --space-tabbar-safe: calc(120rpx + env(safe-area-inset-bottom));
+
+  /* ---------- 动效（MASTER §2.6） ---------- */
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
+  --duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+}
+
+.card {
+  background-color: var(--color-card-bg);
+  border-radius: var(--radius-card);
+  padding: var(--space-md);
+  border: 1rpx solid var(--color-border);
+  box-sizing: border-box;
+}
+
+.link,
+.link-inline {
+  color: var(--color-link);
+}
+
+.link-inline {
+  font-size: var(--font-caption);
+}
+
+.link--pressed,
+.link-inline--pressed {
+  color: var(--color-link-pressed);
+}
+
+/* 列表 Tab 切换：细条进度 + 旧列表弱化（替代全屏骨架闪动） */
+.feed-switch-bar {
+  height: 4rpx;
+  overflow: hidden;
+  background-color: rgba(30, 90, 76, 0.05);
+}
+
+.feed-switch-bar__fill {
+  height: 100%;
+  width: 36%;
+  border-radius: 0 2rpx 2rpx 0;
+  background-color: rgba(30, 90, 76, 0.32);
+  animation: feed-switch-bar 0.9s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes feed-switch-bar {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(320%);
+    opacity: 0.3;
+  }
+}
+
+.feed-panel--switching .feed-panel__body {
+  opacity: 0.72;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.feed-panel__body {
+  transition: opacity 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-switch-bar__fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+  }
+}
+
+.motion-reduced .feed-switch-bar__fill {
+  animation: none;
+  width: 100%;
+  opacity: 0.35;
+}
+
+/* P2 §15：低动效偏好 — 关闭骨架闪光（系统设置或页面根节点 class） */
+@media (prefers-reduced-motion: reduce) {
+  .feed-switch-bar__fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+  }
+
+  .skel--shine::after,
+  .skel-line,
+  .ph__skel-avatar.skel-line,
+  .ph__skel-line.skel-line {
+    animation: none !important;
+  }
+}
+
+.motion-reduced .skel--shine::after,
+.motion-reduced .skel-line,
+.motion-reduced .ph__skel-avatar.skel-line,
+.motion-reduced .ph__skel-line.skel-line {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publish-body,
+  .publish-submit-bar,
+  .tabbar__item,
+  .tabbar__publish {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.motion-reduced .publish-body,
+.motion-reduced .publish-submit-bar {
+  transition-duration: 0.01ms !important;
+}
+
+/* 二级占位页通用布局（Step 9） */
+.ph-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 48rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  background-color: var(--color-bg);
+}
+
+/* 点赞/收藏脉冲微交互 */
+@keyframes icon-pulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.25); }
+  60% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+@keyframes icon-pop {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 内容渐入过渡 — 骨架屏消失后内容平滑浮现 */
+@keyframes content-fade-in {
+  from { opacity: 0; transform: translateY(8rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.content-reveal {
+  animation: content-fade-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content-reveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.motion-reduced .content-reveal {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dab__action--liked .dab__icon,
+  .dab__action--collected .dab__icon,
+  .detail-page__ans-like--on {
+    animation: none !important;
+  }
+}
+
+.motion-reduced .dab__action--liked .dab__icon,
+.motion-reduced .dab__action--collected .dab__icon,
+.motion-reduced .detail-page__ans-like--on {
+  animation: none !important;
+}
+
+/* 全局点击交互反馈 */
+.hover-opacity {
+  opacity: 0.75 !important;
+  transition: opacity var(--duration-fast, 150ms) var(--ease-standard, ease) !important;
+}
+
+.hover-scale {
+  transform: scale(0.96) !important;
+  transition: transform var(--duration-fast, 150ms) var(--ease-standard, ease) !important;
+}
+
+.ph-page__title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ph-page__tag {
+  align-self: flex-start;
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  background-color: var(--color-brand-muted);
+  border-radius: 999rpx;
+}
+
+.ph-page__hint {
+  font-size: 26rpx;
+  color: var(--color-text-tertiary);
+  line-height: 1.55;
+}
+
+.ph-page__meta {
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}

@@ -1,0 +1,538 @@
+/* 团宠插画 — 白猫为 SVG 路径描摹，其余待重绘 */
+
+.mascot-illust-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.mascot-illust {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.mi {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ========== 白猫（参考图 PNG） ========== */
+.mi-white {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mi-white__draw {
+  width: 100%;
+  height: auto;
+  display: block;
+  min-height: 80%;
+}
+/* ========== 橘猫 ========== */
+.mi-orange {
+  --orange: #e8884a;
+  --orange-dark: #d07038;
+  --cream: #fff5e8;
+  --line: #b86838;
+}
+
+.mi-orange__hex {
+  position: absolute;
+  width: 12%;
+  height: 14%;
+  background: rgba(254, 102, 3, 0.1);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.mi-orange__hex--1 {
+  top: 8%;
+  right: 10%;
+  transform: rotate(12deg);
+}
+
+.mi-orange__hex--2 {
+  bottom: 32%;
+  left: 6%;
+  transform: rotate(-16deg) scale(0.8);
+  opacity: 0.65;
+}
+
+.mi-orange__tail {
+  position: absolute;
+  right: 2%;
+  bottom: 18%;
+  width: 36%;
+  height: 44%;
+  border-radius: 55% 45% 50% 50%;
+  background: linear-gradient(160deg, var(--orange) 0%, var(--orange-dark) 100%);
+  transform: rotate(12deg);
+  z-index: 0;
+}
+
+.mi-orange__tail-tip {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 48%;
+  height: 42%;
+  border-radius: 50%;
+  background: var(--cream);
+}
+
+.mi-orange__body {
+  position: absolute;
+  left: 22%;
+  bottom: 8%;
+  width: 52%;
+  height: 38%;
+  border-radius: 50% 50% 46% 46%;
+  background: linear-gradient(180deg, var(--orange) 0%, var(--orange-dark) 100%);
+  z-index: 1;
+  box-shadow: inset 0 -8rpx 16rpx rgba(176, 90, 40, 0.25);
+}
+
+.mi-orange__chest {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  width: 78%;
+  height: 72%;
+  margin-left: -39%;
+  background: var(--cream);
+  border-radius: 50% 50% 42% 42%;
+  clip-path: polygon(8% 0%, 92% 0%, 100% 100%, 0% 100%);
+}
+
+.mi-orange__chest::before,
+.mi-orange__chest::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 18%;
+  height: 22%;
+  background: var(--cream);
+  border-radius: 50%;
+}
+
+.mi-orange__chest::before {
+  left: -6%;
+}
+
+.mi-orange__chest::after {
+  right: -6%;
+}
+
+.mi-orange__paw {
+  position: absolute;
+  bottom: -2%;
+  width: 24%;
+  height: 22%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--orange) 0%, var(--orange-dark) 100%);
+}
+
+.mi-orange__paw--l {
+  left: 12%;
+}
+
+.mi-orange__paw--r {
+  right: 12%;
+}
+
+.mi-orange__paw::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 72%;
+  height: 42%;
+  margin-left: -36%;
+  border-radius: 50%;
+  background: rgba(192, 88, 48, 0.45);
+}
+
+.mi-orange__head {
+  position: absolute;
+  left: 18%;
+  top: 8%;
+  width: 56%;
+  height: 50%;
+  border-radius: 48% 48% 44% 44%;
+  background: linear-gradient(180deg, var(--orange) 0%, #f0a060 100%);
+  z-index: 2;
+  box-shadow: inset 0 -6rpx 12rpx rgba(176, 90, 40, 0.2);
+}
+
+.mi-orange__ear {
+  position: absolute;
+  top: -14%;
+  width: 0;
+  height: 0;
+  border-left: 16% solid transparent;
+  border-right: 16% solid transparent;
+  border-bottom: 28% solid var(--orange);
+}
+
+.mi-orange__ear--l {
+  left: 4%;
+  transform: rotate(-10deg);
+}
+
+.mi-orange__ear--r {
+  right: 4%;
+  transform: rotate(10deg);
+}
+
+.mi-orange__ear-in {
+  position: absolute;
+  left: -38%;
+  top: 32%;
+  border-left: 10% solid transparent;
+  border-right: 10% solid transparent;
+  border-bottom: 18% solid var(--cream);
+}
+
+.mi-orange__tuft {
+  position: absolute;
+  top: -6%;
+  left: 44%;
+  width: 12%;
+  height: 14%;
+  border-radius: 50% 50% 20% 20%;
+  background: var(--orange);
+}
+
+.mi-orange__eye {
+  position: absolute;
+  top: 40%;
+  width: 16%;
+  height: 6%;
+  border-bottom: 4rpx solid #6b4428;
+  border-radius: 0 0 50% 50%;
+}
+
+.mi-orange__eye--l {
+  left: 22%;
+  transform: rotate(8deg);
+}
+
+.mi-orange__eye--r {
+  right: 22%;
+  transform: rotate(-8deg);
+}
+
+.mi-orange__brow {
+  position: absolute;
+  top: 32%;
+  width: 5%;
+  height: 5%;
+  border-radius: 50%;
+  background: var(--orange-dark);
+  opacity: 0.55;
+}
+
+.mi-orange__brow--l {
+  left: 28%;
+}
+
+.mi-orange__brow--r {
+  right: 28%;
+}
+
+.mi-orange__muzzle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 72%;
+  height: 48%;
+  margin-left: -36%;
+  background: var(--cream);
+  border-radius: 50% 50% 42% 42%;
+}
+
+.mi-orange__nose {
+  position: absolute;
+  bottom: 28%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  margin-left: -5%;
+  border-left: 5% solid transparent;
+  border-right: 5% solid transparent;
+  border-top: 6% solid #6b4428;
+}
+
+.mi-orange__mouth {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  width: 12%;
+  height: 5%;
+  margin-left: -6%;
+  border-bottom: 3rpx solid #6b4428;
+  border-radius: 0 0 50% 50%;
+}
+
+/* ========== 书猫（仓鼠读书） ========== */
+.mi-book {
+  --tan: #e8b878;
+  --tan-dark: #d4a060;
+  --white: #fff8f0;
+  --glass: #7eb8e8;
+  --book: #e8d8f0;
+  --book-spine: #d8c0e8;
+  --cheek: #f4a8b8;
+  --tongue: #e85868;
+  --sole: #a8d8f0;
+}
+
+.mi-book__ear {
+  position: absolute;
+  top: 2%;
+  width: 18%;
+  height: 16%;
+  border-radius: 50% 50% 30% 30%;
+  background: var(--tan);
+  z-index: 2;
+}
+
+.mi-book__ear--l {
+  left: 18%;
+  transform: rotate(-12deg);
+}
+
+.mi-book__ear--r {
+  right: 18%;
+  transform: rotate(12deg);
+}
+
+.mi-book__ear-in {
+  position: absolute;
+  top: 22%;
+  left: 22%;
+  width: 56%;
+  height: 56%;
+  border-radius: 50%;
+  background: var(--cheek);
+  opacity: 0.65;
+}
+
+.mi-book__head {
+  position: absolute;
+  left: 14%;
+  top: 10%;
+  width: 72%;
+  height: 52%;
+  border-radius: 48% 48% 44% 44%;
+  background: linear-gradient(180deg, var(--tan) 0%, var(--tan-dark) 100%);
+  z-index: 3;
+}
+
+.mi-book__fur-cap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 42%;
+  border-radius: 50% 50% 0 0;
+  background: var(--tan);
+}
+
+.mi-book__muzzle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 78%;
+  height: 58%;
+  margin-left: -39%;
+  background: var(--white);
+  border-radius: 50% 50% 46% 46%;
+}
+
+.mi-book__glass {
+  position: absolute;
+  top: 38%;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  border: 4rpx solid var(--glass);
+  background: rgba(126, 184, 232, 0.12);
+  z-index: 4;
+}
+
+.mi-book__glass--l {
+  left: 14%;
+}
+
+.mi-book__glass--r {
+  right: 14%;
+}
+
+.mi-book__glass-bridge {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  width: 10%;
+  height: 3rpx;
+  margin-left: -5%;
+  background: var(--glass);
+  border-radius: 2rpx;
+  z-index: 4;
+}
+
+.mi-book__eye {
+  position: absolute;
+  top: 44%;
+  width: 12%;
+  height: 14%;
+  border-radius: 50%;
+  background: #3d2a1f;
+  z-index: 5;
+}
+
+.mi-book__eye--l {
+  left: 22%;
+}
+
+.mi-book__eye--r {
+  right: 22%;
+}
+
+.mi-book__eye-hi {
+  position: absolute;
+  top: 14%;
+  right: 14%;
+  width: 36%;
+  height: 36%;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.mi-book__blush {
+  position: absolute;
+  top: 58%;
+  width: 18%;
+  height: 12%;
+  border-radius: 50%;
+  background: var(--cheek);
+  opacity: 0.9;
+  z-index: 5;
+}
+
+.mi-book__blush--l {
+  left: 10%;
+}
+
+.mi-book__blush--r {
+  right: 10%;
+}
+
+.mi-book__nose {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  margin-left: -4%;
+  border-left: 4% solid transparent;
+  border-right: 4% solid transparent;
+  border-top: 5% solid #f0b0b8;
+  z-index: 5;
+}
+
+.mi-book__mouth {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  width: 10%;
+  height: 5%;
+  margin-left: -5%;
+  border-bottom: 2rpx solid #8a6b55;
+  border-radius: 0 0 50% 50%;
+  z-index: 5;
+}
+
+.mi-book__tongue {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  width: 6%;
+  height: 5%;
+  margin-left: -3%;
+  border-radius: 0 0 50% 50%;
+  background: var(--tongue);
+  z-index: 6;
+}
+
+.mi-book__book {
+  position: absolute;
+  left: 8%;
+  bottom: 22%;
+  width: 84%;
+  height: 28%;
+  border-radius: 8rpx;
+  background: var(--book);
+  border: 2rpx solid rgba(138, 107, 85, 0.2);
+  z-index: 1;
+  box-shadow: 0 6rpx 12rpx rgba(61, 42, 31, 0.08);
+}
+
+.mi-book__book-spine {
+  position: absolute;
+  left: 46%;
+  top: 8%;
+  width: 8%;
+  height: 84%;
+  background: var(--book-spine);
+  border-radius: 4rpx;
+}
+
+.mi-book__paw {
+  position: absolute;
+  bottom: 34%;
+  width: 14%;
+  height: 12%;
+  border-radius: 50%;
+  background: var(--cheek);
+  z-index: 2;
+}
+
+.mi-book__paw--l {
+  left: 10%;
+}
+
+.mi-book__paw--r {
+  right: 10%;
+}
+
+.mi-book__foot {
+  position: absolute;
+  bottom: 6%;
+  width: 18%;
+  height: 14%;
+  border-radius: 50%;
+  background: var(--tan);
+}
+
+.mi-book__foot--l {
+  left: 26%;
+}
+
+.mi-book__foot--r {
+  right: 26%;
+}
+
+.mi-book__foot::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 80%;
+  height: 42%;
+  margin-left: -40%;
+  border-radius: 50%;
+  background: var(--sole);
+}

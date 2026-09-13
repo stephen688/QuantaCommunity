@@ -1,0 +1,216 @@
+.mu {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  padding: 0 0 8rpx;
+  box-sizing: border-box;
+}
+
+.mu--avatar {
+  padding: 0;
+  gap: 20rpx;
+  align-items: center;
+}
+
+.mu__cell {
+  position: relative;
+  width: calc((100% - 32rpx) / 3);
+  padding-bottom: calc((100% - 32rpx) / 3);
+  height: 0;
+  border-radius: var(--radius-card, 16rpx);
+  overflow: hidden;
+  background-color: #f0ede7;
+}
+
+.mu--avatar .mu__cell {
+  width: 160rpx;
+  height: 160rpx;
+  padding-bottom: 0;
+  border-radius: 50%;
+  border: 4rpx solid rgba(30, 90, 76, 0.14);
+  box-sizing: border-box;
+}
+
+.mu__img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mu__img--avatar {
+  border-radius: 50%;
+}
+
+.mu__mask {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.mu--avatar .mu__mask {
+  border-radius: 50%;
+}
+
+.mu__mask--err {
+  background-color: rgba(31, 35, 41, 0.55);
+}
+
+.mu__mask-text {
+  font-size: 22rpx;
+  color: #ffffff;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.mu__mask-text--err {
+  color: #ffffff;
+}
+
+.mu__del {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mu__del--avatar {
+  top: 0;
+  right: 0;
+}
+
+.mu__del-bar {
+  position: absolute;
+  width: 22rpx;
+  height: 3rpx;
+  background-color: #ffffff;
+  border-radius: 2rpx;
+}
+
+.mu__del-bar--a {
+  transform: rotate(45deg);
+}
+
+.mu__del-bar--b {
+  transform: rotate(-45deg);
+}
+
+.mu__add {
+  position: relative;
+  width: calc((100% - 32rpx) / 3);
+  padding-bottom: calc((100% - 32rpx) / 3);
+  height: 0;
+  box-sizing: border-box;
+  border: 2rpx dashed var(--color-border, rgba(26, 29, 33, 0.08));
+  background-color: var(--color-card-bg, #ffffff);
+}
+
+.mu__add--avatar {
+  width: 160rpx;
+  height: 160rpx;
+  padding-bottom: 0;
+  border-radius: 50%;
+  border: 2rpx dashed rgba(30, 90, 76, 0.22);
+  background-color: #f0ede7;
+}
+
+.mu__add--hover {
+  opacity: 0.85;
+}
+
+.mu__add-icon {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: -20rpx;
+  margin-top: -20rpx;
+}
+
+.mu--avatar .mu__add-icon {
+  top: 50%;
+  margin-top: -20rpx;
+}
+
+.mu__add-icon-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background-color: var(--color-text-tertiary, #8c939e);
+  border-radius: 2rpx;
+}
+
+.mu__add-icon-line--h {
+  width: 28rpx;
+  height: 3rpx;
+  margin-left: -14rpx;
+  margin-top: -1.5rpx;
+}
+
+.mu__add-icon-line--v {
+  width: 3rpx;
+  height: 28rpx;
+  margin-left: -1.5rpx;
+  margin-top: -14rpx;
+}
+
+.mu__add-camera {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34rpx;
+  height: 26rpx;
+  margin-left: -17rpx;
+  margin-top: -20rpx;
+  border: 3rpx solid var(--color-text-tertiary, #8c939e);
+  border-radius: 6rpx;
+  box-sizing: border-box;
+  opacity: 0.55;
+}
+
+.mu__add-camera::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -10rpx;
+  width: 14rpx;
+  height: 8rpx;
+  margin-left: -7rpx;
+  border: 3rpx solid var(--color-text-tertiary, #8c939e);
+  border-radius: 4rpx 4rpx 0 0;
+  border-bottom: 0;
+  box-sizing: border-box;
+  opacity: 1;
+}
+
+.mu__add-text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 16%;
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--color-text-tertiary, #8c939e);
+}
+
+.mu--avatar .mu__add-text {
+  bottom: 22rpx;
+  font-size: 20rpx;
+  color: var(--color-link, #5c6b62);
+}
