@@ -36,6 +36,9 @@ vector-store/
 .DS_Store
 Thumbs.db
 
+# ---- 临时图片（截图/粘贴残留，不入库） ----
+temp_image*.png
+
 # ---- QuantaBot 观测/记忆本地数据 ----
 **/langfuse-data/
 **/qdrant-data/
