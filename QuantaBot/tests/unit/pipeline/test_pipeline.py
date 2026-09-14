@@ -3,6 +3,7 @@
 覆盖总计划 M1 验收三条：正常回复落 fake 写库、幂等重投不重复、违规文本零回复。
 """
 
+from quanta_bot.crosscutting.idempotency import IDEMPOTENCY_KEY_PREFIX
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeReplyWriter
@@ -33,6 +34,9 @@ async def test_reply_flows_to_writer_with_audit(tmp_path) -> None:
     entries = await audit.fetch_entries()
     assert [e.decision for e in entries] == ["replied"]
     assert entries[0].mode == "生活玩梗"
+    assert (
+        await deps.kv.set_if_absent(f"{IDEMPOTENCY_KEY_PREFIX}1", 1) is False
+    )  # 幂等键已落（直断言）
 
 
 async def test_duplicate_comment_id_not_rewritten(tmp_path) -> None:
@@ -64,3 +68,6 @@ async def test_not_mentioned_skipped_before_idempotency(tmp_path) -> None:
     assert writer.written == []
     entries = await audit.fetch_entries()
     assert [e.decision for e in entries] == ["skipped_not_mentioned"]
+    assert (
+        await deps.kv.set_if_absent(f"{IDEMPOTENCY_KEY_PREFIX}3", 1) is True
+    )  # 幂等键未落（未进链路）

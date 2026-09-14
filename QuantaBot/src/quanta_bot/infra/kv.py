@@ -1,7 +1,8 @@
 """infra/kv —— KeyValueStore 端口实现（M1：内存 fake；M2：真 Redis 客户端）。
 
 职责：fake_mode 下提供内存版 SETNX+TTL 语义，供幂等/开关/成本键共用。
-边界：不持久化（重启即失——fake 定位）；M2 在本文件替换为 redis 实现，端口与调用方零改。
+边界：不持久化（重启即失——fake 定位）；过期键仅惰性判断、不主动清理（长跑内存缓增——
+fake 定位可接受，M1 审查 Minor-4 注记）；M2 在本文件替换为 redis 实现，端口与调用方零改。
 """
 
 import time

@@ -17,6 +17,9 @@ def test_settings_defaults() -> None:
 
 def test_settings_env_override(monkeypatch) -> None:
     """QUANTABOT_ 前缀环境变量可覆盖默认值（pydantic-settings 契约）。"""
+    # 计划 Step 1.2 注记：先清 shell 可能残留的前缀变量，防本地环境污染断言（M0 审查 Minor-1 延续）
+    monkeypatch.delenv("QUANTABOT_PORT", raising=False)
+    monkeypatch.delenv("QUANTABOT_FAKE_MODE", raising=False)
     monkeypatch.setenv("QUANTABOT_PORT", "9000")
     monkeypatch.setenv("QUANTABOT_FAKE_MODE", "false")
     s = Settings(_env_file=None)

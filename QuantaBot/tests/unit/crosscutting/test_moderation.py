@@ -14,3 +14,9 @@ async def test_sensitive_word_blocked() -> None:
     v = await precheck("@QuantaBot 这条包含测试敏感词")
     assert v.passed is False
     assert "敏感词" in v.reason
+
+
+async def test_content_exactly_the_word_blocked() -> None:
+    """等号边界：内容恰好等于敏感词本身（无前后文）→ 同样拦截。"""
+    v = await precheck("测试敏感词")
+    assert v.passed is False
