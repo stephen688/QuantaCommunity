@@ -1,0 +1,13 @@
+# 密钥与本地配置（只进 .env，模板见 .env.example；禁止入库）
+.env
+# Python 运行产物
+.venv/
+__pycache__/
+*.pyc
+# 测试与工具缓存
+.pytest_cache/
+.ruff_cache/
+# 构建产物
+dist/
+build/
+*.egg-info/
