@@ -24,8 +24,8 @@ Decision = Literal[
 class DecisionLogEntry(BaseModel):
     """决策日志条目（SQLite 明细表结构；Langfuse trace 字段子集，M2 上报）。"""
 
-    comment_id: int
-    decision: Decision
+    comment_id: int # 主服务评论 ID——幂等唯一键（缺口3）
+    decision: Decision  # 决策结果
     mode: str | None = Field(default=None, description="表达模式；未进决策/生成阶段为 None")
     reason: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

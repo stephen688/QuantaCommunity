@@ -23,4 +23,4 @@ class TriggerEvent(BaseModel):
 
 def detect_mention(content: str, nickname: str = AI_NICKNAME) -> bool:
     """检测评论是否 @ 了 AI 账号（M1：大小写不敏感子串匹配；语义级检测 M3）。"""
-    return f"@{nickname}".lower() in content.lower()
+    return f"@{nickname}".lower() in content.lower() #返回是否包含 @QuantaBot

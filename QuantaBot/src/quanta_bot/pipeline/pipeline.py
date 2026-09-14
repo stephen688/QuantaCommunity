@@ -24,6 +24,7 @@ class PipelineDeps:
     reply_writer: ReplyWriter
 
 
+# 打点辅助函数（所有回/不回分支统一走这里，防漏记）
 async def _audit(
     deps: PipelineDeps, comment_id: int, d: Decision, reason: str, mode: str | None = None
 ) -> None:
