@@ -26,3 +26,5 @@ class Settings(BaseSettings):
     port: int = 8000
     # 全 fake 开关：M0/M1 默认开（外部依赖全走内存假实现），M2 起逐项替换真实现
     fake_mode: bool = True
+    # 决策日志 SQLite 路径（相对 cwd；M2 随 env_file 一起锚定模块路径）
+    audit_db_path: str = "data/decisions.db"

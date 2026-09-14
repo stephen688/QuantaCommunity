@@ -11,3 +11,5 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+# 运行数据（决策日志 SQLite 等）
+data/
