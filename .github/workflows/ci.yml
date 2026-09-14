@@ -4,9 +4,16 @@ on:
   push:
   pull_request:
 
+# 同分支新推送取消旧运行（省 runner；M0 审查 Minor-3 清账）
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    # 挂死保护：超 10 分钟判失败（M0 审查 Minor-3 清账）
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: QuantaBot
