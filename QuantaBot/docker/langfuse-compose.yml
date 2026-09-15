@@ -186,8 +186,8 @@ services:
     command: >
       --requirepass ${REDIS_AUTH:-myredissecret}
       --maxmemory-policy noeviction
-    ports:
-      - 127.0.0.1:6379:6379
+    # [local-dev 改动] 官方原文有 ports: 127.0.0.1:6379:6379——与主 compose 的 agent-redis
+    # 宿主机端口冲突，且 Langfuse 栈内 redis 仅容器网络使用，故移除宿主机映射（容器间访问不受影响）。
     volumes:
       - langfuse_redis_data:/data
     healthcheck:
