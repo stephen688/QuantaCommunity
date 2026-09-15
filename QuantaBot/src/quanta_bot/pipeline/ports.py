@@ -7,7 +7,29 @@
 
 from typing import Protocol
 
+from pydantic import BaseModel
+
 from quanta_bot.pipeline.generation import GeneratedReply
+
+
+class LLMResult(BaseModel):
+    """LLM 调用结果（usage 供成本折算与 trace 上报）。"""
+
+    content: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
+class LLMClientError(Exception):
+    """LLM 调用失败（网络/HTTP/响应契约不符统一包装；管线 failed 分支捕获类型）。"""
+
+
+class LLMClient(Protocol):
+    """LLM 端口（infra 提供 DeepSeekClient/FakeLLM 实现，composition 注入）。"""
+
+    async def complete(self, system: str, user: str) -> LLMResult:
+        """按 system+user 双消息生成回复（OpenAI 兼容形态；M3 起由人格层组装 prompt）。"""
+        ...
 
 
 class ReplyWriter(Protocol):
