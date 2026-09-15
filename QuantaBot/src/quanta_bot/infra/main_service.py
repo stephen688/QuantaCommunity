@@ -6,8 +6,120 @@
       禁止直连数据库（红线 §0.5——真实现走主服务 HTTP 入口）。
 """
 
+import httpx
+from pydantic import BaseModel, ConfigDict, Field
+
 from quanta_bot.pipeline.generation import GeneratedReply
-from quanta_bot.pipeline.ports import CommentNode, PostContent, PostThread, ReplyWriteError
+from quanta_bot.pipeline.ports import CommentNode, PostSummary, PostThread, ReplyWriteError
+from quanta_bot.pipeline.trigger import TriggerEvent
+
+
+class MainServiceError(Exception):
+    """主服务调用失败（Result 业务码非成功；HTTP 层错误由 httpx 异常表达）。"""
+
+
+class MainServiceClient:
+    """demo0 同步接口基座（C-5 service token 鉴权；httpx 直调）。"""
+
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        timeout_seconds: float,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._http = httpx.AsyncClient(
+            base_url=base_url,
+            timeout=timeout_seconds,
+            headers={"Authorization": f"Bearer {token}"},
+            transport=transport,
+        )
+
+    async def get_json(self, path: str, params: dict[str, object] | None = None) -> object:
+        """GET 并剥 demo0 Result 外壳（成功返回 data）。
+
+        [联调校准点] 外壳与成功码形状按 demo0 现有接口惯例（code/msg/data）；
+        D1-D7 落地联调时如实际不同，改此处一处即可（所有 /bot/* 接口共用本基座）。
+        """
+        resp = await self._http.get(path, params=params)
+        resp.raise_for_status()
+        return _unwrap_result(resp.json())
+
+    async def post_json(self, path: str, payload: dict[str, object]) -> object:
+        """POST 并剥壳（写库用，Task 16）。"""
+        resp = await self._http.post(path, json=payload)
+        resp.raise_for_status()
+        return _unwrap_result(resp.json())
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
+
+
+def _unwrap_result(body: object) -> object:
+    """剥 Result 外壳：code 非成功 → MainServiceError；无外壳结构 → 原样返回（宽容校准期）。"""
+    if isinstance(body, dict) and "code" in body:
+        if body.get("code") not in (200, 0, "200", "0"):
+            raise MainServiceError(f"主服务业务失败：{body.get('msg')}")
+        return body.get("data")
+    return body
+
+
+class HTTPCommentTreeFetcher:
+    """C-2 真客户端：chain（触发评论+父链+主楼摘要）+ history（bot 本帖历史）。
+
+    tree 分页（C-2②）留 M3 筛选策略；history 的 postId=None 全站模式留 M3 用户级记忆。
+    """
+
+    def __init__(self, client: MainServiceClient, bot_user_id: int) -> None:
+        self._client = client
+        self._bot_user_id = bot_user_id
+
+    async def fetch_context(self, event: TriggerEvent) -> PostThread:
+        # C-2① 评论+父级链+主楼摘要
+        chain_data = await self._client.get_json(
+            "/bot/comment/chain", params={"commentId": event.comment_id}
+        )
+        parsed = CommentChainResponse.model_validate(chain_data)
+        # C-2③ bot 本帖历史发言（防穿越楼层快照数据源）
+        history_data = await self._client.get_json(
+            "/bot/comment/history",
+            params={
+                "userId": self._bot_user_id,
+                "postId": event.post_id,
+                "pageNum": 1,
+                "pageSize": 50,
+            },
+        )
+        history = CommentHistoryResponse.model_validate(history_data)
+        return PostThread(
+            post=parsed.post,
+            chain=tuple(self._mark_ai(node) for node in parsed.chain),
+            bot_history=tuple(self._mark_ai(node) for node in history.comments),
+        )
+
+    def _mark_ai(self, node: CommentNode) -> CommentNode:
+        """按 user_id==bot 标记 AI 发言（客户端本地判定，不依赖服务端字段）。"""
+        if node.user_id == self._bot_user_id and not node.is_ai:
+            return node.model_copy(update={"is_ai": True})
+        return node
+
+
+class CommentChainResponse(BaseModel):
+    """[C-2① 联调校准点] chain 接口响应（demo0 D5 实施时对齐字段名）。"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    post: PostSummary
+    chain: tuple[CommentNode, ...] = ()
+
+
+class CommentHistoryResponse(BaseModel):
+    """[C-2③ 联调校准点] history 接口响应（分页 list + total）。"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    comments: tuple[CommentNode, ...] = Field(default=(), alias="list")
+    total: int = 0
 
 
 class FakeReplyWriter:
@@ -32,21 +144,22 @@ class UnimplementedReplyWriter:
 
 
 class FakeCommentTreeFetcher:
-    """内存 fake 评论树（返回与 post_id 同帖的最小占位线程——真客户端替换点=HTTPCommentTreeFetcher，Task 15）。"""
+    """内存 fake 评论树（fetch_context 形态；真客户端替换点=HTTPCommentTreeFetcher）。"""
 
-    async def fetch(self, post_id: int) -> PostThread:
-        post = PostContent(
-            post_id=post_id,
+    async def fetch_context(self, event: TriggerEvent) -> PostThread:
+        post = PostSummary(
+            post_id=event.post_id,
             author_user_id=1,
             title="占位主楼",
             content="（M2 fake 评论树：主楼内容占位）",
         )
-        comments = (
+        chain = (
             CommentNode(
-                comment_id=1, parent_comment_id=None, author_user_id=2, content="占位评论1"
-            ),
-            CommentNode(
-                comment_id=2, parent_comment_id=1, author_user_id=3, content="占位评论2（回复1楼）"
+                comment_id=event.comment_id,
+                parent_id=event.parent_id,
+                reply_comment_id=event.reply_comment_id,
+                user_id=event.commenter_user_id,
+                content=event.content,
             ),
         )
-        return PostThread(post=post, comments=comments)
+        return PostThread(post=post, chain=chain)

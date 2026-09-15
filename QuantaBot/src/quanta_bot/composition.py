@@ -16,6 +16,8 @@ from quanta_bot.infra.kv import InMemoryKV, RedisKV
 from quanta_bot.infra.main_service import (
     FakeCommentTreeFetcher,
     FakeReplyWriter,
+    HTTPCommentTreeFetcher,
+    MainServiceClient,
     UnimplementedReplyWriter,
 )
 from quanta_bot.infra.settings import Settings, resolve_data_path
@@ -89,8 +91,21 @@ def build_runtime(settings: Settings) -> Runtime:
             tracer = NullTracer()
         # 写库无降级（红线 §0.5）：main_service 未配置 → 诚实占位，调用即 failed（Task 16 换 HTTPReplyWriter）
         writer = UnimplementedReplyWriter()
-        # 评论树：main_service 未配置 → fake 占位（Task 15 按 C-2 换 HTTPCommentTreeFetcher）
-        tree = FakeCommentTreeFetcher()
+        # 评论树（C-2）：main_service 配置齐 → 真客户端（main_service 暂存供 Task 16 复用同一 client）；
+        # 缺配置 → fake 降级 WARNING 留痕
+        if settings.main_service_base_url and settings.main_service_token:
+            main_service = MainServiceClient(
+                settings.main_service_base_url,
+                settings.main_service_token,
+                settings.main_service_timeout_seconds,
+            )
+            closers.append(main_service.aclose)
+            tree = HTTPCommentTreeFetcher(main_service, settings.main_service_bot_user_id)
+        else:
+            logger.warning(
+                "main_service 未配置——评论树降级为 fake（[C-2] 真接口随 demo0 D5 落地联调）"
+            )
+            tree = FakeCommentTreeFetcher()
 
     control_plane = ControlPlane(kv, poll_seconds=settings.control_plane_poll_seconds)
     deps = PipelineDeps(

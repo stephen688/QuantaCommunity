@@ -8,6 +8,7 @@ from quanta_bot.infra.kv import InMemoryKV, RedisKV
 from quanta_bot.infra.main_service import (
     FakeCommentTreeFetcher,
     FakeReplyWriter,
+    HTTPCommentTreeFetcher,
     UnimplementedReplyWriter,
 )
 from quanta_bot.infra.settings import Settings
@@ -72,6 +73,8 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
             deepseek_api_key="sk-test",
             langfuse_public_key="pk-test",
             langfuse_secret_key="sk-test",
+            main_service_base_url="http://demo0.test",
+            main_service_token="svc-token",
         )
     )
     try:
@@ -80,6 +83,7 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
         assert isinstance(deps.llm, DeepSeekClient)
         assert isinstance(deps.tracer, LangfuseTracer)
         assert isinstance(deps.reply_writer, UnimplementedReplyWriter)
+        assert isinstance(deps.comment_tree, HTTPCommentTreeFetcher)  # C-2 真客户端接入
     finally:
         await runtime.aclose()
 

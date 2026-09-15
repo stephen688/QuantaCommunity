@@ -24,7 +24,7 @@ async def test_build_context_renders_thread() -> None:
 
 
 async def test_build_context_fake_thread_matches_post() -> None:
-    """fake fetcher 返回与 post_id 同帖线程（隔离锚点正确）。"""
-    thread = await FakeCommentTreeFetcher().fetch(22)
+    """fake fetcher 返回与触发事件同帖线程（隔离锚点正确）。"""
+    thread = await FakeCommentTreeFetcher().fetch_context(_event())
     assert thread.post.post_id == 22
-    assert all(isinstance(c.is_ai, bool) for c in thread.comments)
+    assert all(isinstance(c.is_ai, bool) for c in thread.chain)

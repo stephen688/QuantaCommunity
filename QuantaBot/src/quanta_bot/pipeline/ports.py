@@ -7,10 +7,11 @@
 
 from typing import Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from quanta_bot.crosscutting.ports import Decision
 from quanta_bot.pipeline.generation import GeneratedReply
+from quanta_bot.pipeline.trigger import TriggerEvent
 
 
 class LLMResult(BaseModel):
@@ -33,38 +34,45 @@ class LLMClient(Protocol):
         ...
 
 
-class PostContent(BaseModel):
-    """[Phase 0 对齐点 P0-2] 帖子主楼——字段随主服务帖子详情接口契约对齐，未定不臆造。"""
+class PostSummary(BaseModel):
+    """[C-2① 联调校准点] 帖子主楼摘要（响应外壳由 MainServiceClient 剥壳）。"""
 
-    post_id: int
-    author_user_id: int
+    model_config = ConfigDict(populate_by_name=True)
+
+    post_id: int = Field(alias="postId")
+    author_user_id: int = Field(alias="userId")
     title: str = ""
     content: str
 
 
 class CommentNode(BaseModel):
-    """[Phase 0 对齐点 P0-2] 评论节点——父链与 AI 发言标记是防穿越/防串味的关键字段。"""
+    """[C-2① 联调校准点] 评论节点（chain/history 共用；is_ai 为客户端本地标记）。"""
 
-    comment_id: int
-    parent_comment_id: int | None = None
-    author_user_id: int
+    model_config = ConfigDict(populate_by_name=True)
+
+    comment_id: int = Field(alias="commentId")
+    parent_id: int | None = Field(default=None, alias="parentId")
+    reply_comment_id: int | None = Field(default=None, alias="replyCommentId")
+    user_id: int = Field(alias="userId")
     content: str
-    is_ai: bool = False
-    created_at: str = ""  # 契约敲定后改 datetime
+    images: tuple[str, ...] = Field(default=(), alias="images")
+    create_time: str = Field(default="", alias="createTime")
+    is_ai: bool = Field(default=False, description="客户端按 user_id==bot_user_id 本地标记")
 
 
 class PostThread(BaseModel):
-    """[Phase 0 对齐点 P0-2] 帖子线程：主楼 + 评论树 + AI 历史发言标记。"""
+    """帖子线程：主楼 + 触发评论父链（C-2①）+ bot 本帖历史（C-2③，防穿越快照数据源）。"""
 
-    post: PostContent
-    comments: tuple[CommentNode, ...] = ()
+    post: PostSummary
+    chain: tuple[CommentNode, ...] = ()
+    bot_history: tuple[CommentNode, ...] = ()
 
 
 class CommentTreeFetcher(Protocol):
-    """评论树/帖子详情端口（P0-2；不可降级依赖——真实现可用前不可上线，技术选型 §5.5①）。"""
+    """评论树/帖子详情端口（C-2；不可降级依赖——真实现可用前不可上线，技术选型 §5.5①）。"""
 
-    async def fetch(self, post_id: int) -> PostThread:
-        """拉取帖子线程（主楼+评论树）。"""
+    async def fetch_context(self, event: TriggerEvent) -> PostThread:
+        """拉取组装上下文所需线程（主楼+触发评论父链+bot 本帖历史）。"""
         ...
 
 
