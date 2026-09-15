@@ -9,6 +9,7 @@ from quanta_bot.infra.main_service import (
     FakeCommentTreeFetcher,
     FakeReplyWriter,
     HTTPCommentTreeFetcher,
+    HTTPReplyWriter,
     UnimplementedReplyWriter,
 )
 from quanta_bot.infra.settings import Settings
@@ -82,13 +83,15 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
         assert isinstance(deps.kv, RedisKV)
         assert isinstance(deps.llm, DeepSeekClient)
         assert isinstance(deps.tracer, LangfuseTracer)
-        assert isinstance(deps.reply_writer, UnimplementedReplyWriter)
+        assert isinstance(
+            deps.reply_writer, HTTPReplyWriter
+        )  # C-5 真写库接入（与评论树共享 client）
         assert isinstance(deps.comment_tree, HTTPCommentTreeFetcher)  # C-2 真客户端接入
     finally:
         await runtime.aclose()
 
 
-async def test_real_mode_write_is_honest_failure(tmp_path) -> None:
+async def test_real_mode_without_main_service_fails_honestly(tmp_path) -> None:
     """真模式跑管线 → 写库占位抛错 → failed（绝不静默假装写库成功，红线 §0.5 精神）。"""
     runtime = build_runtime(_settings(tmp_path, fake_mode=False))
     result = await run(

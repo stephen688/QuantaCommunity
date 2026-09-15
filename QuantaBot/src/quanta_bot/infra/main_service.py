@@ -104,6 +104,32 @@ class HTTPCommentTreeFetcher:
         return node
 
 
+class HTTPReplyWriter:
+    """C-5/P0-5 真写库：POST /comment/send（CommentAddDTO 原样；红线 §0.5 单一入口）。
+
+    机审语义（C-6）：提交成功≠最终可见——demo0 异步 AI 机审驳回则回复不可见（由 demo0 链路
+    自动处理，bot 侧无同步感知；决策日志 replied 口径=「已提交写库」）。
+    """
+
+    def __init__(self, client: MainServiceClient) -> None:
+        self._client = client
+
+    async def write_reply(self, reply: GeneratedReply) -> None:
+        payload: dict[str, object] = {
+            "contentId": reply.post_id,
+            "answerId": reply.answer_id,
+            "parentId": reply.parent_floor_comment_id,
+            "replyCommentId": reply.reply_to_comment_id,
+            "replyUserId": reply.reply_to_user_id,
+            "content": reply.content,
+            "imageUrls": [],  # bot 纯文本回复（M3 多模态再扩）
+        }
+        try:
+            await self._client.post_json("/comment/send", payload)
+        except (httpx.HTTPError, MainServiceError) as exc:
+            raise ReplyWriteError(f"主服务写库失败：{exc}") from exc
+
+
 class CommentChainResponse(BaseModel):
     """[C-2① 联调校准点] chain 接口响应（demo0 D5 实施时对齐字段名）。"""
 

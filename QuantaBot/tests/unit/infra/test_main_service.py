@@ -1,13 +1,17 @@
 """主服务客户端行为测试（httpx MockTransport 隔离网络——C-2/C-5 契约形状与响应解析）。"""
 
+import json
+
 import httpx
 import pytest
 
 from quanta_bot.infra.main_service import (
     HTTPCommentTreeFetcher,
+    HTTPReplyWriter,
     MainServiceClient,
     MainServiceError,
 )
+from quanta_bot.pipeline.generation import GeneratedReply
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 _CHAIN_BODY = {
@@ -126,3 +130,54 @@ async def test_main_service_http_error_propagates() -> None:
     client = MainServiceClient("http://demo0.test", "svc-token", 10.0, transport=transport)
     with pytest.raises(httpx.HTTPError):
         await client.get_json("/bot/comment/chain", params={"commentId": 1})
+
+
+_REPLY = GeneratedReply(
+    post_id=9,
+    answer_id=None,
+    reply_to_comment_id=101,
+    reply_to_user_id=5,
+    parent_floor_comment_id=100,
+    content="[QuantaBot·AI 学长] 回复内容",
+)
+
+
+async def test_http_reply_writer_posts_comment_add_dto() -> None:
+    """C-5/P0-5 契约：POST /comment/send 请求体=CommentAddDTO 映射（含鉴权头）。"""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"code": 200, "msg": "success", "data": None})
+
+    client = _client(handler)
+    writer = HTTPReplyWriter(client)
+    try:
+        await writer.write_reply(_REPLY)
+    finally:
+        await client.aclose()
+    assert len(seen) == 1
+    req = seen[0]
+    assert req.url.path == "/comment/send"
+    assert req.headers["Authorization"] == "Bearer svc-token"
+    body = json.loads(req.content)
+    assert body["contentId"] == 9
+    assert body["answerId"] is None
+    assert body["parentId"] == 100
+    assert body["replyCommentId"] == 101
+    assert body["replyUserId"] == 5
+    assert body["content"] == "[QuantaBot·AI 学长] 回复内容"
+    assert body["imageUrls"] == []
+
+
+async def test_http_reply_writer_wraps_failure() -> None:
+    """写库失败（业务码/HTTP）→ ReplyWriteError（管线 failed 分支捕获类型）。"""
+    from quanta_bot.pipeline.ports import ReplyWriteError
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"code": 500, "msg": "被限流"})
+    )
+    client = MainServiceClient("http://demo0.test", "svc-token", 10.0, transport=transport)
+    writer = HTTPReplyWriter(client)
+    with pytest.raises(ReplyWriteError):
+        await writer.write_reply(_REPLY)

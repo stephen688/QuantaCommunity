@@ -17,6 +17,7 @@ from quanta_bot.infra.main_service import (
     FakeCommentTreeFetcher,
     FakeReplyWriter,
     HTTPCommentTreeFetcher,
+    HTTPReplyWriter,
     MainServiceClient,
     UnimplementedReplyWriter,
 )
@@ -89,9 +90,7 @@ def build_runtime(settings: Settings) -> Runtime:
         else:
             logger.warning("langfuse 密钥未配置——tracing 降级为 NullTracer（不上报）")
             tracer = NullTracer()
-        # 写库无降级（红线 §0.5）：main_service 未配置 → 诚实占位，调用即 failed（Task 16 换 HTTPReplyWriter）
-        writer = UnimplementedReplyWriter()
-        # 评论树（C-2）：main_service 配置齐 → 真客户端（main_service 暂存供 Task 16 复用同一 client）；
+        # 评论树（C-2）：main_service 配置齐 → 真客户端（main_service 暂存供写库复用同一 client）；
         # 缺配置 → fake 降级 WARNING 留痕
         if settings.main_service_base_url and settings.main_service_token:
             main_service = MainServiceClient(
@@ -106,6 +105,12 @@ def build_runtime(settings: Settings) -> Runtime:
                 "main_service 未配置——评论树降级为 fake（[C-2] 真接口随 demo0 D5 落地联调）"
             )
             tree = FakeCommentTreeFetcher()
+        # 写库（C-5）：与评论树共享 MainServiceClient；缺配置 → 诚实占位（调用即 failed）
+        if settings.main_service_base_url and settings.main_service_token:
+            writer = HTTPReplyWriter(main_service)  # 与 Task 15 同一 client 实例
+        else:
+            logger.warning("main_service 未配置——写库为诚实占位（调用即 failed，绝不假装成功）")
+            writer = UnimplementedReplyWriter()
 
     control_plane = ControlPlane(kv, poll_seconds=settings.control_plane_poll_seconds)
     deps = PipelineDeps(

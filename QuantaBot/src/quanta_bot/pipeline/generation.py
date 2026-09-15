@@ -31,10 +31,17 @@ AI_BADGE = "[QuantaBot·AI 学长]"
 
 
 class GeneratedReply(BaseModel):
-    """生成结果契约（M2 起随写库接口契约对齐 [Phase 0 对齐点 P0-5]）。"""
+    """生成回复（携带 CommentAddDTO 映射所需全部字段——writer 做最终序列化）。
 
-    post_id: int
-    reply_to_comment_id: int
+    [联调校准点] parentId 语义：触发评论为一级评论（parent_id=None）时回复挂其下
+    （parent_floor=触发 comment_id）；触发评论为楼内回复时沿用其 parent_id。
+    """
+
+    post_id: int  # → contentId
+    answer_id: int | None = None  # → answerId（专业区透传触发事件）
+    reply_to_comment_id: int  # → replyCommentId（回复锚点=触发评论）
+    reply_to_user_id: int  # → replyUserId（触发评论作者）
+    parent_floor_comment_id: int  # → parentId（一级楼层）
     content: str
 
 
@@ -58,9 +65,13 @@ async def generate(
     content = result.content.strip()
     if AI_BADGE not in content:
         content = f"{AI_BADGE} {content}"
+    parent_floor = event.parent_id if event.parent_id is not None else event.comment_id
     reply = GeneratedReply(
         post_id=event.post_id,
+        answer_id=event.answer_id,
         reply_to_comment_id=event.comment_id,
+        reply_to_user_id=event.commenter_user_id,
+        parent_floor_comment_id=parent_floor,
         content=content,
     )
     return GenerationOutput(

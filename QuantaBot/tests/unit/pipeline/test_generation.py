@@ -48,5 +48,9 @@ async def test_generate_output_anchors_and_usage() -> None:
     )
     assert output.reply.post_id == 22
     assert output.reply.reply_to_comment_id == 11
+    assert output.reply.reply_to_user_id == 3
+    assert (
+        output.reply.parent_floor_comment_id == 11
+    )  # 触发评论为一级评论（parent_id=None）→ 回复挂其下
     assert output.prompt_tokens == 500
     assert output.completion_tokens == 100
