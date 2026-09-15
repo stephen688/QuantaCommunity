@@ -103,3 +103,7 @@ class ReplyWriter(Protocol):
     async def write_reply(self, reply: GeneratedReply) -> None:
         """把生成回复落库（fake：内存记录；M2：主服务 HTTP 写库）。"""
         ...
+
+
+class ReplyWriteError(Exception):
+    """写库端口失败（真客户端 HTTP 错误 / P0-5 未接入占位抛出；管线 failed 分支捕获类型）。"""

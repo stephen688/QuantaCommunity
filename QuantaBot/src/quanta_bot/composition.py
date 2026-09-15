@@ -4,11 +4,13 @@
 边界：不含业务逻辑；server/consumer（M2）只经它拿依赖；未实现的真依赖宁可炸也不静默降级。
 """
 
+from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
 from quanta_bot.infra.settings import Settings
+from quanta_bot.infra.tracing import NullTracer
 from quanta_bot.pipeline.pipeline import PipelineDeps
 
 
@@ -16,12 +18,18 @@ def build_pipeline_deps(settings: Settings) -> PipelineDeps:
     """装配管线依赖：audit 恒为真 SQLite；kv/写库按 fake_mode 切换（M2 起补真实现）。"""
     audit = SQLiteAudit(settings.audit_db_path)
     if settings.fake_mode:
+        kv = InMemoryKV()
         return PipelineDeps(
-            kv=InMemoryKV(),
+            kv=kv,
             audit=audit,
             reply_writer=FakeReplyWriter(),
-            comment_tree=FakeCommentTreeFetcher(),
             llm=FakeLLM(),
+            tracer=NullTracer(),
+            control_plane=ControlPlane(kv, poll_seconds=settings.control_plane_poll_seconds),
+            comment_tree=FakeCommentTreeFetcher(),
+            llm_input_price_per_mtok=settings.llm_input_price_per_mtok,
+            llm_output_price_per_mtok=settings.llm_output_price_per_mtok,
+            cost_key_ttl_hours=settings.cost_key_ttl_hours,
         )
     # 诚实失败：真实现随 M2 逐项落地，在此之前显式炸而非静默假装可用
     raise NotImplementedError("M2 前仅支持 fake_mode=True（真kv/写库客户端随 M2 落地）")

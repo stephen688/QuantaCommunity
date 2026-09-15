@@ -1,63 +1,144 @@
-"""pipeline/pipeline —— 核心链路组装（触发→幂等→预检→决策→上下文→生成→写库→打点）。
+"""pipeline/pipeline —— 核心链路组装（触发→kill短路→幂等→预检→决策→上下文→生成→成本→写库→打点）。
 
-职责：async run() 串联全链路；每个回/不回分支落决策日志（诚实口径，PRD F6）；
-      返回决策枚举值供调用方（M2 consumer）与集成测试断言。
-边界：不建外部客户端（deps 由 composition 注入）；不做熔断/超时档/串行（M2/M5 落地）；
-      链路异常由调用方兜底记 failed（本函数不吞异常——处理不了的让它炸，AGENTS.md §4.3）。
+职责：run() 单出口——所有回/不回分支统一落决策日志（诚实口径，PRD F6）+ RunTrace 上报；
+      kill switch 短路（G5）；LLM/写库失败静默记 failed 不回（红线 §0.3）。
+边界：不建外部客户端（deps 由 composition 注入）；熔断/频率/消费暂停不在本层（M5/Tranche B）；
+      除 LLM/写库两类已知失败外不吞异常（处理不了的让它炸，AGENTS §4.3）。
 """
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
-from quanta_bot.crosscutting import idempotency, moderation
+from quanta_bot.crosscutting import budget, idempotency, moderation
+from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.crosscutting.ports import Decision, DecisionAudit, DecisionLogEntry, KeyValueStore
 from quanta_bot.pipeline import context, decision, generation, trigger
-from quanta_bot.pipeline.ports import CommentTreeFetcher, LLMClient, ReplyWriter
+from quanta_bot.pipeline.ports import (
+    CommentTreeFetcher,
+    LLMClient,
+    LLMClientError,
+    ReplyWriteError,
+    ReplyWriter,
+    RunTrace,
+    RunTracer,
+)
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
 @dataclass
 class PipelineDeps:
-    """管线依赖（composition 装配注入；测试可自组）。"""
+    """管线依赖（composition 装配注入；测试可自组；价格/TTL 带默认值便于测试）。"""
 
     kv: KeyValueStore
     audit: DecisionAudit
     reply_writer: ReplyWriter
-    comment_tree: CommentTreeFetcher
     llm: LLMClient
+    tracer: RunTracer
+    control_plane: ControlPlane
+    comment_tree: CommentTreeFetcher
+    # 成本折算参数（composition 从 Settings 注入；默认=技术选型 §4.3 口径）
+    llm_input_price_per_mtok: float = 12.0
+    llm_output_price_per_mtok: float = 24.0
+    cost_key_ttl_hours: int = 48
 
 
-# 打点辅助函数（所有回/不回分支统一走这里，防漏记）
-async def _audit(
-    deps: PipelineDeps, comment_id: int, d: Decision, reason: str, mode: str | None = None
-) -> None:
-    """打点辅助（所有回/不回分支统一走这里，防漏记）。"""
-    await deps.audit.record(
-        DecisionLogEntry(comment_id=comment_id, decision=d, mode=mode, reason=reason)
-    )
+@dataclass
+class _Outcome:
+    """单分支执行结果（决策明细 + trace 的公共字段载体）。"""
+
+    decision: Decision
+    reason: str
+    mode: str | None = None
+    context_text: str | None = None
+    generated_content: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    cost_li: int | None = None
+    daily_cost_li_after: int | None = None
+    error: str | None = None
 
 
 async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
-    """跑一条触发事件的完整被动链路，返回终态决策值。"""
-    # ① 触发检测（未 @ → 链路不进入，幂等键不占）
+    """跑一条触发事件的完整被动链路，返回终态决策值（单出口统一审计+上报）。"""
+    outcome = await _execute(event, deps)
+    await deps.audit.record(
+        DecisionLogEntry(
+            comment_id=event.comment_id,
+            decision=outcome.decision,
+            mode=outcome.mode,
+            reason=outcome.reason,
+        )
+    )
+    await deps.tracer.record(
+        RunTrace(
+            comment_id=event.comment_id,
+            post_id=event.post_id,
+            trigger_content=event.content,
+            decision=outcome.decision,
+            mode=outcome.mode,
+            reason=outcome.reason,
+            context_text=outcome.context_text,
+            generated_content=outcome.generated_content,
+            prompt_tokens=outcome.prompt_tokens,
+            completion_tokens=outcome.completion_tokens,
+            cost_li=outcome.cost_li,
+            daily_cost_li_after=outcome.daily_cost_li_after,
+            error=outcome.error,
+        )
+    )
+    return outcome.decision
+
+
+async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
+    """执行链路各分支（不负责打点——run 统一出口处理）。"""
+    # ⓪ kill switch 短路（G5 止血：置位期间零新回复，幂等键不占）
+    if deps.control_plane.snapshot.kill:
+        return _Outcome("skipped_killswitch", "kill switch 置位，链路短路不回")
+
+    # ① 触发检测（未 @ → 链路不进入）
     if not trigger.detect_mention(event.content):
-        await _audit(deps, event.comment_id, "skipped_not_mentioned", "未命中 @，链路未进入")
-        return "skipped_not_mentioned"
+        return _Outcome("skipped_not_mentioned", "未命中 @，链路未进入")
 
     # ② 幂等（重复投递 → 静默跳过）
     if not await idempotency.check_and_mark(deps.kv, event.comment_id):
-        await _audit(deps, event.comment_id, "skipped_idempotent", "重复投递，幂等拦截")
-        return "skipped_idempotent"
+        return _Outcome("skipped_idempotent", "重复投递，幂等拦截")
 
     # ③ 审核预检（红线：违规一律不出）
     verdict = await moderation.precheck(event.content)
     if not verdict.passed:
-        await _audit(deps, event.comment_id, "rejected_moderation", verdict.reason)
-        return "rejected_moderation"
+        return _Outcome("rejected_moderation", verdict.reason)
 
-    # ④ 决策 → ⑤ 上下文 → ⑥ 生成 → ⑦ 写库
+    # ④ 决策 → ⑤ 上下文 → ⑥ 生成（成本）→ ⑦ 写库
     d = decision.decide(event)
-    context_text = await context.build_context(event, deps.comment_tree)
-    output = await generation.generate(event, d, deps.llm, context_text)
-    await deps.reply_writer.write_reply(output.reply)
-    await _audit(deps, event.comment_id, "replied", f"链路完整（决策：{d.reason}）", mode=d.mode)
-    return "replied"
+    today = datetime.now(UTC).date()
+    cost_before = await budget.read_cost(deps.kv, today)
+    try:
+        context_text = await context.build_context(event, deps.comment_tree)
+        output = await generation.generate(event, d, deps.llm, context_text)
+        cost_li = budget.estimate_cost_li(
+            output.prompt_tokens,
+            output.completion_tokens,
+            deps.llm_input_price_per_mtok,
+            deps.llm_output_price_per_mtok,
+        )
+        cost_after = await budget.add_cost(deps.kv, cost_li, today, deps.cost_key_ttl_hours)
+        await deps.reply_writer.write_reply(output.reply)
+    except (LLMClientError, ReplyWriteError) as exc:
+        # 已知失败类型静默不回（红线 §0.3）；其余异常按 AGENTS §4.3 让它炸
+        return _Outcome(
+            "failed",
+            f"链路异常静默不回：{exc}",
+            mode=d.mode,
+            error=str(exc),
+        )
+    return _Outcome(
+        "replied",
+        f"链路完整（决策：{d.reason}；本次成本 {cost_li} 厘，日累计 {cost_after} 厘，调前 {cost_before} 厘）",
+        mode=d.mode,
+        context_text=context_text,
+        generated_content=output.reply.content,
+        prompt_tokens=output.prompt_tokens,
+        completion_tokens=output.completion_tokens,
+        cost_li=cost_li,
+        daily_cost_li_after=cost_after,
+    )
