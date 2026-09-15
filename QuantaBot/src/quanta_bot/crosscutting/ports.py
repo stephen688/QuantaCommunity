@@ -16,6 +16,7 @@ Decision = Literal[
     "replied",  # 已回复（走完生成+写库）
     "skipped_not_mentioned",  # 未命中 @，链路未进入
     "skipped_idempotent",  # 重复投递，幂等拦截
+    "skipped_killswitch",  # kill switch 置位，链路短路不回（G5 止血）
     "rejected_moderation",  # 规则预检拦截（红线：违规不出）
     "failed",  # 链路异常（静默不回，决策日志留痕）
 ]
