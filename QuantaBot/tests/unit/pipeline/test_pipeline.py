@@ -52,8 +52,15 @@ def _deps(
     return deps, audit, w, t, k
 
 
-def _event(comment_id: int, content: str) -> TriggerEvent:
-    return TriggerEvent(comment_id=comment_id, post_id=99, author_user_id=5, content=content)
+def _event(comment_id: int, content: str, mentioned_bot: bool = True) -> TriggerEvent:
+    return TriggerEvent(
+        event_id=f"evt-{comment_id}",
+        comment_id=comment_id,
+        post_id=99,
+        commenter_user_id=5,
+        content=content,
+        mentioned_bot=mentioned_bot,
+    )
 
 
 async def test_reply_flows_to_writer_with_audit_and_trace(tmp_path) -> None:
@@ -102,10 +109,21 @@ async def test_sensitive_content_blocked_zero_reply(tmp_path) -> None:
 async def test_not_mentioned_skipped_before_idempotency(tmp_path) -> None:
     """未命中 @ → 链路不进入（幂等键不落）。"""
     deps, audit, writer, _, kv = _deps(tmp_path)
-    result = await run(_event(3, "纯聊天没 @"), deps)
+    result = await run(_event(3, "纯聊天没 @", mentioned_bot=False), deps)
     assert result == "skipped_not_mentioned"
     assert writer.written == []
     assert await kv.get("quantabot:idem:3") is None
+
+
+async def test_structured_mention_flag_is_primary(tmp_path) -> None:
+    """C-4 主判定：mentioned_bot=False 且文本无 @ → 不进链路；mentioned_bot=False 但文本兜底命中 → 进链路（降级路径）。"""
+    deps, audit, writer, _, _ = _deps(tmp_path)
+    # 兜底命中：结构化标记缺失（前端旧版本），文本含 @
+    result = await run(_event(7, "@QuantaBot 文本兜底命中", mentioned_bot=False), deps)
+    assert result == "replied"
+    # 双未命中
+    result = await run(_event(8, "没有标记也没有艾特", mentioned_bot=False), deps)
+    assert result == "skipped_not_mentioned"
 
 
 async def test_kill_switch_short_circuits_before_idempotency(tmp_path) -> None:

@@ -38,7 +38,15 @@ async def test_fake_mode_deps_and_pipeline_run(tmp_path) -> None:
     assert isinstance(deps.control_plane, ControlPlane)
     assert isinstance(deps.audit, SQLiteAudit)
     result = await run(
-        TriggerEvent(comment_id=1, post_id=2, author_user_id=3, content="@QuantaBot hi"), deps
+        TriggerEvent(
+            event_id="evt-1",
+            comment_id=1,
+            post_id=2,
+            commenter_user_id=3,
+            content="@QuantaBot hi",
+            mentioned_bot=True,
+        ),
+        deps,
     )
     assert result == "replied"
 
@@ -80,7 +88,14 @@ async def test_real_mode_write_is_honest_failure(tmp_path) -> None:
     """真模式跑管线 → 写库占位抛错 → failed（绝不静默假装写库成功，红线 §0.5 精神）。"""
     runtime = build_runtime(_settings(tmp_path, fake_mode=False))
     result = await run(
-        TriggerEvent(comment_id=2, post_id=3, author_user_id=4, content="@QuantaBot hi"),
+        TriggerEvent(
+            event_id="evt-2",
+            comment_id=2,
+            post_id=3,
+            commenter_user_id=4,
+            content="@QuantaBot hi",
+            mentioned_bot=True,
+        ),
         runtime.deps,
     )
     assert result == "failed"

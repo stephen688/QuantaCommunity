@@ -8,7 +8,14 @@ from quanta_bot.pipeline.trigger import TriggerEvent
 
 
 def _event() -> TriggerEvent:
-    return TriggerEvent(comment_id=11, post_id=22, author_user_id=3, content="@QuantaBot hi")
+    return TriggerEvent(
+        event_id="evt-11",
+        comment_id=11,
+        post_id=22,
+        commenter_user_id=3,
+        content="@QuantaBot hi",
+        mentioned_bot=True,
+    )
 
 
 async def test_generate_injects_ai_badge_when_missing() -> None:

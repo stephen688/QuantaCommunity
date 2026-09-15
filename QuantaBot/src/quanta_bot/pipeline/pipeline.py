@@ -95,9 +95,9 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
     if deps.control_plane.snapshot.kill:
         return _Outcome("skipped_killswitch", "kill switch 置位，链路短路不回")
 
-    # ① 触发检测（未 @ → 链路不进入）
-    if not trigger.detect_mention(event.content):
-        return _Outcome("skipped_not_mentioned", "未命中 @，链路未进入")
+    # ① 触发检测（主判定=结构化标记 mentioned_bot（C-4）；文本兜底=前端标记缺失的降级路径）
+    if not event.mentioned_bot and not trigger.detect_mention(event.content):
+        return _Outcome("skipped_not_mentioned", "未命中 @（结构化标记与文本兜底均未命中）")
 
     # ② 幂等（重复投递 → 静默跳过）
     if not await idempotency.check_and_mark(deps.kv, event.comment_id):

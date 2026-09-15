@@ -58,11 +58,15 @@ class Settings(BaseSettings):
     # Qdrant（M3 记忆层才用；M2 仅 /health 连通检查）
     qdrant_url: str = "http://127.0.0.1:6333"
 
-    # ---- Tranche B [Phase 0 契约已对齐 C-1/C-2/C-5]（真接线见 Task 14-16；token/user_id 字段 Task 14 增）----
-    # [Phase 0 对齐点 P0-1] RabbitMQ（本地 compose：amqp://quantabot:quantabot-dev@127.0.0.1:5672/）
+    # ---- Tranche B [Phase 0 契约已对齐 C-1/C-2/C-5]（真接线见 Task 15/16；token/user_id 已于 Task 14 增）----
+    # [Phase 0 已对齐 C-1] RabbitMQ（本地 compose：amqp://quantabot:quantabot-dev@127.0.0.1:5672/）
     mq_url: str = ""
-    # [Phase 0 对齐点 P0-2/P0-3/P0-4/P0-5] 主服务同步接口基址（评论树/检索/审核/写库）
+    # [Phase 0 已对齐 C-2/C-5] 主服务同步接口基址（评论树/检索/审核/写库）
     main_service_base_url: str = ""
+    # [Phase 0 已对齐 C-5] 主服务 service token（demo0 签发的长期 JWT；只进 .env 不入库）
+    main_service_token: str = ""
+    # [Phase 0 已对齐 C-5] bot 系统账号 user_id（demo0 seed 后回填实际值；0=未配置）
+    main_service_bot_user_id: int = 0
 
     # ---- 超时档（AGENTS Do：分设超时；Don't：全链路一个超时；熔断三态 M5）----
     llm_timeout_seconds: float = 60.0
