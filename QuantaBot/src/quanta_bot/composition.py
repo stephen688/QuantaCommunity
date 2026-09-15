@@ -6,7 +6,7 @@
 
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.kv import InMemoryKV
-from quanta_bot.infra.main_service import FakeReplyWriter
+from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
 from quanta_bot.infra.settings import Settings
 from quanta_bot.pipeline.pipeline import PipelineDeps
 
@@ -15,6 +15,11 @@ def build_pipeline_deps(settings: Settings) -> PipelineDeps:
     """装配管线依赖：audit 恒为真 SQLite；kv/写库按 fake_mode 切换（M2 起补真实现）。"""
     audit = SQLiteAudit(settings.audit_db_path)
     if settings.fake_mode:
-        return PipelineDeps(kv=InMemoryKV(), audit=audit, reply_writer=FakeReplyWriter())
+        return PipelineDeps(
+            kv=InMemoryKV(),
+            audit=audit,
+            reply_writer=FakeReplyWriter(),
+            comment_tree=FakeCommentTreeFetcher(),
+        )
     # 诚实失败：真实现随 M2 逐项落地，在此之前显式炸而非静默假装可用
     raise NotImplementedError("M2 前仅支持 fake_mode=True（真kv/写库客户端随 M2 落地）")

@@ -32,6 +32,41 @@ class LLMClient(Protocol):
         ...
 
 
+class PostContent(BaseModel):
+    """[Phase 0 对齐点 P0-2] 帖子主楼——字段随主服务帖子详情接口契约对齐，未定不臆造。"""
+
+    post_id: int
+    author_user_id: int
+    title: str = ""
+    content: str
+
+
+class CommentNode(BaseModel):
+    """[Phase 0 对齐点 P0-2] 评论节点——父链与 AI 发言标记是防穿越/防串味的关键字段。"""
+
+    comment_id: int
+    parent_comment_id: int | None = None
+    author_user_id: int
+    content: str
+    is_ai: bool = False
+    created_at: str = ""  # 契约敲定后改 datetime
+
+
+class PostThread(BaseModel):
+    """[Phase 0 对齐点 P0-2] 帖子线程：主楼 + 评论树 + AI 历史发言标记。"""
+
+    post: PostContent
+    comments: tuple[CommentNode, ...] = ()
+
+
+class CommentTreeFetcher(Protocol):
+    """评论树/帖子详情端口（P0-2；不可降级依赖——真实现可用前不可上线，技术选型 §5.5①）。"""
+
+    async def fetch(self, post_id: int) -> PostThread:
+        """拉取帖子线程（主楼+评论树）。"""
+        ...
+
+
 class ReplyWriter(Protocol):
     """写库端口（红线 §0.5：真实现必须走主服务写库入口，禁止直连数据库）。"""
 

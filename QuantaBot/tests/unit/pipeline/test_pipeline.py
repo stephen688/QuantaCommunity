@@ -6,16 +6,18 @@
 from quanta_bot.crosscutting.idempotency import IDEMPOTENCY_KEY_PREFIX
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.kv import InMemoryKV
-from quanta_bot.infra.main_service import FakeReplyWriter
+from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
 from quanta_bot.pipeline.pipeline import PipelineDeps, run
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
 def _deps(tmp_path) -> tuple[PipelineDeps, SQLiteAudit, FakeReplyWriter]:
-    """真实 SQLite 审计 + 内存 fake kv/写库（与 composition 的 fake_mode 形态一致）。"""
+    """真实 SQLite 审计 + 内存 fake kv/写库/评论树（与 composition 的 fake_mode 形态一致）。"""
     audit = SQLiteAudit(str(tmp_path / "d.db"))
     writer = FakeReplyWriter()
-    deps = PipelineDeps(kv=InMemoryKV(), audit=audit, reply_writer=writer)
+    deps = PipelineDeps(
+        kv=InMemoryKV(), audit=audit, reply_writer=writer, comment_tree=FakeCommentTreeFetcher()
+    )
     return deps, audit, writer
 
 
