@@ -9,6 +9,7 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from quanta_bot.crosscutting.ports import Decision
 from quanta_bot.pipeline.generation import GeneratedReply
 
 
@@ -64,6 +65,35 @@ class CommentTreeFetcher(Protocol):
 
     async def fetch(self, post_id: int) -> PostThread:
         """拉取帖子线程（主楼+评论树）。"""
+        ...
+
+
+class RunTrace(BaseModel):
+    """一次管线 run 的观测轨迹（SQLite 决策明细的观测侧伴生——Langfuse trace 载体）。
+
+    契约：字段与 DecisionLogEntry 决策口径一致（诚实统计），额外带生成细节与成本。
+    """
+
+    comment_id: int
+    post_id: int
+    trigger_content: str
+    decision: Decision
+    mode: str | None = None
+    reason: str
+    context_text: str | None = None
+    generated_content: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    cost_li: int | None = None
+    daily_cost_li_after: int | None = None
+    error: str | None = None
+
+
+class RunTracer(Protocol):
+    """run 轨迹上报端口（实现方必须内部兜底——观测故障不得影响业务，允许 WARNING 留痕）。"""
+
+    async def record(self, trace: RunTrace) -> None:
+        """上报一条 run 轨迹（不抛异常是本端口的硬契约）。"""
         ...
 
 
