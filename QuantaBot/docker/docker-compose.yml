@@ -3,6 +3,8 @@
 # 生产边界提醒：RabbitMQ/Redis 生产指向主服务共用实例（技术选型 D4/§5.5③），本文件仅本地联调。
 # 资源要求：Docker Desktop 需分配 ≥12-16GB 内存（Langfuse v4 全家桶含 ClickHouse 8GiB 建议）。
 # include 需 Docker Compose v2.20+（Docker Desktop 4.22+）。
+# 跑 tests/integration 显式档前先 `docker compose stop app`（app 内置消费者会与
+# 测试消费者抢 quantabot.comment.queue），跑完 `start app` 恢复。
 name: quantabot
 
 include:

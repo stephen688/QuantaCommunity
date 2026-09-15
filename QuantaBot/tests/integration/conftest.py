@@ -11,6 +11,13 @@ import os
 
 import pytest
 
+# 本机系统代理免疫（实测：Windows 注册表代理 http://127.0.0.1:7897 会被 httpx 经
+# urllib.getproxies() 拾取，回环目标被代理拒收回 502 空响应）。NO_PROXY 是标准
+# 豁免机制：仅本套件进程内生效，外部依赖（DeepSeek 等）仍按系统代理正常走，
+# 生产代码行为不受影响。
+os.environ.setdefault("NO_PROXY", "127.0.0.1,localhost,::1")
+os.environ.setdefault("no_proxy", os.environ["NO_PROXY"])
+
 _integration_enabled = os.environ.get("QUANTABOT_INTEGRATION") == "1"
 
 

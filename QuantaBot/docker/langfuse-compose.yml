@@ -169,7 +169,9 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
     ports:
       - 9090:9000
-      - 127.0.0.1:9091:9001
+      # [local-dev 改动] 宿主 9091 被本机其他项目容器（echomind-prometheus）占用，控制台改 9093；
+      # 栈内访问走容器网络（S3 endpoint 用 localhost:9090），此处仅 dev 调试用
+      - 127.0.0.1:9093:9001
     volumes:
       - langfuse_minio_data:/data
     healthcheck:
