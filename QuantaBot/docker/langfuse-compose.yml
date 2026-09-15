@@ -114,7 +114,9 @@ services:
     restart: always
     depends_on: *langfuse-depends-on
     ports:
-      - 3000:3000
+      # 默认凭据（CHANGEME）服务不得暴露局域网——与头注「端口仅绑 127.0.0.1」一致；
+      # app 容器走容器网络访问 langfuse-web:3000，宿主集成测试走 127.0.0.1，均不受影响
+      - 127.0.0.1:3000:3000
     environment:
       <<: *langfuse-worker-env
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-mysecret} # CHANGEME
@@ -168,7 +170,9 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
     ports:
-      - 9090:9000
+      # 默认凭据（CHANGEME）服务不得暴露局域网；宿主浏览器经 localhost:9090 访问不受影响，
+      # 栈内访问走容器网络（minio:9000）
+      - 127.0.0.1:9090:9000
       # [local-dev 改动] 宿主 9091 被本机其他项目容器（echomind-prometheus）占用，控制台改 9093；
       # 栈内访问走容器网络（S3 endpoint 用 localhost:9090），此处仅 dev 调试用
       - 127.0.0.1:9093:9001

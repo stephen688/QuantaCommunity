@@ -52,10 +52,12 @@ class DeepSeekClient:
         try:
             resp = await self._http.post("/chat/completions", json=payload)
             resp.raise_for_status()
-            data = resp.json()
         except httpx.HTTPError as exc:
             raise LLMClientError(f"DeepSeek 调用失败：{exc}") from exc
         try:
+            # resp.json() 放在契约解析块：200 + 非 JSON 体（如网关 HTML）的
+            # JSONDecodeError（ValueError 子类）也统一包装，不留逃逸域异常
+            data = resp.json()
             content = data["choices"][0]["message"]["content"]
             usage = data.get("usage") or {}
             return LLMResult(

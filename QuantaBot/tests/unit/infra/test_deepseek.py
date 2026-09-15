@@ -70,3 +70,14 @@ async def test_deepseek_client_bad_contract_wrapped() -> None:
     client = DeepSeekClient("https://api.deepseek.com", "sk-test", "deepseek-chat", 5.0, transport)
     with pytest.raises(LLMClientError):
         await client.complete(system="s", user="u")
+
+
+async def test_deepseek_client_non_json_200_wrapped() -> None:
+    """200 + 非 JSON 体（如网关 HTML 页）→ JSONDecodeError 也统一包 LLMClientError，
+    不逃逸出域异常（否则管线 failed 分支无法归因、Langfuse 失败轨迹缺失）。"""
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, text="<html>gateway error page</html>")
+    )
+    client = DeepSeekClient("https://api.deepseek.com", "sk-test", "deepseek-chat", 5.0, transport)
+    with pytest.raises(LLMClientError):
+        await client.complete(system="s", user="u")
