@@ -75,8 +75,9 @@ services:
       RABBITMQ_DEFAULT_USER: quantabot
       RABBITMQ_DEFAULT_PASS: quantabot-dev
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      # 宿主端口 5673/15673：本机 vmnat（VMware NAT）已占 5672/15672，容器内仍是标准 5672/15672
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15673:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
