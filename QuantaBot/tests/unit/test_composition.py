@@ -1,40 +1,94 @@
-"""装配根行为测试：fake_mode 组装 + 真实 audit 注入 + 管线跑通。"""
+"""装配根行为测试：fake 全内存；真模式逐项真接/缺配置降级（不发网络）。"""
 
-import pytest
-
-from quanta_bot.composition import build_pipeline_deps
+from quanta_bot.composition import build_runtime
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
-from quanta_bot.infra.deepseek import FakeLLM
-from quanta_bot.infra.kv import InMemoryKV
-from quanta_bot.infra.main_service import FakeReplyWriter
+from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
+from quanta_bot.infra.kv import InMemoryKV, RedisKV
+from quanta_bot.infra.main_service import (
+    FakeCommentTreeFetcher,
+    FakeReplyWriter,
+    UnimplementedReplyWriter,
+)
 from quanta_bot.infra.settings import Settings
-from quanta_bot.infra.tracing import NullTracer
-from quanta_bot.pipeline.pipeline import PipelineDeps, run
+from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
+from quanta_bot.pipeline.pipeline import run
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
-async def test_fake_mode_deps_and_pipeline_run(tmp_path) -> None:
-    """fake_mode=True → kv/写库为 fake、audit 为真 SQLite；管线用装配结果跑通一次。"""
-    deps = build_pipeline_deps(
-        Settings(_env_file=None, fake_mode=True, audit_db_path=str(tmp_path / "d.db"))
+def _settings(tmp_path, **overrides) -> Settings:
+    base = dict(
+        _env_file=None,
+        fake_mode=True,
+        audit_db_path=str(tmp_path / "d.db"),
     )
-    assert isinstance(deps, PipelineDeps)
+    base.update(overrides)
+    return Settings(**base)
+
+
+async def test_fake_mode_deps_and_pipeline_run(tmp_path) -> None:
+    """fake_mode=True → 全内存依赖；管线用装配结果跑通一次。"""
+    runtime = build_runtime(_settings(tmp_path))
+    deps = runtime.deps
     assert isinstance(deps.kv, InMemoryKV)
     assert isinstance(deps.reply_writer, FakeReplyWriter)
     assert isinstance(deps.llm, FakeLLM)
-    assert isinstance(deps.audit, SQLiteAudit)
     assert isinstance(deps.tracer, NullTracer)
+    assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)
     assert isinstance(deps.control_plane, ControlPlane)
+    assert isinstance(deps.audit, SQLiteAudit)
     result = await run(
         TriggerEvent(comment_id=1, post_id=2, author_user_id=3, content="@QuantaBot hi"), deps
     )
     assert result == "replied"
 
 
-async def test_non_fake_mode_raises_honestly(tmp_path) -> None:
-    """fake_mode=False 在 M2 前显式炸（不静默假装可用——诚实口径）。"""
-    with pytest.raises(NotImplementedError):
-        build_pipeline_deps(
-            Settings(_env_file=None, fake_mode=False, audit_db_path=str(tmp_path / "d.db"))
+async def test_real_mode_degrades_gracefully_when_unconfigured(tmp_path) -> None:
+    """真模式缺全部配置 → 不炸、逐项降级（kv 内存/LLM fake/tracer null），写库为诚实占位。"""
+    runtime = build_runtime(_settings(tmp_path, fake_mode=False))
+    deps = runtime.deps
+    assert isinstance(deps.kv, InMemoryKV)  # 降级（warning 留痕）
+    assert isinstance(deps.llm, FakeLLM)  # 降级
+    assert isinstance(deps.tracer, NullTracer)  # 降级
+    assert isinstance(deps.reply_writer, UnimplementedReplyWriter)  # 不假装：P0-5 未接入
+    assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)  # P0-2 未接入
+
+
+async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
+    """真模式配置齐 → 逐项建真客户端（构造不建连，无网络）。"""
+    runtime = build_runtime(
+        _settings(
+            tmp_path,
+            fake_mode=False,
+            redis_url="redis://127.0.0.1:6379/0",
+            deepseek_api_key="sk-test",
+            langfuse_public_key="pk-test",
+            langfuse_secret_key="sk-test",
         )
+    )
+    try:
+        deps = runtime.deps
+        assert isinstance(deps.kv, RedisKV)
+        assert isinstance(deps.llm, DeepSeekClient)
+        assert isinstance(deps.tracer, LangfuseTracer)
+        assert isinstance(deps.reply_writer, UnimplementedReplyWriter)
+    finally:
+        await runtime.aclose()
+
+
+async def test_real_mode_write_is_honest_failure(tmp_path) -> None:
+    """真模式跑管线 → 写库占位抛错 → failed（绝不静默假装写库成功，红线 §0.5 精神）。"""
+    runtime = build_runtime(_settings(tmp_path, fake_mode=False))
+    result = await run(
+        TriggerEvent(comment_id=2, post_id=3, author_user_id=4, content="@QuantaBot hi"),
+        runtime.deps,
+    )
+    assert result == "failed"
+    await runtime.aclose()
+
+
+async def test_runtime_aclose_is_idempotent(tmp_path) -> None:
+    """aclose 幂等（lifespan 异常路径安全收尾）。"""
+    runtime = build_runtime(_settings(tmp_path, fake_mode=False))
+    await runtime.aclose()
+    await runtime.aclose()  # 不抛即通过

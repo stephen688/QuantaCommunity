@@ -7,7 +7,7 @@
 """
 
 from quanta_bot.pipeline.generation import GeneratedReply
-from quanta_bot.pipeline.ports import CommentNode, PostContent, PostThread
+from quanta_bot.pipeline.ports import CommentNode, PostContent, PostThread, ReplyWriteError
 
 
 class FakeReplyWriter:
@@ -18,6 +18,17 @@ class FakeReplyWriter:
 
     async def write_reply(self, reply: GeneratedReply) -> None:
         self.written.append(reply)
+
+
+class UnimplementedReplyWriter:
+    """真模式写库占位（main_service 未配置时；C-5 契约已对齐，真客户端=Task 16 HTTPReplyWriter）：
+    调用即抛 ReplyWriteError，由管线记 failed。
+
+    诚实口径：绝不静默假装写库成功（红线 §0.5 精神）。
+    """
+
+    async def write_reply(self, reply: GeneratedReply) -> None:
+        raise ReplyWriteError("写库真客户端未接入（[Phase 0 对齐点 P0-5]，Tranche B 落地）")
 
 
 class FakeCommentTreeFetcher:
