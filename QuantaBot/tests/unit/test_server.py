@@ -27,7 +27,7 @@ def test_health_fake_mode(tmp_path) -> None:
 
 
 def test_health_real_mode_unconfigured_shows_not_configured(tmp_path) -> None:
-    """真模式全未配置：mq/llm/tracing/vector=not_configured，kv=降级标记，main_service=未实现标记。"""
+    """真模式全未配置：mq/llm/tracing/vector/main_service=not_configured，kv=降级标记。"""
     settings = _settings(
         fake_mode=False,
         audit_db_path=str(tmp_path / "d.db"),
@@ -42,4 +42,4 @@ def test_health_real_mode_unconfigured_shows_not_configured(tmp_path) -> None:
         assert deps["tracing"] == "not_configured"
         assert deps["vector"] == "not_configured"
         assert deps["kv"] == "degraded (in-memory)"
-        assert "not_implemented" in deps["main_service"]
+        assert deps["main_service"] == "not_configured"

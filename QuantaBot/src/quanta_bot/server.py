@@ -26,13 +26,15 @@ logger = logging.getLogger(__name__)
 _PROBE_TIMEOUT_SECONDS = 5.0
 
 
-async def _probe(url: str, headers: dict[str, str] | None = None) -> bool:
+async def _probe(
+    url: str, headers: dict[str, str] | None = None, params: dict[str, object] | None = None
+) -> bool:
     """HTTP GET 探测（200 即通）。"""
     try:
         async with httpx.AsyncClient(
             timeout=_PROBE_TIMEOUT_SECONDS, headers=headers or {}
         ) as client:
-            resp = await client.get(url)
+            resp = await client.get(url, params=params)
             return resp.status_code == 200
     except httpx.HTTPError:
         return False
@@ -96,8 +98,21 @@ async def _check_dependencies(settings: Settings, runtime: Runtime | None) -> di
     else:
         vector_status = "ok" if await _probe(f"{settings.qdrant_url}/readyz") else "error"
 
-    # 主服务：Tranche B 才有真客户端
-    main_service_status = "not_implemented (P0-5, Tranche B)"
+    # 主服务（demo0）：C-2 chain 端点连通探测（URL 未配=not_configured；demo0 未上线时
+    # 如实报 error——compose healthcheck 只看 /health HTTP 200，A2 验收清单不含本项）
+    if not settings.main_service_base_url:
+        main_service_status = "not_configured"
+    else:
+        ok = await _probe(
+            f"{settings.main_service_base_url}/bot/comment/chain",
+            params={"commentId": 0},
+            headers=(
+                {"Authorization": f"Bearer {settings.main_service_token}"}
+                if settings.main_service_token
+                else None
+            ),
+        )
+        main_service_status = "ok" if ok else "error"
 
     return {
         "mq": mq_status,
