@@ -53,6 +53,9 @@ async def _check_dependencies(settings: Settings, runtime: Runtime | None) -> di
     deps = runtime.deps if runtime is not None else None
 
     # MQ（P0-1 未接线也可探测可达性——compose dev 栈验收需要）
+    # [Task 17] mq 项含义升级为「连通 + 消费者运行」：consumer（runtime.consumer）由 lifespan
+    # 托管、run_forever 自带断线重连；本探测逻辑保持连通性检查不变（消费运行态随
+    # run_forever 常驻，异常自动 5s 重连恢复，无需在此叠加探测）。
     if not settings.mq_url:
         mq_status = "not_configured"
     else:

@@ -5,10 +5,12 @@
       （UnimplementedReplyWriter，调用即 failed），绝不静默假装。
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from quanta_bot.consumer import CommentEventConsumer
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
@@ -30,20 +32,27 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Runtime:
-    """运行时包（deps + 资源回收 + 控制面启停；server lifespan 托管）。"""
+    """运行时包（deps + 资源回收 + 控制面轮询 + 消费者托管；server lifespan 托管）。"""
 
     deps: PipelineDeps
     settings: Settings
     control_plane: ControlPlane
+    consumer: CommentEventConsumer | None = None
     _closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
+    _consumer_task: asyncio.Task[None] | None = field(default=None, repr=False)
 
     def start(self) -> None:
-        """启动后台任务（真模式起控制面轮询；fake 模式快照静态不轮询）。"""
+        """启动后台任务（真模式：控制面轮询 + MQ 消费者）。"""
         if not self.settings.fake_mode:
             self.control_plane.start_polling()
+            if self.consumer is not None:
+                self._consumer_task = asyncio.create_task(self.consumer.run_forever())
 
     async def aclose(self) -> None:
-        """收尾：停轮询 + 逐项释放客户端（幂等）。"""
+        """收尾：停消费者/轮询 + 逐项释放客户端（幂等）。"""
+        if self._consumer_task is not None:
+            self._consumer_task.cancel()
+            self._consumer_task = None
         self.control_plane.stop_polling()
         for closer in self._closers:
             try:
@@ -125,4 +134,15 @@ def build_runtime(settings: Settings) -> Runtime:
         llm_output_price_per_mtok=settings.llm_output_price_per_mtok,
         cost_key_ttl_hours=settings.cost_key_ttl_hours,
     )
-    return Runtime(deps=deps, settings=settings, control_plane=control_plane, _closers=closers)
+    consumer: CommentEventConsumer | None = None
+    if not settings.fake_mode and settings.mq_url:
+        consumer = CommentEventConsumer(settings.mq_url, deps, control_plane)
+    elif not settings.fake_mode:
+        logger.warning("mq_url 未配置——MQ 消费者未启动（[C-1] 真事件随 demo0 D4 落地）")
+    return Runtime(
+        deps=deps,
+        settings=settings,
+        control_plane=control_plane,
+        consumer=consumer,
+        _closers=closers,
+    )
