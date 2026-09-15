@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from quanta_bot.crosscutting import idempotency, moderation
 from quanta_bot.crosscutting.ports import Decision, DecisionAudit, DecisionLogEntry, KeyValueStore
 from quanta_bot.pipeline import context, decision, generation, trigger
-from quanta_bot.pipeline.ports import CommentTreeFetcher, ReplyWriter
+from quanta_bot.pipeline.ports import CommentTreeFetcher, LLMClient, ReplyWriter
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
@@ -23,6 +23,7 @@ class PipelineDeps:
     audit: DecisionAudit
     reply_writer: ReplyWriter
     comment_tree: CommentTreeFetcher
+    llm: LLMClient
 
 
 # 打点辅助函数（所有回/不回分支统一走这里，防漏记）
@@ -53,11 +54,10 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
         await _audit(deps, event.comment_id, "rejected_moderation", verdict.reason)
         return "rejected_moderation"
 
-    # ④ 决策 → ⑤ 上下文 → ⑥ 生成 → ⑦ 写库（M1 均为最小实现）
+    # ④ 决策 → ⑤ 上下文 → ⑥ 生成 → ⑦ 写库
     d = decision.decide(event)
-    # M2：上下文异步拉取（Task 7 起作为生成输入注入，本任务结果暂弃用）
-    await context.build_context(event, deps.comment_tree)
-    reply = generation.generate(event, d)
-    await deps.reply_writer.write_reply(reply)
+    context_text = await context.build_context(event, deps.comment_tree)
+    output = await generation.generate(event, d, deps.llm, context_text)
+    await deps.reply_writer.write_reply(output.reply)
     await _audit(deps, event.comment_id, "replied", f"链路完整（决策：{d.reason}）", mode=d.mode)
     return "replied"

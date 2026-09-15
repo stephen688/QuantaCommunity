@@ -5,6 +5,7 @@
 
 from quanta_bot.crosscutting.idempotency import IDEMPOTENCY_KEY_PREFIX
 from quanta_bot.infra.audit_db import SQLiteAudit
+from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
 from quanta_bot.pipeline.pipeline import PipelineDeps, run
@@ -16,7 +17,11 @@ def _deps(tmp_path) -> tuple[PipelineDeps, SQLiteAudit, FakeReplyWriter]:
     audit = SQLiteAudit(str(tmp_path / "d.db"))
     writer = FakeReplyWriter()
     deps = PipelineDeps(
-        kv=InMemoryKV(), audit=audit, reply_writer=writer, comment_tree=FakeCommentTreeFetcher()
+        kv=InMemoryKV(),
+        audit=audit,
+        reply_writer=writer,
+        comment_tree=FakeCommentTreeFetcher(),
+        llm=FakeLLM(),
     )
     return deps, audit, writer
 

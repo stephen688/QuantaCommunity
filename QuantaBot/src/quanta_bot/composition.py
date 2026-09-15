@@ -5,6 +5,7 @@
 """
 
 from quanta_bot.infra.audit_db import SQLiteAudit
+from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
 from quanta_bot.infra.settings import Settings
@@ -20,6 +21,7 @@ def build_pipeline_deps(settings: Settings) -> PipelineDeps:
             audit=audit,
             reply_writer=FakeReplyWriter(),
             comment_tree=FakeCommentTreeFetcher(),
+            llm=FakeLLM(),
         )
     # 诚实失败：真实现随 M2 逐项落地，在此之前显式炸而非静默假装可用
     raise NotImplementedError("M2 前仅支持 fake_mode=True（真kv/写库客户端随 M2 落地）")
