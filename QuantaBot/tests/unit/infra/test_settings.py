@@ -82,7 +82,12 @@ def test_env_file_anchored_to_project_root() -> None:
 
 def test_resolve_data_path_anchor() -> None:
     """相对路径锚到项目根；绝对路径原样返回（audit_db_path 落盘位置不随 cwd 漂移）。"""
+    import sys
+
     from quanta_bot.infra.settings import PROJECT_ROOT, resolve_data_path
 
     assert resolve_data_path("data/decisions.db") == PROJECT_ROOT / "data" / "decisions.db"
-    assert resolve_data_path("D:/abs/x.db") == Path("D:/abs/x.db")
+    # 绝对路径样本按平台构造：Windows 盘符（D:/…）在 POSIX 上不是绝对路径，
+    # 固定盘符样本会让 CI（Linux）误红（M2 push 首跑 CI 实抓）
+    absolute = "D:/abs/x.db" if sys.platform == "win32" else "/abs/x.db"
+    assert resolve_data_path(absolute) == Path(absolute)
