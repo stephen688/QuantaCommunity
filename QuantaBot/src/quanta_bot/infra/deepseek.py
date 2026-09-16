@@ -11,14 +11,29 @@ from quanta_bot.pipeline.ports import LLMClientError, LLMResult
 
 
 class FakeLLM:
-    """内存 fake（固定文本；tokens 500/100 使成本断言可观测——estimate≈8 厘/次）。"""
+    """内存 fake：默认固定文本；responses 剧本按调用序弹出（可控测试 LLM）。
 
-    async def complete(self, system: str, user: str) -> LLMResult:
-        return LLMResult(
-            content="收到你的 @ 啦，等你 @ 我的事我尽量接住～（M2 真链路测试回复）",
-            prompt_tokens=500,
-            completion_tokens=100,
+    calls 记录每次调用参数（system/user/json_mode/max_tokens）——断言调用形状用。
+    tokens 500/100 使成本断言可观测（estimate≈8 厘/次，沿用 M2 口径）。
+    """
+
+    def __init__(
+        self,
+        default_content: str = "收到你的 @ 啦，等你 @ 我的事我尽量接住～（M2 真链路测试回复）",
+        responses: list[str] | None = None,
+    ) -> None:
+        self._default = default_content
+        self._responses = list(responses) if responses is not None else None
+        self.calls: list[dict[str, object]] = []
+
+    async def complete(
+        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+    ) -> LLMResult:
+        self.calls.append(
+            {"system": system, "user": user, "json_mode": json_mode, "max_tokens": max_tokens}
         )
+        content = self._responses.pop(0) if self._responses else self._default
+        return LLMResult(content=content, prompt_tokens=500, completion_tokens=100)
 
 
 class DeepSeekClient:
@@ -40,15 +55,21 @@ class DeepSeekClient:
             transport=transport,
         )
 
-    async def complete(self, system: str, user: str) -> LLMResult:
+    async def complete(
+        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+    ) -> LLMResult:
         """调 chat/completions 并解析（失败一律 LLMClientError）。"""
-        payload = {
+        payload: dict[str, object] = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         }
+        if json_mode:  # 轻量调用：结构化输出（DeepSeek OpenAI 兼容 response_format）
+            payload["response_format"] = {"type": "json_object"}
+        if max_tokens is not None:  # 轻量调用：输出上限（成本闸）
+            payload["max_tokens"] = max_tokens
         try:
             resp = await self._http.post("/chat/completions", json=payload)
             resp.raise_for_status()

@@ -27,9 +27,15 @@ class LLMClientError(Exception):
 
 
 class LLMClient(Protocol):
-    """LLM 端口（infra 提供 DeepSeekClient/FakeLLM 实现，composition 注入）。"""
+    """LLM 端口（infra 提供 DeepSeekClient/FakeLLM 实现，composition 注入）。
 
-    async def complete(self, system: str, user: str) -> LLMResult:
+    json_mode=True 请求 JSON 结构化输出（决策层/摘要等轻量调用）；
+    max_tokens 限制输出上限（轻量调用的成本闸）。
+    """
+
+    async def complete(
+        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+    ) -> LLMResult:
         """按 system+user 双消息生成回复（OpenAI 兼容形态；M3 起由人格层组装 prompt）。"""
         ...
 

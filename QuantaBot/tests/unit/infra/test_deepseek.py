@@ -81,3 +81,34 @@ async def test_deepseek_client_non_json_200_wrapped() -> None:
     client = DeepSeekClient("https://api.deepseek.com", "sk-test", "deepseek-chat", 5.0, transport)
     with pytest.raises(LLMClientError):
         await client.complete(system="s", user="u")
+
+
+async def test_deepseek_json_mode_and_max_tokens_in_payload() -> None:
+    """轻量调用载体：json_mode → response_format；max_tokens 透传；Bearer 鉴权头不变。"""
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["payload"] = json.loads(request.content.decode("utf-8"))
+        captured["authorization"] = request.headers["Authorization"]
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}], "usage": {}})
+
+    client = DeepSeekClient(
+        "https://api.test", "sk-x", "deepseek-chat", 5.0, transport=httpx.MockTransport(handler)
+    )
+    await client.complete("s", "u", json_mode=True, max_tokens=400)
+    payload = captured["payload"]
+    assert payload["response_format"] == {"type": "json_object"}
+    assert payload["max_tokens"] == 400
+    assert captured["authorization"] == "Bearer sk-x"
+    await client.aclose()
+
+
+async def test_fake_llm_scripted_responses_and_call_log() -> None:
+    """FakeLLM 剧本模式：按序弹出内容并记录调用参数（eval/管线测试的可控 LLM）。"""
+    fake = FakeLLM(responses=['{"should_reply": true}', "第二段"])
+    first = await fake.complete("s", "u", json_mode=True, max_tokens=300)
+    second = await fake.complete("s", "u2")
+    assert first.content == '{"should_reply": true}'
+    assert second.content == "第二段"
+    assert fake.calls[0]["json_mode"] is True and fake.calls[0]["max_tokens"] == 300
+    assert fake.calls[1]["json_mode"] is False
