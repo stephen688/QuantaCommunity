@@ -9,6 +9,9 @@ dependencies = [
     "pydantic-settings>=2.6",
     "httpx>=0.27",
     "aiosqlite>=0.20",
+    "redis>=5,<6",
+    "langfuse>=4.7",
+    "aio-pika>=9,<10",
 ]
 
 [dependency-groups]
@@ -29,10 +32,16 @@ packages = ["src/quanta_bot"]
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+# docs/ 为中文计划文档：ruff>=0.16 对 markdown 代码块做格式化检查会按顶层代码
+# 重排缩进（破坏文档排版），计划文档保持手写原样，不作为格式化对象
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "B"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/unit"]
+testpaths = ["tests/unit", "tests/integration"]
 asyncio_mode = "auto"
+markers = [
+    "integration: 需真实外部服务（QUANTABOT_INTEGRATION=1 且环境就绪才运行）",
+]

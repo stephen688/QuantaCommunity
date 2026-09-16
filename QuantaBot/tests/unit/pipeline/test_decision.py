@@ -5,7 +5,14 @@ from quanta_bot.pipeline.trigger import TriggerEvent
 
 
 def _event() -> TriggerEvent:
-    return TriggerEvent(comment_id=1, post_id=2, author_user_id=3, content="@QuantaBot hi")
+    return TriggerEvent(
+        event_id="evt-1",
+        comment_id=1,
+        post_id=2,
+        commenter_user_id=3,
+        content="@QuantaBot hi",
+        mentioned_bot=True,
+    )
 
 
 def test_decide_always_replies_in_m1() -> None:

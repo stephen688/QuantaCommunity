@@ -1,0 +1,91 @@
+# QuantaBot 本地全栈（dev）：
+#   app + qdrant + rabbitmq(dev) + agent-redis + Langfuse v4 全家桶（include，官方 compose）
+# 生产边界提醒：RabbitMQ/Redis 生产指向主服务共用实例（技术选型 D4/§5.5③），本文件仅本地联调。
+# 资源要求：Docker Desktop 需分配 ≥12-16GB 内存（Langfuse v4 全家桶含 ClickHouse 8GiB 建议）。
+# include 需 Docker Compose v2.20+（Docker Desktop 4.22+）。
+# 跑 tests/integration 显式档前先 `docker compose stop app`（app 内置消费者会与
+# 测试消费者抢 quantabot.comment.queue），跑完 `start app` 恢复。
+name: quantabot
+
+include:
+  - langfuse-compose.yml
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      # 容器网络内地址覆盖 .env 的宿主机视角值（environment 优先级高于 env_file）
+      QUANTABOT_HOST: 0.0.0.0
+      QUANTABOT_REDIS_URL: redis://agent-redis:6379/0
+      QUANTABOT_MQ_URL: amqp://quantabot:quantabot-dev@rabbitmq:5672/
+      QUANTABOT_LANGFUSE_HOST: http://langfuse-web:3000
+      QUANTABOT_QDRANT_URL: http://qdrant:6333
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      agent-redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  qdrant:
+    # 当前稳定版（2026-09 口径；升级时锁 patch 并回归）
+    image: qdrant/qdrant:v1.18.2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':>/dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  agent-redis:
+    # Agent 自用 Redis（与 Langfuse 栈内 redis 服务同名冲突，故命名 agent-redis）
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    # dev 用内建用户 quantabot（guest 默认仅允许 localhost 连接——容器互访会被拒，钉桩）
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: quantabot
+      RABBITMQ_DEFAULT_PASS: quantabot-dev
+    ports:
+      # 宿主端口 5673/15673：本机 vmnat（VMware NAT）已占 5672/15672，容器内仍是标准 5672/15672
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  qdrant_storage:
