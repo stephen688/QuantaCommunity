@@ -60,6 +60,7 @@ def _unwrap_result(body: object) -> object:
     if isinstance(body, dict) and "code" in body:
         if body.get("code") not in (200, 0, "200", "0"):
             raise MainServiceError(f"主服务业务失败：{body.get('msg')}")
+
         return body.get("data")
     return body
 

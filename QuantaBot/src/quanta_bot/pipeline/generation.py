@@ -60,8 +60,8 @@ async def generate(
     context_text: str,
 ) -> GenerationOutput:
     """按上下文+触发评论调 LLM 生成回复（decision 为链路形态占位，M3 起驱动模式 prompt）。"""
-    user_prompt = f"帖子上下文：\n{context_text}\n\n触发评论：{event.content}"
-    result = await llm.complete(system=_SYSTEM_PROMPT, user=user_prompt)
+    user_prompt = f"帖子上下文：\n{context_text}\n\n触发评论：{event.content}"  # 用户提示词
+    result = await llm.complete(system=_SYSTEM_PROMPT, user=user_prompt)  # 调用 LLM
     content = result.content.strip()
     if AI_BADGE not in content:
         content = f"{AI_BADGE} {content}"

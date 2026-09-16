@@ -42,3 +42,9 @@ temp_image*.png
 # ---- QuantaBot 观测/记忆本地数据 ----
 **/langfuse-data/
 **/qdrant-data/
+
+# ---- 个人文件（不入库） ----
+resume.html
+*.pdf
+artifacts/
+.trae/

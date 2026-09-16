@@ -9,6 +9,7 @@ from quanta_bot.pipeline.ports import CommentTreeFetcher, PostThread
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
+# 渲染线程文本
 def _render(thread: PostThread) -> str:
     lines = [f"【主楼#{thread.post.post_id}】{thread.post.title}：{thread.post.content}"]
     for node in thread.chain:

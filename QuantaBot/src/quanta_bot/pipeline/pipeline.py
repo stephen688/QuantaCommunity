@@ -29,17 +29,17 @@ from quanta_bot.pipeline.trigger import TriggerEvent
 class PipelineDeps:
     """管线依赖（composition 装配注入；测试可自组；价格/TTL 带默认值便于测试）。"""
 
-    kv: KeyValueStore
-    audit: DecisionAudit
-    reply_writer: ReplyWriter
-    llm: LLMClient
-    tracer: RunTracer
-    control_plane: ControlPlane
-    comment_tree: CommentTreeFetcher
+    kv: KeyValueStore  # 幂等键存储
+    audit: DecisionAudit  # 决策审计
+    reply_writer: ReplyWriter  # 回复写入器
+    llm: LLMClient  # LLM 客户端
+    tracer: RunTracer  # 运行跟踪器
+    control_plane: ControlPlane  # kill switch 控制平面
+    comment_tree: CommentTreeFetcher  # 评论树获取器
     # 成本折算参数（composition 从 Settings 注入；默认=技术选型 §4.3 口径）
-    llm_input_price_per_mtok: float = 12.0
-    llm_output_price_per_mtok: float = 24.0
-    cost_key_ttl_hours: int = 48
+    llm_input_price_per_mtok: float = 12.0  # LLM 输入 token 价格
+    llm_output_price_per_mtok: float = 24.0  # LLM 输出 token 价格
+    cost_key_ttl_hours: int = 48  # 成本键 TTL 小时数
 
 
 @dataclass
@@ -60,8 +60,8 @@ class _Outcome:
 
 async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
     """跑一条触发事件的完整被动链路，返回终态决策值（单出口统一审计+上报）。"""
-    outcome = await _execute(event, deps)
-    await deps.audit.record(
+    outcome = await _execute(event, deps)  # 执行链路各分支
+    await deps.audit.record(  # 记录决策日志
         DecisionLogEntry(
             comment_id=event.comment_id,
             decision=outcome.decision,
@@ -69,7 +69,7 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
             reason=outcome.reason,
         )
     )
-    await deps.tracer.record(
+    await deps.tracer.record(  # 上报运行跟踪
         RunTrace(
             comment_id=event.comment_id,
             post_id=event.post_id,
@@ -109,20 +109,23 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         return _Outcome("rejected_moderation", verdict.reason)
 
     # ④ 决策 → ⑤ 上下文 → ⑥ 生成（成本）→ ⑦ 写库
-    d = decision.decide(event)
-    today = datetime.now(UTC).date()
-    cost_before = await budget.read_cost(deps.kv, today)
+    d = decision.decide(event)  # 决策
+    today = datetime.now(UTC).date()  # 今日日期
+    cost_before = await budget.read_cost(deps.kv, today)  # 今日成本前
     try:
-        context_text = await context.build_context(event, deps.comment_tree)
-        output = await generation.generate(event, d, deps.llm, context_text)
-        cost_li = budget.estimate_cost_li(
+        context_text = await context.build_context(event, deps.comment_tree)  # 上下文文本
+        output = await generation.generate(event, d, deps.llm, context_text)  # 生成回复
+        cost_li = budget.estimate_cost_li(  # 成本折算
             output.prompt_tokens,
             output.completion_tokens,
             deps.llm_input_price_per_mtok,
             deps.llm_output_price_per_mtok,
         )
-        cost_after = await budget.add_cost(deps.kv, cost_li, today, deps.cost_key_ttl_hours)
-        await deps.reply_writer.write_reply(output.reply)
+        cost_after = await budget.add_cost(
+            deps.kv, cost_li, today, deps.cost_key_ttl_hours
+        )  # 今日成本后
+        # ⑦ 写库
+        await deps.reply_writer.write_reply(output.reply)  # 写回复回复
     except (LLMClientError, ReplyWriteError) as exc:
         # 已知失败类型静默不回（红线 §0.3）；其余异常按 AGENTS §4.3 让它炸
         return _Outcome(

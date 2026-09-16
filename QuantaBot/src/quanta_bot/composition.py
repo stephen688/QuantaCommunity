@@ -136,7 +136,7 @@ def build_runtime(settings: Settings) -> Runtime:
     )
     consumer: CommentEventConsumer | None = None
     if not settings.fake_mode and settings.mq_url:
-        consumer = CommentEventConsumer(settings.mq_url, deps, control_plane)
+        consumer = CommentEventConsumer(settings.mq_url, deps, control_plane)  # 用来启动消费者任务
     elif not settings.fake_mode:
         logger.warning("mq_url 未配置——MQ 消费者未启动（[C-1] 真事件随 demo0 D4 落地）")
     return Runtime(
