@@ -5,6 +5,7 @@
 > 变更记录：v0.4（2026-09-13）——移动至 QuantaBot/ 根；硬规则去重（一处定义他处引用）；补 git 语境/分支模型/大功能判据；§6.3 增独立审查与步内 TDD 节拍；修复反向引用与格式。
 > v0.4.1（2026-09-13）——§6.0.1 总计划.md 状态由"待创建"改为"已创建 v1.0"（总计划落盘后同步回写）。
 > v0.4.2（2026-09-13）——§3 本地运行消除端口 [待确认]：端口是 Agent 自有服务配置（默认 8000，--port 可覆盖），非主服务联调契约；联调配置项仍随 Phase 0 结论更新。
+> v0.4.3（2026-09-16）——M2 完成：§3 增「本地全栈」「integration 显式档」命令；「与主服务联调」[待确认] 按 Phase 0 结论（C-1~C-7）落为契约级事实（真联调回补随 demo0 D1-D7）。
 
 ***
 
@@ -66,11 +67,13 @@ QuantaBot/
 - **依赖管理**：`uv sync --frozen`（按锁文件安装，CI/他人机器一律加 `--frozen`）/ `uv add <pkg>`（更新 uv.lock 后提交）。
 - **本地运行**：`uv run uvicorn quanta_bot.server:app --reload`（默认端口 8000，`--port` 可覆盖——端口是 Agent 自有服务配置，非主服务联调契约；联调相关配置项随 Phase 0 结论更新）。
 - **单测**：`uv run pytest tests/unit -q`。
+- **本地全栈（M2 起）**：`docker compose -f docker/docker-compose.yml up -d`（app+qdrant+dev RabbitMQ+agent-redis+Langfuse v4 全家桶，共 10 容器；资源 12GB+）。
+- **integration 显式档（真依赖 smoke）**：`QUANTABOT_INTEGRATION=1 uv run pytest tests/integration`（默认 skip；真调 DeepSeek/Langfuse/Redis/MQ/Qdrant，LLM 产生真实计费；跑前 `docker compose stop app` 防消费者抢消息，跑完恢复）。
 - **评测门禁**：`uv run pytest tests/eval`（改人格/策略后必须通过才能提交发布；种子 = PRD 7.5 三个验收样例）。
 - **promptfoo 红队**：`promptfoo redteam run --config eval/redteam.yaml`（独立 CLI，不进 Python 依赖树；报告进发布门禁）。
 - **lint/格式化**：`uv run ruff check src tests` + `uv run ruff format src tests`（ruff 同时承担 lint 与 format，不引入 black/isort）。
-- **与主服务联调**：`[待确认]` — 需主服务 Phase 0 对齐后补充（MQ 队列名、接口地址/鉴权方式、评论树接口契约）。
-- **从零初始化** `[待确认]`：`.env` 从 `.env.example` 复制（settings.py 定稿后提供模板）、promptfoo 独立 CLI 安装步骤、红队通过标准 → 见《技术选型.md》评测阈值细节节；eval/ 与 infra/settings.py 落地后回填本条。
+- **与主服务联调**（Phase 0 已对齐 C-1~C-7，契约级等价物已落地）：MQ 队列 `quantabot.comment.queue`（C-1 消息契约=BotMentionMessage）；评论树 GET `/bot/comment/chain|history`、写库 POST `/comment/send`（C-2/C-5，Bearer service token）；**端到端真联调随 demo0 D1-D7 回补**（M2 计划 Task 19）。
+- **从零初始化** `[待确认]`：`.env` 从 `.env.example` 复制（settings.py 定稿后提供模板）、promptfoo 独立 CLI 安装步骤、红队通过标准 → 见《技术选型.md》评测阈值细节节；eval/ 落地后回填本条。
 
 ***
 
