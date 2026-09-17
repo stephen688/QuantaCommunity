@@ -72,6 +72,17 @@ def test_build_channel_b_never_truncates_ancestor_chain() -> None:
     assert any("主楼" in t.what for t in truncations)  # 主楼掐中间也留痕
 
 
+def test_build_channel_b_labels_comment_author_user_id() -> None:
+    """评论作者 ID 显式标注为用户，避免被模型误解为楼层号。"""
+    thread = PostThread(
+        post=PostSummary(postId=1, userId=2, title="t", content="主楼"),
+        chain=(_floor(4, 3, "祖先评论", user_id=17),),
+    )
+    text, _ = context.build_channel_b(thread, nearby=())
+    assert "用户#17：" in text
+    assert "】17：" not in text
+
+
 def test_truncate_head_tail_keeps_both_ends() -> None:
     """掐中间后头尾原样、长度=预算（截断标记计入预算）；未超限原样返回。"""
     text = "头" + "中" * 1000 + "尾"

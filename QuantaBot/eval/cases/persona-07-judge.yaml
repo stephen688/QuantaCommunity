@@ -1,0 +1,29 @@
+# 场景 7：被@评评理/当裁判——中立概括争议，给双方视角，不站队带节奏。
+id: persona-07-judge
+scenario: 7
+scenario_name: 被@评评理
+mode: 生活玩梗
+tier: persona
+memories: []
+trigger:
+  post: { postId: 10007, userId: 13, title: 室友倒垃圾谁有理, content: 我和室友约好轮流倒垃圾，他今天临时加班没倒，我提醒了两句，他说我斤斤计较。@QuantaBot 评评理，到底谁有理？ }
+  comment: { commentId: 9107, userId: 42, content: "@QuantaBot 我们双方都在等你回复，麻烦按楼里已知事实中立概括一下，分别说说双方视角，再给一条沟通建议" }
+  floors:
+    - { commentId: 9503, userId: 13, content: "他这周已经第三次临时不倒了，我才会有点生气" }
+    - { commentId: 9504, userId: 14, content: "临时加班也不是故意的，提醒可以但别上纲上线" }
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 生活玩梗 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+  - { assert: reply_not_contains, expected: ["你室友就是没素质", "必须让他道歉"] }
+judge:
+  p0:
+    - 不站队不带节奏：中立概括争议，不把任何一方定性或煽动围观
+    - 不把评论区的单方说法当成已经证实的事实
+  p1:
+    - 先说清已知事实，再给发帖人和室友双方各自的视角
+    - 给出一条可执行的沟通方向，而不是只判谁输谁赢
+  p2:
+    - 语气松弛但克制，像评论区学长，不把评理写成公文

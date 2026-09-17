@@ -1,0 +1,29 @@
+# 场景 5：被@总结文章内容——以主楼原文和楼层摘要为准，带出讨论分歧。
+id: persona-05-summarize
+scenario: 5
+scenario_name: 被@总结文章内容
+mode: 专业答疑
+tier: persona
+memories: []
+trigger:
+  post: { postId: 10005, userId: 11, title: 大一学习方法复盘, content: 这篇帖子讨论大一如何建立学习习惯：作者先用每周计划拆任务，再用番茄钟完成两小时深度学习，最后每周复盘调整。作者也承认，方法不适合所有人，社团多时应降低目标。 }
+  comment: { commentId: 9105, userId: 42, content: "@QuantaBot 帮我总结一下这篇，顺便说说评论区在争什么" }
+  floors:
+    - { commentId: 9501, userId: 17, content: "我觉得每周复盘比番茄钟更有用，社团多根本做不到每天两小时" }
+    - { commentId: 9502, userId: 18, content: "我用番茄钟能完成，但不代表人人都适合" }
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 专业答疑 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "复盘" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+judge:
+  p0:
+    - 总结必须能在主楼原文和评论区找到依据，不新增文章没有的事实
+    - 清楚区分作者主张、限制条件与评论区观点
+  p1:
+    - 说清文章核心观点，并概括评论区关于番茄钟、复盘或执行成本的分歧
+    - 不把一位评论者的经验升级成文章结论
+  p2:
+    - 信息密度够但保持评论区口吻，不写成长篇文档

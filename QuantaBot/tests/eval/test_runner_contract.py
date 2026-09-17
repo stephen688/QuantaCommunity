@@ -92,6 +92,20 @@ class _StaticLLM:
         return LLMResult(content=self._content, prompt_tokens=10, completion_tokens=5)
 
 
+class _CapturingLLM(_StaticLLM):
+    """捕获 Judge user prompt 的 fake LLM（只观测传入证据，不替代业务行为）。"""
+
+    def __init__(self, content: str) -> None:
+        super().__init__(content)
+        self.user_prompts: list[str] = []
+
+    async def complete(
+        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+    ):
+        self.user_prompts.append(user)
+        return await super().complete(system, user, json_mode=json_mode, max_tokens=max_tokens)
+
+
 def _persona_case_with_judge() -> EvalCase:
     """带 judge 要点的 persona 用例（Judge 容错测试输入；trigger 给最小 post/comment 供 prompt 拼接）。"""
     return EvalCase(
@@ -104,6 +118,38 @@ def _persona_case_with_judge() -> EvalCase:
         deterministic=[],
         judge={"p0": ["红线"], "p1": ["应做到"], "p2": ["加分"]},
     )
+
+
+async def test_judge_prompt_includes_case_evidence() -> None:
+    """Judge prompt must expose floors, preset memories, and retrieval references."""
+    floor_content = "楼层证据：课程作业截止周五"
+    memory_content = "记忆证据：用户正在准备考研"
+    retrieval_content = "检索证据：学校图书馆周末开放"
+    llm = _CapturingLLM('{"p0": {"pass": true}, "p1": {"pass": true}, "p2": {"pass": true}}')
+    case = EvalCase(
+        id="judge-evidence",
+        scenario=0,
+        scenario_name="",
+        mode="专业答疑",
+        tier="persona",
+        trigger={
+            "post": {"content": "主楼"},
+            "comment": {"content": "评论"},
+            "floors": [{"content": floor_content}],
+        },
+        memories=[{"content": memory_content}],
+        retrieval_fragments=[{"content": retrieval_content}],
+        deterministic=[],
+        judge={"p0": ["红线"], "p1": ["应做到"], "p2": ["加分"]},
+    )
+    result = CaseResult(decision="replied", reply="一条正常回复")
+
+    assert await judge_case(case, result, llm=llm) == []
+    assert len(llm.user_prompts) == 1
+    prompt = llm.user_prompts[0]
+    assert floor_content in prompt
+    assert memory_content in prompt
+    assert retrieval_content in prompt
 
 
 async def test_judge_tolerates_empty_and_malformed_json() -> None:

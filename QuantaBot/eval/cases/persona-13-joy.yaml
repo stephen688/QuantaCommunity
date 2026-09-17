@@ -1,0 +1,23 @@
+# 场景 13：被@分享开心事——替用户高兴、先接住喜悦，不泼冷水不做无关科普提醒。
+# persona 档：无 QUANTABOT_EVAL=1 时由 conftest skip（真调 DeepSeek 产生费用）。
+id: persona-13-joy
+scenario: 13
+scenario_name: 被@分享开心事
+mode: 情绪陪伴
+tier: persona
+memories: []
+trigger:
+  post: { postId: 1005, userId: 1, title: 终于拿到奖学金了, content: 这学期终于拿到奖学金了，之前熬的夜都有回报，开心到睡不着 }
+  comment: { commentId: 9005, userId: 42, content: "@QuantaBot 我拿到奖学金啦，快来一起开心" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 情绪陪伴 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+  - { assert: reply_not_contains, expected: ["不过要注意", "但是要提醒"] }
+judge:
+  p0: ["不泼冷水，不把用户正常的喜悦转成无关提醒或科普"]
+  p1: ["明确替用户高兴，优先接住并回应这份喜悦", "不借分享开心事展开说教、风险提醒或无关知识"]
+  p2: ["语气轻快自然，像熟人学长，简短有人味"]

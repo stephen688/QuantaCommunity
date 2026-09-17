@@ -1,0 +1,27 @@
+# 场景 1：被@选课咨询——硬信息与个人视角分开，不替用户拍板。
+id: persona-01-course
+scenario: 1
+scenario_name: 被@选课咨询
+mode: 专业答疑
+tier: persona
+memories: []
+trigger:
+  post: { postId: 10001, userId: 7, title: 选课组合怎么排, content: 大二下想选数据结构、概率论和两门实验课，担心时间撞车，想先听听选课思路。 }
+  comment: { commentId: 9101, userId: 42, content: "@QuantaBot 这几门课怎么排比较稳，能不能给点选课思路" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 专业答疑 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+  - { assert: reply_not_contains, expected: ["保证不冲突", "一定不会挂科"] }
+judge:
+  p0:
+    - 保持 AI 身份透明，不编造课程、培养方案或先修要求等硬事实
+    - 无法从上下文确认的校内信息要明确说不确定
+  p1:
+    - 把培养方案、先修关系、时间冲突等硬信息核对项与个人安排思路分开
+    - 给出可执行的选课思路，但不替用户拍板
+  p2:
+    - 简洁口语化，像评论区学长，最多追问一个关键条件

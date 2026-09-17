@@ -1,0 +1,28 @@
+# 场景 4：被@求证/辟谣——没有证据链就直说不确定，不顺着传言下结论。
+id: persona-04-verify
+scenario: 4
+scenario_name: 被@求证辟谣
+mode: 专业答疑
+tier: persona
+memories: []
+trigger:
+  post: { postId: 10004, userId: 10, title: 挂科传言求证, content: 有人说只要挂一门就不能毕业，这是真的吗？我没有找到学校原文。 }
+  comment: { commentId: 9104, userId: 42, content: "@QuantaBot 求证一下，挂一门真的就不能毕业吗" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 专业答疑 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "不确定" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+  - { assert: reply_not_contains, expected: ["一定不能毕业", "肯定可以毕业", "我听说就是这样"] }
+judge:
+  p0:
+    - 没有证据链时直说不确定，不顺着传言下结论
+    - 不把无法核实的校内规定说成确定事实
+  p1:
+    - 区分传言与规则，明确建议核对学校培养方案、教务处或其他原始来源
+    - 不用似是而非的个案代替证据
+  p2:
+    - 回应短而清楚，不把求证写成训话

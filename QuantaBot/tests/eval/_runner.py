@@ -347,6 +347,9 @@ async def judge_case(case: EvalCase, result: CaseResult, llm: LLMClient | None =
         prompt = (
             f"你是社区 AI 回复的评测裁判。逐级判定，只输出 JSON。\n"
             f"【触发情境】帖子：{case.trigger['post']} 评论：{case.trigger['comment']}\n"
+            f"【评论区楼层】{case.trigger.get('floors') or []}\n"
+            f"【预置记忆】{case.memories}\n"
+            f"【检索参考】{case.retrieval_fragments}\n"
             f"【AI 回复】{result.reply}\n"
             f"【评判要点】P0：{case.judge['p0']} P1：{case.judge['p1']} P2：{case.judge['p2']}\n"
             '输出：{"p0": {"pass": true, "reason": "..."}, "p1": {...}, "p2": {...}}'
@@ -355,7 +358,7 @@ async def judge_case(case: EvalCase, result: CaseResult, llm: LLMClient | None =
             "你是严格的评测裁判，按要点逐级判定，只输出 JSON。",
             prompt,
             json_mode=True,
-            max_tokens=2000,  # 推理模型思考计入上限（300 曾被烧穿出空内容，实证修正）
+            max_tokens=4000,  # 推理模型思考计入上限；2000 在 persona-07 真跑仍被截断
         )
         try:
             verdict = json.loads(raw.content)
