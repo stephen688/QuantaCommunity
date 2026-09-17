@@ -18,6 +18,8 @@ Decision = Literal[
     "skipped_not_mentioned",  # 未命中 @，链路未进入
     "skipped_idempotent",  # 重复投递，幂等拦截
     "skipped_killswitch",  # kill switch 置位，链路短路不回（G5 止血）
+    "skipped_low_value",  # 硬规则低价值拦截（零成本前置：超短/纯符号/刷屏/纯链接/黑词，未进 LLM）
+    "skipped_decision",  # LLM 决策判不值得回（一车四用轻量调用后静默跳过）
     "rejected_moderation",  # 规则预检拦截（红线：违规不出）
     "failed",  # 链路异常（静默不回，决策日志留痕）
 ]

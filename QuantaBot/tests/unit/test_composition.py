@@ -17,6 +17,12 @@ from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
 from quanta_bot.pipeline.pipeline import run
 from quanta_bot.pipeline.trigger import TriggerEvent
 
+# 合法决策 JSON 剧本（决策层 v2 真实化后，replied 路径首位 LLM 响应必须是它；
+# 装配内置 FakeLLM 为固定文本过不了决策 JSON 解析，跑通验证时替换为同类型剧本版）
+_DECISION_JSON = (
+    '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "真诚求助"}'
+)
+
 
 def _settings(tmp_path, **overrides) -> Settings:
     base = dict(
@@ -39,13 +45,15 @@ async def test_fake_mode_deps_and_pipeline_run(tmp_path) -> None:
     assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)
     assert isinstance(deps.control_plane, ControlPlane)
     assert isinstance(deps.audit, SQLiteAudit)
+    # 决策层 v2 真实化：默认 FakeLLM 固定文本过不了决策 JSON 解析，替换为同类型剧本版跑通 replied
+    deps.llm = FakeLLM(responses=[_DECISION_JSON, "fake 模式端到端回复"])
     result = await run(
         TriggerEvent(
             event_id="evt-1",
             comment_id=1,
             post_id=2,
             commenter_user_id=3,
-            content="@QuantaBot hi",
+            content="@QuantaBot 帮我选课",
             mentioned_bot=True,
         ),
         deps,
@@ -94,13 +102,15 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
 async def test_real_mode_without_main_service_fails_honestly(tmp_path) -> None:
     """真模式跑管线 → 写库占位抛错 → failed（绝不静默假装写库成功，红线 §0.5 精神）。"""
     runtime = build_runtime(_settings(tmp_path, fake_mode=False))
+    # LLM 已降级为 FakeLLM；替换为剧本版让链路走到写库占位（failed 必须来自写库，而非决策层）
+    runtime.deps.llm = FakeLLM(responses=[_DECISION_JSON, "写库占位前的生成回复"])
     result = await run(
         TriggerEvent(
             event_id="evt-2",
             comment_id=2,
             post_id=3,
             commenter_user_id=4,
-            content="@QuantaBot hi",
+            content="@QuantaBot 帮我看看这道题",
             mentioned_bot=True,
         ),
         runtime.deps,

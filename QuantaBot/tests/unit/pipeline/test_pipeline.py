@@ -15,6 +15,11 @@ from quanta_bot.pipeline.pipeline import PipelineDeps, run
 from quanta_bot.pipeline.ports import LLMClientError, ReplyWriteError, RunTrace
 from quanta_bot.pipeline.trigger import TriggerEvent
 
+# 合法决策 JSON 剧本（决策层 v2 真实化后，replied 路径首位 LLM 响应必须是它）
+_DECISION_JSON = (
+    '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "真诚求助"}'
+)
+
 
 class SpyTracer:
     """trace 间谍（断言上报形状——不mock业务，只观测）。"""
@@ -27,9 +32,11 @@ class SpyTracer:
 
 
 class ExplodingLLM:
-    """模拟 DeepSeek 超时/故障。"""
+    """模拟 DeepSeek 超时/故障（兼容决策层轻量调用的 json_mode/max_tokens 参数）。"""
 
-    async def complete(self, system: str, user: str):
+    async def complete(
+        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+    ):
         raise LLMClientError("DeepSeek 调用失败：timeout")
 
 
@@ -65,7 +72,9 @@ def _event(comment_id: int, content: str, mentioned_bot: bool = True) -> Trigger
 
 async def test_reply_flows_to_writer_with_audit_and_trace(tmp_path) -> None:
     """验收 1 演进：@ 消息 → 写库 1 条（带 AI 标识）+ 决策日志 replied + trace 含成本。"""
-    deps, audit, writer, tracer, kv = _deps(tmp_path)
+    deps, audit, writer, tracer, kv = _deps(
+        tmp_path, llm=FakeLLM(responses=[_DECISION_JSON, "选课方面我可以帮你梳理～"])
+    )
     result = await run(_event(1, "@QuantaBot 帮我选课"), deps)
     assert result == "replied"
     assert len(writer.written) == 1
@@ -86,8 +95,10 @@ async def test_reply_flows_to_writer_with_audit_and_trace(tmp_path) -> None:
 
 async def test_duplicate_comment_id_not_rewritten(tmp_path) -> None:
     """验收 2：重投同 comment_id → 写库不重复 + skipped_idempotent。"""
-    deps, audit, writer, _, _ = _deps(tmp_path)
-    ev = _event(1, "@QuantaBot hi")
+    deps, audit, writer, _, _ = _deps(
+        tmp_path, llm=FakeLLM(responses=[_DECISION_JSON, "重复投递测试回复"])
+    )
+    ev = _event(1, "@QuantaBot 帮我选课")
     await run(ev, deps)
     await run(ev, deps)
     assert len(writer.written) == 1
@@ -117,7 +128,9 @@ async def test_not_mentioned_skipped_before_idempotency(tmp_path) -> None:
 
 async def test_structured_mention_flag_is_primary(tmp_path) -> None:
     """C-4 主判定：mentioned_bot=False 且文本无 @ → 不进链路；mentioned_bot=False 但文本兜底命中 → 进链路（降级路径）。"""
-    deps, audit, writer, _, _ = _deps(tmp_path)
+    deps, audit, writer, _, _ = _deps(
+        tmp_path, llm=FakeLLM(responses=[_DECISION_JSON, "文本兜底路径测试回复"])
+    )
     # 兜底命中：结构化标记缺失（前端旧版本），文本含 @
     result = await run(_event(7, "@QuantaBot 文本兜底命中", mentioned_bot=False), deps)
     assert result == "replied"
@@ -142,7 +155,7 @@ async def test_kill_switch_short_circuits_before_idempotency(tmp_path) -> None:
 async def test_llm_failure_records_failed_zero_reply(tmp_path) -> None:
     """红线 §0.3：LLM 失败 → failed 静默不回（写库零调用，日志与 trace 留痕）。"""
     deps, audit, writer, tracer, _ = _deps(tmp_path, llm=ExplodingLLM())
-    result = await run(_event(5, "@QuantaBot hi"), deps)
+    result = await run(_event(5, "@QuantaBot 帮我看看这道题"), deps)
     assert result == "failed"
     assert writer.written == []
     entries = await audit.fetch_entries()
@@ -159,8 +172,12 @@ async def test_reply_write_failure_records_failed(tmp_path) -> None:
         async def write_reply(self, reply) -> None:
             raise ReplyWriteError("写库真客户端未接入（P0-5）")
 
-    deps, audit, _, tracer, _ = _deps(tmp_path, writer=ExplodingWriter())
-    result = await run(_event(6, "@QuantaBot hi"), deps)
+    deps, audit, _, tracer, _ = _deps(
+        tmp_path,
+        writer=ExplodingWriter(),
+        llm=FakeLLM(responses=[_DECISION_JSON, "写库失败测试回复"]),
+    )
+    result = await run(_event(6, "@QuantaBot 帮我看看这道题"), deps)
     assert result == "failed"
     entries = await audit.fetch_entries()
     assert entries[0].decision == "failed"

@@ -18,6 +18,7 @@ from quanta_bot.pipeline.ports import (
     CommentTreeFetcher,
     LLMClient,
     LLMClientError,
+    PostThread,
     ReplyWriteError,
     ReplyWriter,
     RunTrace,
@@ -94,6 +95,11 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
     return outcome.decision
 
 
+def _chain_digest(thread: PostThread) -> str:
+    """决策用父链摘要（触发评论所在链逐行 user_id：content——Task 9 并入 floors 后扩展）。"""
+    return "\n".join(f"{node.user_id}：{node.content}" for node in thread.chain)
+
+
 async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
     """执行链路各分支（不负责打点——run 统一出口处理）。"""
     # ⓪ kill switch 短路（G5 止血：置位期间零新回复，幂等键不占）
@@ -113,11 +119,25 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
     if not verdict.passed:
         return _Outcome("rejected_moderation", verdict.reason)
 
-    # ④ 决策 → ⑤ 上下文 → ⑥ 生成（成本）→ ⑦ 写库
-    d = decision.decide(event)  # 决策
+    # ④ 决策（M3：硬规则前置 + 一车四用轻量调用；失败=failed 静默不回）
+    low_value_reason = decision.hard_low_value(event.content)  # 硬规则零成本拦截（拉取前，§5.6 ①）
+    if low_value_reason is not None:
+        return _Outcome("skipped_low_value", low_value_reason)
     today = datetime.now(UTC).date()  # 今日日期
     cost_before = await budget.read_cost(deps.kv, today)  # 今日成本前
+    d: decision.DecisionResult | None = (
+        None  # 决策结果（decide 抛错时尚未产生——failed 记 mode=None）
+    )
     try:
+        thread = await deps.comment_tree.fetch_context(
+            event
+        )  # 决策材料：主楼+链（Task 9 并入 floors）
+        d = await decision.decide(
+            event, deps.llm, thread.post.content[:500], _chain_digest(thread), ()
+        )  # 一车四用轻量调用（记忆候选 Task 9 接线前传空——memory_ops 自然为空）
+        if not d.should_reply:
+            return _Outcome("skipped_decision", d.reason, mode=d.mode)  # LLM 判不值得回
+        # ⑤ 上下文 → ⑥ 生成（成本）→ ⑦ 写库
         context_text = await context.build_context(event, deps.comment_tree)  # 上下文文本
         output = await generation.generate(  # 生成回复（人格 system 由 _PERSONA 组装）
             event, d, deps.llm, context_text, persona=_PERSONA
@@ -138,7 +158,7 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         return _Outcome(
             "failed",
             f"链路异常静默不回：{exc}",
-            mode=d.mode,
+            mode=d.mode if d is not None else None,
             error=str(exc),
         )
     return _Outcome(
