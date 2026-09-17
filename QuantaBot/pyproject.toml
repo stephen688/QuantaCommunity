@@ -12,6 +12,7 @@ dependencies = [
     "redis>=5,<6",
     "langfuse>=4.7",
     "aio-pika>=9,<10",
+    "pyyaml>=6.0.3",
 ]
 
 [dependency-groups]
@@ -40,8 +41,12 @@ extend-exclude = ["docs"]
 select = ["E4", "E7", "E9", "F", "I", "B"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/unit", "tests/integration"]
+testpaths = ["tests/unit", "tests/integration", "tests/eval"]
+# tests/eval 以包结构 import（from tests.eval._runner import ...）：rootdir 入 sys.path
+# （不建 tests/__init__.py——避免扰动现有 tests/unit 无包结构，2026-09-17 Task 10 澄清 ③）
+pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
     "integration: 需真实外部服务（QUANTABOT_INTEGRATION=1 且环境就绪才运行）",
+    "persona: eval persona 档（QUANTABOT_EVAL=1 才运行，真调 DeepSeek）",
 ]
