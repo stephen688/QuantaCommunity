@@ -1,7 +1,7 @@
-"""infra/main_service —— 主服务契约客户端（M1：写库 fake；M2：httpx 真客户端）。
+"""infra/main_service —— 主服务契约客户端（M1：写库 fake；M2：httpx 真客户端；M3：C-2② tree 分页 + fake 参数化）。
 
 职责：fake_mode 下提供 ReplyWriter 的内存假实现（记录调用供集成测试断言）、
-      CommentTreeFetcher 的内存 fake 评论树（返回占位线程，供 context 组装与装配测试）。
+      CommentTreeFetcher 的内存 fake 评论树（可注入数据——eval runner 消费；缺省占位线程）。
 边界：M2 起本文件承载写库/检索/评论树/审核四个真客户端（httpx+Pydantic 契约校验）；
       禁止直连数据库（红线 §0.5——真实现走主服务 HTTP 入口）。
 """
@@ -66,9 +66,9 @@ def _unwrap_result(body: object) -> object:
 
 
 class HTTPCommentTreeFetcher:
-    """C-2 真客户端：chain（触发评论+父链+主楼摘要）+ history（bot 本帖历史）。
+    """C-2 真客户端：chain（触发评论+父链+主楼摘要）+ history（bot 本帖历史）+ tree（C-2② 全量楼层分页）。
 
-    tree 分页（C-2②）留 M3 筛选策略；history 的 postId=None 全站模式留 M3 用户级记忆。
+    history 的 postId=None 全站模式留 M3 用户级记忆。
     """
 
     def __init__(self, client: MainServiceClient, bot_user_id: int) -> None:
@@ -97,6 +97,29 @@ class HTTPCommentTreeFetcher:
             chain=tuple(self._mark_ai(node) for node in parsed.chain),
             bot_history=tuple(self._mark_ai(node) for node in history.comments),
         )
+
+    async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
+        """C-2② 全量楼层（分页循环拉满 total——近远区分区与远区摘要的数据源）。"""
+        collected: list[CommentNode] = []
+        page_num, page_size = 1, 50
+        while True:
+            # ① 逐页拉取（sortType=asc：楼层按时间正序，拼接后即天然有序）
+            data = await self._client.get_json(
+                "/bot/comment/tree",
+                params={
+                    "postId": post_id,
+                    "pageNum": page_num,
+                    "pageSize": page_size,
+                    "sortType": "asc",
+                },
+            )
+            # ② get_json 已剥 Result 外壳，此处直接做 DTO 校验（与 fetch_context 同口径）
+            parsed = CommentTreePage.model_validate(data)
+            collected.extend(parsed.list)
+            # ③ 取满 total 即止；空页防御——total 虚高时不死循环
+            if len(collected) >= parsed.total or not parsed.list:
+                return tuple(self._mark_ai(node) for node in collected)
+            page_num += 1
 
     def _mark_ai(self, node: CommentNode) -> CommentNode:
         """按 user_id==bot 标记 AI 发言（客户端本地判定，不依赖服务端字段）。"""
@@ -149,6 +172,15 @@ class CommentHistoryResponse(BaseModel):
     total: int = 0
 
 
+class CommentTreePage(BaseModel):
+    """[C-2② 联调校准点] tree 分页响应（demo0 D5 强类型 DTO 对齐字段名）。"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    total: int = 0
+    list: tuple[CommentNode, ...] = ()
+
+
 class FakeReplyWriter:
     """内存 fake（集成测试断言 written 列表 = 写库调用记录）。"""
 
@@ -171,9 +203,25 @@ class UnimplementedReplyWriter:
 
 
 class FakeCommentTreeFetcher:
-    """内存 fake 评论树（fetch_context 形态；真客户端替换点=HTTPCommentTreeFetcher）。"""
+    """内存 fake（可注入数据——集成测试/eval runner 用；缺省沿用 M2 固定形态）。"""
+
+    def __init__(
+        self,
+        post: PostSummary | None = None,
+        chain: tuple[CommentNode, ...] = (),
+        floors: tuple[CommentNode, ...] = (),
+        bot_history: tuple[CommentNode, ...] = (),
+    ) -> None:
+        self._post = post
+        self._chain = chain
+        self._floors = floors
+        self._bot_history = bot_history
 
     async def fetch_context(self, event: TriggerEvent) -> PostThread:
+        # 注入形态：post 非空即按注入数据原样返回（eval runner 消费）
+        if self._post is not None:
+            return PostThread(post=self._post, chain=self._chain, bot_history=self._bot_history)
+        # 缺省沿用 M2 固定形态（既有测试与 composition fake 装配不破）
         post = PostSummary(
             post_id=event.post_id,
             author_user_id=1,
@@ -190,3 +238,7 @@ class FakeCommentTreeFetcher:
             ),
         )
         return PostThread(post=post, chain=chain)
+
+    async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
+        # 注入楼层原样返回（分区/摘要数据源；post_id 仅为对齐端口签名——fake 单帖数据不筛帖）
+        return self._floors

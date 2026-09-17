@@ -81,6 +81,10 @@ class CommentTreeFetcher(Protocol):
         """拉取组装上下文所需线程（主楼+触发评论父链+bot 本帖历史）。"""
         ...
 
+    async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
+        """C-2② 全量楼层（分页拉满 total——近远区分区与远区摘要的数据源）。"""
+        ...
+
 
 class RunTrace(BaseModel):
     """一次管线 run 的观测轨迹（SQLite 决策明细的观测侧伴生——Langfuse trace 载体）。
