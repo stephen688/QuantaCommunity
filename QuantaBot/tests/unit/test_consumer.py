@@ -9,8 +9,17 @@ from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
+from quanta_bot.memory.ports import HashEmbeddingClient
+from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
+from quanta_bot.pipeline.context import LLMSummarizer
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import PipelineDeps
 from quanta_bot.pipeline.ports import RunTrace
+
+# 合法决策 JSON 剧本（决策层 v2 真实化后，replied 路径首位 LLM 响应必须是它）
+_DECISION_JSON = (
+    '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "真诚求助"}'
+)
 
 
 class SpyTracer:
@@ -36,14 +45,18 @@ def _deps(tmp_path) -> tuple[PipelineDeps, SQLiteAudit, FakeReplyWriter, InMemor
     audit = SQLiteAudit(str(tmp_path / "d.db"))
     writer = FakeReplyWriter()
     kv = InMemoryKV()
+    llm = FakeLLM(responses=[_DECISION_JSON, "消费者链路测试回复"])  # 决策+生成两次调用剧本
     deps = PipelineDeps(
         kv=kv,
         audit=audit,
         reply_writer=writer,
-        llm=FakeLLM(),
+        llm=llm,
         tracer=SpyTracer(),
         control_plane=ControlPlane(kv),
         comment_tree=FakeCommentTreeFetcher(),
+        persona=PersonaLibrary(),  # M3 必填三件（人格/记忆/摘要）
+        memory_store=InMemoryUserMemoryStore(HashEmbeddingClient()),
+        summarizer=LLMSummarizer(llm),
     )
     return deps, audit, writer, kv
 
@@ -66,7 +79,7 @@ async def test_handle_valid_message_runs_pipeline_and_acks(tmp_path) -> None:
     """契约消息 → pipeline 跑通（replied）+ ack。"""
     deps, audit, writer, kv = _deps(tmp_path)
     consumer = CommentEventConsumer("amqp://x", deps, ControlPlane(kv))
-    msg = StubMessage(_msg(1, "@QuantaBot hi"))
+    msg = StubMessage(_msg(1, "@QuantaBot 帮我选课"))
     await consumer._handle(msg)
     assert msg.acked is True
     assert len(writer.written) == 1
@@ -107,7 +120,7 @@ async def test_handle_pipeline_crash_bailed_out_as_failed(tmp_path) -> None:
             await real_audit.record(entry)
 
     deps.audit = ExplodingAudit()
-    msg = StubMessage(_msg(2, "@QuantaBot hi"))
+    msg = StubMessage(_msg(2, "@QuantaBot 帮我选课"))
     await consumer._handle(msg)
     assert msg.acked is True
     entries = await audit.fetch_entries()
@@ -122,7 +135,7 @@ async def test_handle_pauses_while_kill_enabled(tmp_path) -> None:
     consumer = CommentEventConsumer("amqp://x", deps, cp, poll_seconds=0.01)
     await kv.set(SWITCH_KILL_KEY, "true", ttl_seconds=60)
     await cp.refresh()
-    msg = StubMessage(_msg(3, "@QuantaBot hi"))
+    msg = StubMessage(_msg(3, "@QuantaBot 帮我选课"))
     task = asyncio.create_task(consumer._handle(msg))
     await asyncio.sleep(0.1)
     assert msg.acked is False and writer.written == []  # 暂停：零新回复

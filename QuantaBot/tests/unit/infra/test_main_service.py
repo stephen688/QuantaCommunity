@@ -113,6 +113,43 @@ async def test_http_comment_tree_fetch_context_contract() -> None:
     assert history_req.url.params["pageSize"] == "50"
 
 
+async def test_fetch_floors_paginates_until_total() -> None:
+    """C-2② tree 分页：total=120 → 3 次请求（pageNum=1/2/3、pageSize=50），按序拼接 120 条。"""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        page_num = int(request.url.params["pageNum"])
+        start = (page_num - 1) * 50
+        end = min(start + 50, 120)  # 末页只回剩余条数（真实分页语义）
+        page_list = [
+            {
+                "commentId": comment_id,
+                "parentId": None,
+                "replyCommentId": None,
+                "userId": 2,
+                "content": f"楼层{comment_id}",
+                "createTime": "2026-09-15 09:00:00",
+            }
+            for comment_id in range(start + 1, end + 1)
+        ]
+        return httpx.Response(
+            200, json={"code": 200, "msg": "success", "data": {"total": 120, "list": page_list}}
+        )
+
+    client = _client(handler)
+    fetcher = HTTPCommentTreeFetcher(client, bot_user_id=9001)
+    try:
+        floors = await fetcher.fetch_floors(9)
+    finally:
+        await client.aclose()
+    assert [n.comment_id for n in floors] == list(range(1, 121))  # 按序拼接全量楼层
+    assert [r.url.params["pageNum"] for r in seen] == ["1", "2", "3"]  # 取满 total 即止（3 页）
+    assert all(r.url.path == "/bot/comment/tree" for r in seen)  # C-2② tree 端点
+    assert all(r.url.params["pageSize"] == "50" for r in seen)
+    assert all(r.url.params["postId"] == "9" for r in seen)
+
+
 async def test_main_service_business_failure_raises() -> None:
     """业务码失败（Result code 非成功）→ MainServiceError。"""
 

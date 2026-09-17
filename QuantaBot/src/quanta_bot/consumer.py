@@ -49,7 +49,7 @@ class CommentEventConsumer:
         """连接-消费主循环（断线重连；lifespan cancel 退出）。"""
         while True:
             try:
-                connection = await aio_pika.connect(self._mq_url)
+                connection = await aio_pika.connect(self._mq_url)  # 连接MQ服务器
                 async with connection:
                     channel = await connection.channel()
                     await channel.set_qos(prefetch_count=1)
@@ -92,4 +92,4 @@ class CommentEventConsumer:
                     reason=f"消费者兜底：{exc}",
                 )
             )
-        await message.ack()
+        await message.ack()  # 成功 ack 消息，确认处理完成

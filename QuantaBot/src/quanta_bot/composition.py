@@ -25,6 +25,10 @@ from quanta_bot.infra.main_service import (
 )
 from quanta_bot.infra.settings import Settings, resolve_data_path
 from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
+from quanta_bot.memory.ports import HashEmbeddingClient
+from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
+from quanta_bot.pipeline.context import LLMSummarizer
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import PipelineDeps
 
 logger = logging.getLogger(__name__)
@@ -121,6 +125,14 @@ def build_runtime(settings: Settings) -> Runtime:
             logger.warning("main_service 未配置——写库为诚实占位（调用即 failed，绝不假装成功）")
             writer = UnimplementedReplyWriter()
 
+    # M3 三件（fake/真模式同构装配）：人格库启动即读 prompts/（缺失=启动失败，人格不完整不上线）
+    persona = PersonaLibrary()
+    summarizer = LLMSummarizer(llm)
+    memory_store = InMemoryUserMemoryStore(HashEmbeddingClient())
+    if not settings.fake_mode:
+        # 诚实留痕：Qdrant 真实现未接（Task 12）——内存版重启即失，真模式记忆不持久
+        logger.warning("Qdrant 真接在 Task 12，当前内存版重启即失（用户级记忆不持久）")
+
     control_plane = ControlPlane(kv, poll_seconds=settings.control_plane_poll_seconds)
     deps = PipelineDeps(
         kv=kv,
@@ -130,13 +142,22 @@ def build_runtime(settings: Settings) -> Runtime:
         tracer=tracer,
         control_plane=control_plane,
         comment_tree=tree,
+        persona=persona,
+        memory_store=memory_store,
+        summarizer=summarizer,
+        retriever=None,  # RAG 检索 Task 13 接线（此前 need_retrieval 一律降级直说不知道）
         llm_input_price_per_mtok=settings.llm_input_price_per_mtok,
         llm_output_price_per_mtok=settings.llm_output_price_per_mtok,
         cost_key_ttl_hours=settings.cost_key_ttl_hours,
+        memory_recall_top_k=settings.memory_recall_top_k,
+        memory_select_max=settings.memory_select_max,
+        rag_fragment_limit=settings.rag_fragment_limit,
+        dialogue_memory_ttl_hours=settings.dialogue_memory_ttl_hours,
+        summary_cache_ttl_hours=settings.summary_cache_ttl_hours,
     )
     consumer: CommentEventConsumer | None = None
     if not settings.fake_mode and settings.mq_url:
-        consumer = CommentEventConsumer(settings.mq_url, deps, control_plane)
+        consumer = CommentEventConsumer(settings.mq_url, deps, control_plane)  # 用来启动消费者任务
     elif not settings.fake_mode:
         logger.warning("mq_url 未配置——MQ 消费者未启动（[C-1] 真事件随 demo0 D4 落地）")
     return Runtime(

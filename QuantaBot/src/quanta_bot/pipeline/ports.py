@@ -1,15 +1,17 @@
 """pipeline/ports —— pipeline 消费的端口（协议）定义。
 
-职责：ReplyWriter（写库）端口；M2 增 CommentTreeFetcher（评论树/帖子详情）。
+职责：ReplyWriter（写库）端口；M2 增 CommentTreeFetcher（评论树/帖子详情）；
+      M3 增 Summarizer（远区摘要——LLMSummarizer 实现在 pipeline/context.py）。
 边界：crosscutting 消费的端口在 crosscutting/ports.py（分层归属，勿混——AGENTS.md §4.1）；
       本文件零实现，infra 提供实现、composition 注入。
 """
 
-from typing import Protocol
+from collections.abc import Sequence
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from quanta_bot.crosscutting.ports import Decision
+from quanta_bot.crosscutting.ports import Decision, TruncationRecord
 from quanta_bot.pipeline.generation import GeneratedReply
 from quanta_bot.pipeline.trigger import TriggerEvent
 
@@ -26,10 +28,24 @@ class LLMClientError(Exception):
     """LLM 调用失败（网络/HTTP/响应契约不符统一包装；管线 failed 分支捕获类型）。"""
 
 
-class LLMClient(Protocol):
-    """LLM 端口（infra 提供 DeepSeekClient/FakeLLM 实现，composition 注入）。"""
+class CommentFetchError(Exception):
+    """评论树/楼层拉取失败（HTTPCommentTreeFetcher 统一包装——管线 failed 分支捕获类型）。
 
-    async def complete(self, system: str, user: str) -> LLMResult:
+    2026-09-17 review I-1：fetch 异常原本裸逃 _execute（httpx.HTTPError/MainServiceError
+    均非捕获类型），击穿 run() 单出口——无 RunTrace、无 mode 归因，落 consumer 兜底丢观测。
+    """
+
+
+class LLMClient(Protocol):
+    """LLM 端口（infra 提供 DeepSeekClient/FakeLLM 实现，composition 注入）。
+
+    json_mode=True 请求 JSON 结构化输出（决策层/摘要等轻量调用）；
+    max_tokens 限制输出上限（轻量调用的成本闸）。
+    """
+
+    async def complete(
+        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+    ) -> LLMResult:
         """按 system+user 双消息生成回复（OpenAI 兼容形态；M3 起由人格层组装 prompt）。"""
         ...
 
@@ -75,6 +91,18 @@ class CommentTreeFetcher(Protocol):
         """拉取组装上下文所需线程（主楼+触发评论父链+bot 本帖历史）。"""
         ...
 
+    async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
+        """C-2② 全量楼层（分页拉满 total——近远区分区与远区摘要的数据源）。"""
+        ...
+
+
+class Summarizer(Protocol):
+    """远区摘要端口（M3：LLMSummarizer 实现在 pipeline/context.py，测试可注入 fake）。"""
+
+    async def summarize(self, floors: Sequence[CommentNode]) -> str:
+        """把远区楼层压缩为五项清单摘要（话题/结论/争执/未答提问/关键事实）。"""
+        ...
+
 
 class RunTrace(BaseModel):
     """一次管线 run 的观测轨迹（SQLite 决策明细的观测侧伴生——Langfuse trace 载体）。
@@ -95,6 +123,11 @@ class RunTrace(BaseModel):
     cost_li: int | None = None
     daily_cost_li_after: int | None = None
     error: str | None = None
+    # M3 扩展（观测对质与归因；SQLite 明细不扩列——truncations 只进 Langfuse trace）
+    truncations: tuple[TruncationRecord, ...] = ()  # 上下文截断留痕（通道/砍了什么/为什么）
+    memory_selected_ids: tuple[str, ...] = ()  # 一车四用精选的记忆 id
+    persona_version: str | None = None  # 人格版本指纹（归因人格变更对回复的影响）
+    retrieval_degraded: bool = False  # need_retrieval 但检索未配置（场景 6 降级链路）
 
 
 class RunTracer(Protocol):
@@ -102,6 +135,28 @@ class RunTracer(Protocol):
 
     async def record(self, trace: RunTrace) -> None:
         """上报一条 run 轨迹（不抛异常是本端口的硬契约）。"""
+        ...
+
+
+class RetrievedFragment(BaseModel):
+    """检索片段（C-2 演化 RAG；Task 13 落地，pipeline 层把片段渲染为文本行入 assemble）。"""
+
+    content: str
+    source: str
+    score: float = 0.0
+    doc_kind: Literal["POLICY", "POST", "ANSWER"] = "POST"
+
+
+class Retriever(Protocol):
+    """检索端口（场景 6 RAG 链路；未配置时管线记录 retrieval_degraded 走降级，不阻塞回复）。"""
+
+    async def retrieve(
+        self,
+        query: str,
+        limit: int = 3,
+        doc_kind: Literal["POLICY", "POST", "ANSWER"] | None = None,
+    ) -> tuple[RetrievedFragment, ...]:
+        """按语义相似度召回片段（limit 控制上限；doc_kind 可过滤文档类别，None=全类）。"""
         ...
 
 

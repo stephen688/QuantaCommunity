@@ -1,0 +1,30 @@
+# 记忆四态落库（总装行为）：预置 m1（project，created_at 2026-06-01——超 project 14 天衰减
+# 阈值，精选渲染带「可能过时」警告）+ 决策剧本输出 UPDATE(m1)+NOOP →
+# SpyMemoryStore 捕获 apply_ops 转发的 op 集合（memory_op_is 断言依据）。
+id: pipeline-memory-ops
+scenario: 0
+scenario_name: 记忆四态落库（总装行为）
+mode: 专业答疑
+tier: pipeline
+memories:
+  - memory_id: m1
+    user_id: 42
+    type: project
+    content: 用户主修机械工程，常来问选课
+    why: 历史对话沉淀
+    created_at: "2026-06-01"
+trigger:
+  post: { postId: 3001, userId: 1, title: 选课求助, content: 机械工程大三选课组合求建议，学分和实验课怎么排 }
+  comment: { commentId: 9101, userId: 42, content: "@QuantaBot 这学期选课组合帮我看看怎么排比较好" }
+  floors: []
+llm_script:
+  - '{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "选课组合求助", "memory_selection": ["m1"], "memory_ops": [{"op": "UPDATE", "type": "project", "content": "用户主修机械工程，正在准备 2026 秋季学期选课", "why": "选课动态演进", "target_memory_id": "m1"}, {"op": "NOOP"}]}'
+  - "按毕业硬指标先排必修，实验课别堆同一学期，组合留出补退窗口。"
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 专业答疑 }
+  - { assert: memory_op_is, expected: [UPDATE, NOOP] }
+  - { assert: memory_selected_count, expected: 1 }
+  - { assert: decay_warning_present, expected: true }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+judge: null

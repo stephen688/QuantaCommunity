@@ -2,6 +2,7 @@
 
 职责：定义 KeyValueStore（幂等/开关/成本键的存储语义）与 DecisionAudit（决策日志）端口，
       供 crosscutting 与 pipeline（正向 import）依赖；infra 提供实现，composition 装配注入。
+      另含 TruncationRecord（上下文截断留痕契约——pipeline 与 memory 共用，故放最底层端口文件）。
 边界：本文件只含协议与端口数据类型，零实现（crosscutting 不 import infra，AGENTS.md §4.1）。
       pipeline 消费的端口（写库/评论树）在 pipeline/ports.py，勿混放。
 """
@@ -17,6 +18,8 @@ Decision = Literal[
     "skipped_not_mentioned",  # 未命中 @，链路未进入
     "skipped_idempotent",  # 重复投递，幂等拦截
     "skipped_killswitch",  # kill switch 置位，链路短路不回（G5 止血）
+    "skipped_low_value",  # 硬规则低价值拦截（零成本前置：超短/纯符号/刷屏/纯链接/黑词，未进 LLM）
+    "skipped_decision",  # LLM 决策判不值得回（一车四用轻量调用后静默跳过）
     "rejected_moderation",  # 规则预检拦截（红线：违规不出）
     "failed",  # 链路异常（静默不回，决策日志留痕）
 ]
@@ -62,3 +65,12 @@ class DecisionAudit(Protocol):
     async def record(self, entry: DecisionLogEntry) -> None:
         """落一条决策明细（何回/何不回/何降级——统计口径诚实）。"""
         ...
+
+
+class TruncationRecord(BaseModel):
+    """上下文截断留痕（决策日志诚实口径在上下文层的延伸——用户质疑「没看到我前面说的话」可对质）。"""
+
+    channel: Literal["B", "C", "D"]
+    what: str  # 砍了什么（楼层 comment_id 范围 / 记忆 memory_id / 摘要条目）
+    reason: str  # 为什么砍（超通道预算/超总预算/摘要失败丢弃）
+    chars_dropped: int

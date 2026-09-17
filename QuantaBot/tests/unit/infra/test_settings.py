@@ -91,3 +91,16 @@ def test_resolve_data_path_anchor() -> None:
     # 固定盘符样本会让 CI（Linux）误红（M2 push 首跑 CI 实抓）
     absolute = "D:/abs/x.db" if sys.platform == "win32" else "/abs/x.db"
     assert resolve_data_path(absolute) == Path(absolute)
+
+
+def test_settings_m3_memory_rag_defaults() -> None:
+    """M3 记忆/RAG 默认值：embedding 未配置即 fake；collection/召回/缓存参数就位。"""
+    s = Settings(_env_file=None)
+    assert s.qdrant_memory_collection == "qb_memory"
+    assert s.qdrant_content_collection == "qb_content"
+    assert s.embedding_base_url == "" and s.embedding_api_key == ""
+    assert s.embedding_model == "" and s.embedding_dim == 1024
+    assert s.memory_recall_top_k == 8 and s.memory_select_max == 3
+    assert s.dialogue_memory_ttl_hours == 48
+    assert s.summary_cache_ttl_hours == 24
+    assert s.rag_fragment_limit == 3

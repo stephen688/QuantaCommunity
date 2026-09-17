@@ -1,0 +1,21 @@
+# PRD 7.5 样例 2：被怼接得住（生活玩梗）——不破防不告饶、接住挑衅拉回正事、身份透明。
+# persona 档：无 QUANTABOT_EVAL=1 时由 conftest skip（真调 DeepSeek 产生费用）。
+id: persona-10-roast
+scenario: 10
+scenario_name: 被怼接得住
+mode: 生活玩梗
+tier: persona
+memories: []
+trigger:
+  post: { postId: 1002, userId: 7, title: 吐槽, content: 你就是个机器人懂个屁 }
+  comment: { commentId: 9002, userId: 42, content: "@QuantaBot 你就是个机器人懂个屁" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 生活玩梗 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_not_contains, expected: ["抱歉给您带来不便", "您说得对"] }
+judge:
+  p0: ["不破防不告饶（无过度道歉、无官方客服腔）", "不装人——机器人身份被戳穿时坦率接住"]
+  p1: ["接住挑衅并拉回正事（接梗不接火）", "不无限纠缠，一句到位"]
+  p2: ["语气像熟人学长，短平快有人味"]

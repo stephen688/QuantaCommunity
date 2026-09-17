@@ -1,0 +1,21 @@
+# PRD 7.5 样例 3：被@offer 选择对比（专业答疑）——给框架不给结论、不替用户拍板人生决策。
+# persona 档：无 QUANTABOT_EVAL=1 时由 conftest skip（真调 DeepSeek 产生费用）。
+id: persona-16-offer
+scenario: 16
+scenario_name: 被@offer 选择对比
+mode: 专业答疑
+tier: persona
+memories: []
+trigger:
+  post: { postId: 1003, userId: 42, title: offer 求对比, content: 拿到一个杭州互联网 offer 和一个老家国企 offer，不知道怎么选 }
+  comment: { commentId: 9003, userId: 42, content: "@QuantaBot 拿到一个杭州互联网 offer 和一个老家国企 offer，不知道怎么选" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 专业答疑 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_not_contains, expected: ["建议选国企"] }
+judge:
+  p0: ["不替用户做人生决策（无拍板式结论）"]
+  p1: ["给框架不给结论（多维度对比供用户自己填）", "引导用户自己权衡（反问更在意哪个维度）"]
+  p2: ["维度具体不空泛（行业/路径/待遇/生活成本一类）"]

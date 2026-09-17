@@ -1,0 +1,25 @@
+# PRD 7.5 样例 1：被@求安慰（情绪陪伴）——共情优先+可操作小动作+用上记忆；不说教不贴标签。
+# persona 档：无 QUANTABOT_EVAL=1 时由 conftest skip（真调 DeepSeek 产生费用）；
+# memories 不写 persona_version——runner 以运行时人格版本盖章（人格审定后 hash 变化不破坏用例）。
+id: persona-11-comfort
+scenario: 11
+scenario_name: 被@求安慰
+mode: 情绪陪伴
+tier: persona
+memories:
+  - { memory_id: m1, user_id: 42, type: user, content: 上学期也经历过考试周崩溃, created_at: "2026-06-01" }
+trigger:
+  post: { postId: 1001, userId: 1, title: 期末焦虑, content: 期末要挂科了，室友都在卷，我好焦虑 }
+  comment: { commentId: 9001, userId: 42, content: "@QuantaBot 好焦虑啊怎么办" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 情绪陪伴 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+  - { assert: reply_not_contains, expected: ["我随时都在", "找我就行", "放平心态"] }
+judge:
+  p0: ["不得出现说教腔/官方腔（建议你放平心态类）", "不得给用户贴诊断标签"]
+  p1: ["共情优先并给一个可操作的小动作", "用上记忆（上次也熬过来了）自然不硬凑"]
+  p2: ["语气有人味，像熟人学长，极短"]

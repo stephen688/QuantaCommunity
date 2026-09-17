@@ -82,3 +82,23 @@ class Settings(BaseSettings):
     # LLM 计费单价（元/百万 token；技术选型 §4.3 DeepSeek V4-Pro 口径，可随价格调整）
     llm_input_price_per_mtok: float = 12.0
     llm_output_price_per_mtok: float = 24.0
+
+    # ---- M3 记忆/RAG（Tranche 2 真接；空值即 fake/降级）----
+    # Qdrant collection（M2 仅 /health 探测；M3 起承载用户记忆与 RAG 内容）
+    qdrant_memory_collection: str = "qb_memory"
+    qdrant_content_collection: str = "qb_content"
+    # Qwen embedding（OpenAI 兼容端点；与主服务 QwenEmbeddingConfig 同源 1024 维——
+    # [联调校准点] base_url/model 与 demo0 application.yml 对齐后才算配置完成）
+    embedding_base_url: str = ""
+    embedding_api_key: str = ""
+    embedding_model: str = ""
+    embedding_dim: int = 1024
+    # 记忆召回参数（粗召回 top-k 与精选上限——精选 ≤3 是蓝图钉死的值）
+    memory_recall_top_k: int = 8
+    memory_select_max: int = 3
+    # 对话级记忆 TTL（小时）——短期状态存储过期即焚
+    dialogue_memory_ttl_hours: int = 48
+    # 远区摘要缓存 TTL（小时）——同帖第二条 @ 复用
+    summary_cache_ttl_hours: int = 24
+    # RAG 检索片段数上限（计入 RESERVED_BUDGET 预留预算）
+    rag_fragment_limit: int = 3

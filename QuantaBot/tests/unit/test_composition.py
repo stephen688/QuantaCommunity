@@ -14,8 +14,17 @@ from quanta_bot.infra.main_service import (
 )
 from quanta_bot.infra.settings import Settings
 from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
+from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
+from quanta_bot.pipeline.context import LLMSummarizer
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import run
 from quanta_bot.pipeline.trigger import TriggerEvent
+
+# 合法决策 JSON 剧本（决策层 v2 真实化后，replied 路径首位 LLM 响应必须是它；
+# 装配内置 FakeLLM 为固定文本过不了决策 JSON 解析，跑通验证时替换为同类型剧本版）
+_DECISION_JSON = (
+    '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "真诚求助"}'
+)
 
 
 def _settings(tmp_path, **overrides) -> Settings:
@@ -39,13 +48,23 @@ async def test_fake_mode_deps_and_pipeline_run(tmp_path) -> None:
     assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)
     assert isinstance(deps.control_plane, ControlPlane)
     assert isinstance(deps.audit, SQLiteAudit)
+    # M3 装配：人格/记忆/摘要三件必配；检索 Task 13 前恒 None；Settings 数值参数透传
+    assert isinstance(deps.persona, PersonaLibrary)
+    assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+    assert isinstance(deps.summarizer, LLMSummarizer)
+    assert deps.retriever is None
+    assert deps.memory_recall_top_k == 8 and deps.memory_select_max == 3
+    assert deps.rag_fragment_limit == 3
+    assert deps.dialogue_memory_ttl_hours == 48 and deps.summary_cache_ttl_hours == 24
+    # 决策层 v2 真实化：默认 FakeLLM 固定文本过不了决策 JSON 解析，替换为同类型剧本版跑通 replied
+    deps.llm = FakeLLM(responses=[_DECISION_JSON, "fake 模式端到端回复"])
     result = await run(
         TriggerEvent(
             event_id="evt-1",
             comment_id=1,
             post_id=2,
             commenter_user_id=3,
-            content="@QuantaBot hi",
+            content="@QuantaBot 帮我选课",
             mentioned_bot=True,
         ),
         deps,
@@ -62,6 +81,10 @@ async def test_real_mode_degrades_gracefully_when_unconfigured(tmp_path) -> None
     assert isinstance(deps.tracer, NullTracer)  # 降级
     assert isinstance(deps.reply_writer, UnimplementedReplyWriter)  # 不假装：P0-5 未接入
     assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)  # P0-2 未接入
+    # M3 三件真模式同样装配（memory_store 暂为内存版——Qdrant 真接在 Task 12，WARNING 留痕）
+    assert isinstance(deps.persona, PersonaLibrary)
+    assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+    assert isinstance(deps.summarizer, LLMSummarizer)
 
 
 async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
@@ -87,6 +110,10 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
             deps.reply_writer, HTTPReplyWriter
         )  # C-5 真写库接入（与评论树共享 client）
         assert isinstance(deps.comment_tree, HTTPCommentTreeFetcher)  # C-2 真客户端接入
+        # M3 三件与模式无关（人格/摘要/记忆恒装配）
+        assert isinstance(deps.persona, PersonaLibrary)
+        assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+        assert isinstance(deps.summarizer, LLMSummarizer)
     finally:
         await runtime.aclose()
 
@@ -94,13 +121,15 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
 async def test_real_mode_without_main_service_fails_honestly(tmp_path) -> None:
     """真模式跑管线 → 写库占位抛错 → failed（绝不静默假装写库成功，红线 §0.5 精神）。"""
     runtime = build_runtime(_settings(tmp_path, fake_mode=False))
+    # LLM 已降级为 FakeLLM；替换为剧本版让链路走到写库占位（failed 必须来自写库，而非决策层）
+    runtime.deps.llm = FakeLLM(responses=[_DECISION_JSON, "写库占位前的生成回复"])
     result = await run(
         TriggerEvent(
             event_id="evt-2",
             comment_id=2,
             post_id=3,
             commenter_user_id=4,
-            content="@QuantaBot hi",
+            content="@QuantaBot 帮我看看这道题",
             mentioned_bot=True,
         ),
         runtime.deps,

@@ -18,7 +18,7 @@ AI_NICKNAME = "QuantaBot"
 class TriggerEvent(BaseModel):
     """触发事件（契约=demo0 Outbox BotMentionMessage，C-1）。"""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True)  # 模型配置
 
     event_id: str = Field(
         alias="eventId", description="Outbox 唯一 ID——投递层辅助（幂等键仍是 comment_id）"
@@ -28,6 +28,7 @@ class TriggerEvent(BaseModel):
     answer_id: int | None = Field(
         default=None, alias="answerId", description="专业区回答 ID（可空）"
     )
+
     commenter_user_id: int = Field(alias="commenterUserId", description="触发评论作者")
     content: str = Field(alias="commentContent", description="评论全文（≤500 字）")
     images: tuple[str, ...] = Field(

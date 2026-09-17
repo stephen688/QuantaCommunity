@@ -32,4 +32,4 @@ jobs:
       - name: Format 检查
         run: uv run ruff format --check src tests
       - name: 单测
-        run: uv run pytest tests/unit -q
+        run: uv run pytest tests/unit tests/eval -q
