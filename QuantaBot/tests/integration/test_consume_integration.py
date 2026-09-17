@@ -23,10 +23,15 @@ from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
 from quanta_bot.pipeline.context import LLMSummarizer
 from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import PipelineDeps
-from quanta_bot.pipeline.ports import PostSummary, PostThread, RunTrace
+from quanta_bot.pipeline.ports import CommentNode, PostSummary, PostThread, RunTrace
 
 _EXCHANGE = "quantabot.exchange"
 _ROUTING_KEY = "quantabot.comment.created"
+
+# M3 决策层剧本（replied 路径首位 LLM 响应必须是合法决策 JSON——与 unit 同口径）
+_DECISION_JSON = (
+    '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "真诚求助"}'
+)
 
 
 class SpyTracer:
@@ -55,6 +60,9 @@ class _SnapshotFetcher:
                 post_id=event.post_id, author_user_id=1, title="集成测试主楼", content="占位"
             )
         )
+
+    async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
+        return ()  # 楼层恒空=远区摘要零调用（M3 ⑤ 步契约：拉取全量楼层）
 
 
 def _mq_message(comment_id: int, post_id: int, content: str) -> bytes:
@@ -111,7 +119,8 @@ async def test_consume_same_post_messages_serialized(tmp_path) -> None:
     writer = FakeReplyWriter()
     kv = InMemoryKV()
     fetcher = _SnapshotFetcher(writer)
-    llm = FakeLLM()
+    # 两条消息 ×（决策+生成）：M3 链路首次调用为决策 JSON，剧本按消费序弹出（幂等重发不调 LLM）
+    llm = FakeLLM(responses=[_DECISION_JSON, "第一条集成回复", _DECISION_JSON, "第二条集成回复"])
     deps = PipelineDeps(
         kv=kv,
         audit=audit,
@@ -130,8 +139,8 @@ async def test_consume_same_post_messages_serialized(tmp_path) -> None:
         await _publish(
             s,
             [
-                _mq_message(201, 77, "@QuantaBot 第一条"),
-                _mq_message(202, 77, "@QuantaBot 第二条"),
+                _mq_message(201, 77, "@QuantaBot 帮我看看第一条选课问题"),
+                _mq_message(202, 77, "@QuantaBot 再看看第二条保研政策"),
             ],
         )
         await _wait_until(lambda: len(writer.written) >= 2)
@@ -141,7 +150,7 @@ async def test_consume_same_post_messages_serialized(tmp_path) -> None:
         entries = await audit.fetch_entries()
         assert [e.decision for e in entries] == ["replied", "replied"]
         # 幂等（MQ 至少一次投递语义）：重发第一条 → 不重复写库 + 记 skipped_idempotent
-        await _publish(s, [_mq_message(201, 77, "@QuantaBot 第一条")])
+        await _publish(s, [_mq_message(201, 77, "@QuantaBot 帮我看看第一条选课问题")])
         entries_after_dup: list[str] = []
         for _ in range(100):
             entries_after_dup = [e.decision for e in await audit.fetch_entries()]
@@ -164,7 +173,8 @@ async def test_consume_paused_while_kill_enabled(tmp_path) -> None:
     writer = FakeReplyWriter()
     kv = InMemoryKV()
     cp = ControlPlane(kv)
-    llm = FakeLLM()
+    # kill 解除后消费一条：决策+生成两响应（M3 首次调用为决策 JSON）
+    llm = FakeLLM(responses=[_DECISION_JSON, "kill 恢复后回复"])
     deps = PipelineDeps(
         kv=kv,
         audit=audit,
