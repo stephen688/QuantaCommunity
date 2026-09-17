@@ -8,6 +8,7 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
+from quanta_bot.crosscutting.ports import TruncationRecord
 from quanta_bot.memory.ports import (
     EmbeddingClient,
     MemoryOp,
@@ -90,3 +91,37 @@ class InMemoryUserMemoryStore:
             created_at=datetime.now(UTC),  # UTC 绝对时间（渲染衰减警告的时间锚点）
             persona_version=persona_version,
         )
+
+
+# 分类型时间衰减阈值（天）——校园节律：project 快 / feedback 中 / user 慢（grill 决议 11）
+DECAY_THRESHOLDS_DAYS = {"project": 14, "feedback": 45, "user": 180, "reference": 180}
+
+
+def render_memory_block(
+    selected: Sequence[MemoryRecord],
+    negatives: Sequence[MemoryRecord],
+    select_max: int,
+) -> tuple[str, tuple[TruncationRecord, ...]]:
+    """D 通道渲染：负面全量在前（永不截断）+ 精选（超限丢末位）+ 分类型时间衰减警告。"""
+    truncations: list[TruncationRecord] = []
+    lines: list[str] = []
+    for record in negatives:  # 负面偏好：安全问题不是相关性问题，全量注入
+        lines.append(f"【记忆|feedback·反对】{record.content}（记录于 {_days_ago(record)} 天前）")
+    kept = list(selected[:select_max])
+    if len(selected) > select_max:
+        dropped = [record.memory_id for record in selected[select_max:]]
+        truncations.append(
+            TruncationRecord(
+                channel="D", what=f"精选记忆{dropped}", reason="超精选上限丢末位", chars_dropped=0
+            )
+        )
+    for record in kept:
+        days = _days_ago(record)
+        stale = days > DECAY_THRESHOLDS_DAYS.get(record.type, 180)
+        warning = "，可能过时，涉及事实请优先依据本次上下文与检索核实" if stale else ""
+        lines.append(f"【记忆|{record.type}】{record.content}（记录于 {days} 天前{warning}）")
+    return ("\n".join(lines), tuple(truncations)) if lines else ("", tuple(truncations))
+
+
+def _days_ago(record: MemoryRecord) -> int:
+    return max(0, (datetime.now(UTC) - record.created_at).days)

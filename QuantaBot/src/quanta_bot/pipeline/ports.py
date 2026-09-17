@@ -1,10 +1,12 @@
 """pipeline/ports —— pipeline 消费的端口（协议）定义。
 
-职责：ReplyWriter（写库）端口；M2 增 CommentTreeFetcher（评论树/帖子详情）。
+职责：ReplyWriter（写库）端口；M2 增 CommentTreeFetcher（评论树/帖子详情）；
+      M3 增 Summarizer（远区摘要——LLMSummarizer 实现在 pipeline/context.py）。
 边界：crosscutting 消费的端口在 crosscutting/ports.py（分层归属，勿混——AGENTS.md §4.1）；
       本文件零实现，infra 提供实现、composition 注入。
 """
 
+from collections.abc import Sequence
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -83,6 +85,14 @@ class CommentTreeFetcher(Protocol):
 
     async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
         """C-2② 全量楼层（分页拉满 total——近远区分区与远区摘要的数据源）。"""
+        ...
+
+
+class Summarizer(Protocol):
+    """远区摘要端口（M3：LLMSummarizer 实现在 pipeline/context.py，测试可注入 fake）。"""
+
+    async def summarize(self, floors: Sequence[CommentNode]) -> str:
+        """把远区楼层压缩为五项清单摘要（话题/结论/争执/未答提问/关键事实）。"""
         ...
 
 
