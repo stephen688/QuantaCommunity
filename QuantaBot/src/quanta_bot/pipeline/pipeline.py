@@ -167,6 +167,9 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
     if low_value_reason is not None:
         return _Outcome("skipped_low_value", low_value_reason)
 
+    decision_result: decision.DecisionResult | None = (
+        None  # failed 归因锚（决策成功后链路炸时携带 mode）
+    )
     try:
         # ⑤ 拉取现场（C-2①③ 线程 + C-2② 全量楼层）
         thread = await deps.comment_tree.fetch_context(event)
@@ -231,8 +234,13 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         )
         await deps.reply_writer.write_reply(output.reply)
     except (LLMClientError, ReplyWriteError) as exc:
-        # 已知失败类型静默不回（红线 §0.3）；其余异常按 AGENTS §4.3 让它炸
-        return _Outcome("failed", f"链路异常静默不回：{exc}", error=str(exc))
+        # 已知失败类型静默不回（红线 §0.3）；决策已成功时携带 mode 归因（M2 口径保持）
+        return _Outcome(
+            "failed",
+            f"链路异常静默不回：{exc}",
+            mode=decision_result.mode if decision_result is not None else None,
+            error=str(exc),
+        )
 
     # ⑫ replied 后：记忆四态落库 + 对话链 append（失败 WARNING 不阻断——回复已成功）
     if decision_result.memory_ops:

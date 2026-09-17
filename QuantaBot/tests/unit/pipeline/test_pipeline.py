@@ -24,6 +24,7 @@ from quanta_bot.pipeline.pipeline import PipelineDeps, run
 from quanta_bot.pipeline.ports import (
     CommentNode,
     LLMClientError,
+    LLMResult,
     PostSummary,
     PostThread,
     ReplyWriteError,
@@ -54,6 +55,21 @@ class ExplodingLLM:
         self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
     ):
         raise LLMClientError("DeepSeek 调用失败：timeout")
+
+
+class DecisionThenExplodeLLM:
+    """首次调用返回合法决策 JSON、第二次抛 LLMClientError（决策成功后生成阶段故障）。"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def complete(
+        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+    ) -> LLMResult:
+        self.calls += 1
+        if self.calls == 1:
+            return LLMResult(content=_DECISION_JSON, prompt_tokens=500, completion_tokens=100)
+        raise LLMClientError("DeepSeek 调用失败：生成超时")
 
 
 class CountingFetcher:
@@ -328,6 +344,17 @@ async def test_llm_failure_records_failed_zero_reply(tmp_path) -> None:
     assert "timeout" in entries[0].reason
     assert deps.tracer.traces[0].error == "DeepSeek 调用失败：timeout"
     assert deps.tracer.traces[0].decision == "failed"
+
+
+async def test_failed_after_decision_records_mode(tmp_path) -> None:
+    """决策成功后生成失败：failed 分支仍携带决策 mode（归因不因异常丢失——M2 口径保持）。"""
+    deps = _m3_deps(DecisionThenExplodeLLM(), tmp_path=tmp_path)
+    result = await run(_event("@QuantaBot 期末求安慰", comment_id=11), deps)
+    assert result == "failed"
+    assert deps.reply_writer.written == []
+    trace = captured_trace(deps)
+    assert trace.mode == "生活玩梗"  # 决策阶段已确定的模式，生成失败不吞
+    assert trace.error is not None
 
 
 async def test_reply_write_failure_records_failed(tmp_path) -> None:
