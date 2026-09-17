@@ -133,8 +133,27 @@ SUMMARY_SYSTEM_PROMPT = """你是楼层讨论压缩器。把给定楼层压缩�
 规则：数字与事实必须来自楼层原文，不得重新估算或推断；没有的项给空数组，不编造。"""
 
 
+def _parse_summary(content: str) -> dict:
+    """解析摘要 JSON（形状校验：必须是 object 且五键齐全；不符统一 SummaryError）。
+
+    两路径（首次/retry）共用——原 retry 只 except JSONDecodeError，合法 JSON 但非 dict
+    （如 list）会从 _render 抛 AttributeError 逃逸，击穿 build_channel_c 的降级与管线
+    failed 分支，落 consumer 兜底丢整条回复（reviewer 实证，违背「丢远区照常回复」契约）。
+    """
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise SummaryError(f"摘要 JSON 解析失败：{exc}") from exc
+    if not isinstance(parsed, dict):
+        raise SummaryError(f"摘要 JSON 非 object：{type(parsed).__name__}")
+    for key in ("topic", "conclusions", "disputes", "unanswered_questions", "key_facts"):
+        if key not in parsed:
+            raise SummaryError(f"缺字段 {key}")
+    return parsed
+
+
 class LLMSummarizer:
-    """远区摘要（轻量调用；畸形喂回重试一次，仍畸形 SummaryError）。"""
+    """远区摘要（轻量调用；畸形/畸形形状喂回重试一次，仍畸形 SummaryError）。"""
 
     def __init__(self, llm: LLMClient) -> None:
         self._llm = llm
@@ -147,11 +166,8 @@ class LLMSummarizer:
             SUMMARY_SYSTEM_PROMPT, floors_text, json_mode=True, max_tokens=4000
         )  # 推理模型思考计入上限（500 曾被烧穿出空内容，实证修正）
         try:
-            parsed = json.loads(first.content)
-            for key in ("topic", "conclusions", "disputes", "unanswered_questions", "key_facts"):
-                if key not in parsed:
-                    raise SummaryError(f"缺字段 {key}")
-        except (json.JSONDecodeError, SummaryError):
+            parsed = _parse_summary(first.content)
+        except SummaryError:
             pass  # 喂回自愈重试一次（蓝图 §5.5 内部中间产物）
         else:
             return self._render(parsed)
@@ -161,10 +177,7 @@ class LLMSummarizer:
             json_mode=True,
             max_tokens=4000,
         )
-        try:
-            return self._render(json.loads(retry.content))
-        except json.JSONDecodeError as exc:
-            raise SummaryError(f"摘要两次解析失败：{exc}") from exc
+        return self._render(_parse_summary(retry.content))  # 仍畸形 → SummaryError（build_channel_c 降级丢远区）
 
     @staticmethod
     def _render(parsed: dict) -> str:
@@ -218,9 +231,9 @@ async def build_channel_c(
             ),
             False,
         )
-    if len(summary) > CHANNEL_C_BUDGET:  # 摘要自身超预算截尾留痕
-        summary = summary[:CHANNEL_C_BUDGET]
-        summary += "（摘要超限截断）"
+    if len(summary) > CHANNEL_C_BUDGET:  # 摘要自身超预算截尾留痕（标记计入预算——与 truncate_head_tail 口径一致）
+        marker = "（摘要超限截断）"
+        summary = summary[: CHANNEL_C_BUDGET - len(marker)] + marker
     await summary_cache.set(key, summary, summary_cache_ttl_hours * 3600)
     return summary, (), False
 

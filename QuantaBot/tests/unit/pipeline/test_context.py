@@ -1,5 +1,7 @@
 """context 组装测试：M3 B 通道（父链分区/保真截断）+ C 摘要与四通道总装（build_context 旧路径已随 Task 9 删除）。"""
 
+import pytest
+
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher
@@ -7,11 +9,16 @@ from quanta_bot.pipeline import context
 from quanta_bot.pipeline.context import (
     TOTAL_CONTEXT_BUDGET,
     LLMSummarizer,
+    SummaryError,
     assemble,
     build_channel_c,
 )
 from quanta_bot.pipeline.ports import CommentNode, PostSummary, PostThread
 from quanta_bot.pipeline.trigger import TriggerEvent
+
+_SUMMARY_FIVE_KEYS = (
+    '{"topic": "选课", "conclusions": [], "disputes": [], "unanswered_questions": [], "key_facts": []}'
+)
 
 
 def _event() -> TriggerEvent:
@@ -90,6 +97,31 @@ async def test_fake_fetcher_injectable_data() -> None:
     assert thread.chain == chain
     assert thread.bot_history == bot_history
     assert await fetcher.fetch_floors(22) == floors  # 注入楼层原样返回
+
+
+async def test_summarizer_non_dict_retry_raises_summary_error() -> None:
+    """retry 返回非 dict JSON（list）：SummaryError 降级信号而非 AttributeError 逃逸。
+
+    reviewer 实证缺陷：逃逸会击穿 build_channel_c 的 except SummaryError 降级与管线
+    failed 分支，落进 consumer 兜底 → 整条回复静默丢弃，违背「摘要失败=丢远区照常回复」契约。
+    """
+    llm = FakeLLM(responses=["坏JSON", '["topic"]'])
+    with pytest.raises(SummaryError):
+        await LLMSummarizer(llm).summarize((_floor(1),))
+
+
+async def test_summarizer_retry_missing_fields_raises_summary_error() -> None:
+    """retry 返回 dict 但缺字段：与首次同样严格校验（原 retry 路径不校验五字段——reviewer 实证）。"""
+    llm = FakeLLM(responses=["坏JSON", '{"topic": "选课"}'])
+    with pytest.raises(SummaryError):
+        await LLMSummarizer(llm).summarize((_floor(1),))
+
+
+async def test_summarizer_first_non_dict_retries_and_succeeds() -> None:
+    """首次返回 list（合法 JSON 非 object）：形状校验进自愈环——喂回重试成功后正常渲染。"""
+    llm = FakeLLM(responses=['["topic"]', _SUMMARY_FIVE_KEYS])
+    text = await LLMSummarizer(llm).summarize((_floor(1),))
+    assert "选课" in text
 
 
 async def test_channel_c_summarizes_with_cache_reuse() -> None:

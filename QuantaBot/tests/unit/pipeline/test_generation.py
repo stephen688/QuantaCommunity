@@ -51,6 +51,16 @@ async def test_generate_keeps_badge_when_present() -> None:
     assert output.reply.content.count("[QuantaBot·AI 学长]") == 1
 
 
+async def test_generate_uses_assembled_context_verbatim() -> None:
+    """user_prompt=assemble 产物原样：触发评论已由 assemble 触发行承载（红线），M2 后缀曾致三重注入。"""
+    llm = FakeLLM()
+    context_text = "【主楼】选课帖\n【触发行】@QuantaBot hi"
+    await generate(
+        _event(), decision=None, llm=llm, context_text=context_text, persona=PersonaLibrary()
+    )
+    assert llm.calls[0]["user"] == context_text  # 不再追加触发评论后缀（预算口径诚实）
+
+
 async def test_generate_output_anchors_and_usage() -> None:
     """回复锚点（post/回复对象）与 usage 透传（成本折算输入）。"""
     llm = FakeLLM()

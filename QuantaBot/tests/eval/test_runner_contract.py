@@ -116,10 +116,16 @@ async def test_judge_tolerates_empty_and_malformed_json() -> None:
     result = CaseResult(decision="replied", reply="一条正常回复")
     empty = await judge_case(case, result, llm=_StaticLLM(""))
     assert empty and "无法解析" in empty[0]
-    truncated = await judge_case(
-        case, result, llm=_StaticLLM('{"p0": {"pass": true, "reason": "截')
-    )
+    truncated = await judge_case(case, result, llm=_StaticLLM('{"p0": {"pass": true, "reason": "截'))
     assert truncated and "无法解析" in truncated[0]
+
+
+async def test_judge_rejects_non_object_json() -> None:
+    """Judge 输出合法 JSON 但非 object（list）：失败描述而非 AttributeError（形状校验与摘要同思路）。"""
+    case = _persona_case_with_judge()
+    result = CaseResult(decision="replied", reply="一条正常回复")
+    non_object = await judge_case(case, result, llm=_StaticLLM('["p0"]'))
+    assert non_object and "非 object" in non_object[0]
 
 
 async def test_judge_passes_on_all_pass_verdict() -> None:

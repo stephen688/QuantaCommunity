@@ -49,6 +49,18 @@ def test_parse_decision_json_full_contract() -> None:
     assert result.memory_ops[0].op == "ADD" and result.memory_ops[0].type == "project"
 
 
+def test_parse_decision_json_clamps_confidence_both_directions() -> None:
+    """confidence 双向钳位到 [0,1]（风险钉桩 2「截断到 [0,1]」——原实现只管 >1 方向，负值漏网）。"""
+    negative = parse_decision_json(
+        '{"should_reply": true, "mode": "生活玩梗", "confidence": -0.5, "reason": "测试"}'
+    )
+    assert negative.confidence == 0.0
+    over_one = parse_decision_json(
+        '{"should_reply": true, "mode": "生活玩梗", "confidence": 85, "reason": "测试"}'
+    )
+    assert over_one.confidence == 0.85  # 85 归一为 0.85（模型输出百分数形态）
+
+
 async def test_decide_feeds_back_on_malformed_json_once() -> None:
     """JSON 畸形喂回自愈：第一次坏 JSON → 纠偏提示重试 → 第二次好 JSON 通过（蓝图 §5.5）。"""
     bad = "这不是JSON"

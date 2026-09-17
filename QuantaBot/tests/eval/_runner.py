@@ -329,6 +329,8 @@ async def judge_case(case: EvalCase, result: CaseResult, llm: LLMClient | None =
             return [
                 f"Judge 输出无法解析（空/截断 JSON，max_tokens 可能不足）：{raw.content[:80]!r}"
             ]
+        if not isinstance(verdict, dict):
+            return [f"Judge 输出非 object（{type(verdict).__name__}）：{raw.content[:80]!r}"]
         return [
             f"{level}：{verdict.get(level, {}).get('reason', '未判定')}"
             for level in ("p0", "p1", "p2")

@@ -54,8 +54,12 @@ async def generate(
     context_text: str,
     persona: PersonaLibrary,
 ) -> GenerationOutput:
-    """按上下文+触发评论调 LLM 生成回复（decision.mode 驱动人格模式，无决策默认生活玩梗）。"""
-    user_prompt = f"帖子上下文：\n{context_text}\n\n触发评论：{event.content}"  # 用户提示词
+    """按上下文调 LLM 生成回复（decision.mode 驱动人格模式，无决策默认生活玩梗）。
+
+    user_prompt=assemble 产物原样——触发评论已由 assemble 触发行承载（红线）且受
+    12000 预算校验；M2 遗留的触发评论后缀曾致三重注入且在校验后追加可超预算（已删）。
+    """
+    user_prompt = context_text
     system = persona.system_prompt(
         decision.mode if decision else "生活玩梗"
     )  # 人格 system（A 通道）

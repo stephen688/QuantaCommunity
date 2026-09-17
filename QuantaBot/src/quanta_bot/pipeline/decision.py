@@ -101,9 +101,11 @@ def parse_decision_json(raw: str) -> DecisionResult:
         result = DecisionResult.model_validate(data)
     except (json.JSONDecodeError, ValueError) as exc:
         raise LLMClientError(f"决策 JSON 契约不符：{exc}") from exc
-    # confidence 越界归一（风险钉桩 2：模型可能输出 85 而非 0.85）
+    # confidence 越界归一（风险钉桩 2：模型可能输出 85 而非 0.85；双向钳位到 [0,1]）
     if result.confidence > 1:
         result.confidence = result.confidence / 100 if result.confidence <= 100 else 1.0
+    if result.confidence < 0:
+        result.confidence = 0.0
     return result
 
 
