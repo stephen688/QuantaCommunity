@@ -1,7 +1,7 @@
 """pipeline/generation —— 生成层（M2：经 LLMClient 真调；M3：人格内核+四模式 prompt）。
 
 职责：组装 system+user 调 LLM；强制 AI 身份标识（红线 §0.1）；输出回复与 usage（成本折算输入）。
-边界：不内联人格 prompt 长文（M2 用最小临时 system 提示词，M3 起改读 prompts/ 数据文件）；
+边界：人格 prompt 由 persona.py 读 prompts/ 数据文件（M3 起）；
       不折算成本（budget/crosscutting 负责）；LLM 失败不在此捕获（管线 failed 分支统一处理）。
 """
 
@@ -12,19 +12,11 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from quanta_bot.pipeline.decision import DecisionResult
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 if TYPE_CHECKING:
     from quanta_bot.pipeline.ports import LLMClient
-
-# M2 临时系统提示词（人格 v1 于 M3 以 prompts/ 数据文件落地后替换为读文件）
-_SYSTEM_PROMPT = (
-    "你是校园社区 QuantaCommunity 的 AI 学长 QuantaBot。必须遵守："
-    "1）你是 AI，不是真人，绝不冒充真人校友；"
-    "2）回复简短、口语化、友善；"
-    "3）只依据给定上下文与常识回答，不确定就直说不知道，不编造（防幻觉护栏）；"
-    "4）严禁输出违法违规或伤害性内容。"
-)
 
 # AI 身份标识（红线 §0.1——生成层强制注入，不依赖模型自觉）
 AI_BADGE = "[QuantaBot·AI 学长]"
@@ -58,10 +50,14 @@ async def generate(
     decision: DecisionResult | None,
     llm: LLMClient,
     context_text: str,
+    persona: PersonaLibrary,
 ) -> GenerationOutput:
-    """按上下文+触发评论调 LLM 生成回复（decision 为链路形态占位，M3 起驱动模式 prompt）。"""
+    """按上下文+触发评论调 LLM 生成回复（decision.mode 驱动人格模式，无决策默认生活玩梗）。"""
     user_prompt = f"帖子上下文：\n{context_text}\n\n触发评论：{event.content}"  # 用户提示词
-    result = await llm.complete(system=_SYSTEM_PROMPT, user=user_prompt)  # 调用 LLM
+    system = persona.system_prompt(
+        decision.mode if decision else "生活玩梗"
+    )  # 人格 system（A 通道）
+    result = await llm.complete(system=system, user=user_prompt)  # 调用 LLM
     content = result.content.strip()
     if AI_BADGE not in content:
         content = f"{AI_BADGE} {content}"

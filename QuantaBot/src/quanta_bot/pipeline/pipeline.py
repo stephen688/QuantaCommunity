@@ -13,6 +13,7 @@ from quanta_bot.crosscutting import budget, idempotency, moderation
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.crosscutting.ports import Decision, DecisionAudit, DecisionLogEntry, KeyValueStore
 from quanta_bot.pipeline import context, decision, generation, trigger
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.ports import (
     CommentTreeFetcher,
     LLMClient,
@@ -23,6 +24,10 @@ from quanta_bot.pipeline.ports import (
     RunTracer,
 )
 from quanta_bot.pipeline.trigger import TriggerEvent
+
+# 人格库模块级占位：启动即读 prompts/（文件缺失=启动失败，符合"人格不完整不可上线"）；
+# Task 9 重构为 deps.persona 注入后移除本占位（M3 计划 Task 4 执行前增补条目）
+_PERSONA = PersonaLibrary()
 
 
 @dataclass
@@ -114,7 +119,9 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
     cost_before = await budget.read_cost(deps.kv, today)  # 今日成本前
     try:
         context_text = await context.build_context(event, deps.comment_tree)  # 上下文文本
-        output = await generation.generate(event, d, deps.llm, context_text)  # 生成回复
+        output = await generation.generate(  # 生成回复（人格 system 由 _PERSONA 组装）
+            event, d, deps.llm, context_text, persona=_PERSONA
+        )
         cost_li = budget.estimate_cost_li(  # 成本折算
             output.prompt_tokens,
             output.completion_tokens,
