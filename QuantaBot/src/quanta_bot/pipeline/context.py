@@ -144,8 +144,8 @@ class LLMSummarizer:
             f"#{floor.comment_id} {floor.user_id}：{floor.content}" for floor in floors
         )
         first = await self._llm.complete(
-            SUMMARY_SYSTEM_PROMPT, floors_text, json_mode=True, max_tokens=500
-        )
+            SUMMARY_SYSTEM_PROMPT, floors_text, json_mode=True, max_tokens=4000
+        )  # 推理模型思考计入上限（500 曾被烧穿出空内容，实证修正）
         try:
             parsed = json.loads(first.content)
             for key in ("topic", "conclusions", "disputes", "unanswered_questions", "key_facts"):
@@ -159,7 +159,7 @@ class LLMSummarizer:
             SUMMARY_SYSTEM_PROMPT,
             f"{floors_text}\n【上次输出畸形】{first.content}\n请只输出完整合法 JSON（五项字段齐全）。",
             json_mode=True,
-            max_tokens=500,
+            max_tokens=4000,
         )
         try:
             return self._render(json.loads(retry.content))

@@ -291,17 +291,24 @@ def verify_case(case: EvalCase, result: CaseResult) -> list[str]:
     return failures
 
 
-async def judge_case(case: EvalCase, result: CaseResult) -> list[str]:
-    """Judge（persona 档）：P0/P1/P2 三级，deepseek-chat 自评 + JSON 输出；返回失败描述（空=全过）。"""
+async def judge_case(case: EvalCase, result: CaseResult, llm: LLMClient | None = None) -> list[str]:
+    """Judge（persona 档）：P0/P1/P2 三级，deepseek-chat 自评 + JSON 输出；返回失败描述（空=全过）。
+
+    llm 注入口供契约测试（MockTransport/静态 fake）；None=生产自建 DeepSeekClient。
+    容错（2026-09-17 真跑实证）：推理模型思考计入 max_tokens，输出可为空/半截——
+    解析失败返回失败描述而非抛异常（异常会掩盖 deterministic 断言结果）。
+    """
     if not case.judge:
         return []
-    settings = Settings()  # 读 .env（QUANTABOT_EVAL=1 时管理员本地已配 key）
-    llm = DeepSeekClient(
-        settings.deepseek_base_url,
-        settings.deepseek_api_key,
-        settings.deepseek_model,
-        settings.llm_timeout_seconds,
-    )
+    owns_client = llm is None
+    if llm is None:
+        settings = Settings()  # 读 .env（QUANTABOT_EVAL=1 时管理员本地已配 key）
+        llm = DeepSeekClient(
+            settings.deepseek_base_url,
+            settings.deepseek_api_key,
+            settings.deepseek_model,
+            settings.llm_timeout_seconds,
+        )
     try:
         prompt = (
             f"你是社区 AI 回复的评测裁判。逐级判定，只输出 JSON。\n"
@@ -314,13 +321,19 @@ async def judge_case(case: EvalCase, result: CaseResult) -> list[str]:
             "你是严格的评测裁判，按要点逐级判定，只输出 JSON。",
             prompt,
             json_mode=True,
-            max_tokens=300,
+            max_tokens=2000,  # 推理模型思考计入上限（300 曾被烧穿出空内容，实证修正）
         )
-        verdict = json.loads(raw.content)
+        try:
+            verdict = json.loads(raw.content)
+        except json.JSONDecodeError:
+            return [
+                f"Judge 输出无法解析（空/截断 JSON，max_tokens 可能不足）：{raw.content[:80]!r}"
+            ]
         return [
             f"{level}：{verdict.get(level, {}).get('reason', '未判定')}"
             for level in ("p0", "p1", "p2")
             if not verdict.get(level, {}).get("pass", False)
         ]
     finally:
-        await llm.aclose()
+        if owns_client:
+            await llm.aclose()
