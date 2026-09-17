@@ -3,6 +3,7 @@
 from quanta_bot.composition import build_runtime
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
+from quanta_bot.infra.content_sync import FakeContentSource
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
 from quanta_bot.infra.kv import InMemoryKV, RedisKV
 from quanta_bot.infra.main_service import (
@@ -12,6 +13,7 @@ from quanta_bot.infra.main_service import (
     HTTPReplyWriter,
     UnimplementedReplyWriter,
 )
+from quanta_bot.infra.qdrant_content import QdrantContentIndex
 from quanta_bot.infra.settings import Settings
 from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
 from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
@@ -119,6 +121,28 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
 
         assert isinstance(deps.memory_store, QdrantUserMemoryStore)
         assert isinstance(deps.summarizer, LLMSummarizer)
+    finally:
+        await runtime.aclose()
+
+
+async def test_real_mode_rag_without_main_service_token_uses_fake_source(tmp_path) -> None:
+    """主服务只有 URL 时，RAG 不引用未装配的 main_service，改用合成源。"""
+    runtime = build_runtime(
+        _settings(
+            tmp_path,
+            fake_mode=False,
+            qdrant_url="http://qdrant.test",
+            embedding_base_url="http://embedding.test",
+            embedding_api_key="embedding-key",
+            embedding_model="text-embedding-v3",
+            main_service_base_url="http://demo0.test",
+            main_service_token="",
+        )
+    )
+    try:
+        assert runtime.rag is not None
+        assert isinstance(runtime.rag.source, FakeContentSource)
+        assert isinstance(runtime.deps.retriever, QdrantContentIndex)
     finally:
         await runtime.aclose()
 

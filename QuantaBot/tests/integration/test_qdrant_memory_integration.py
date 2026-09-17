@@ -1,8 +1,8 @@
 """Qdrant 用户记忆真接 smoke（QUANTABOT_INTEGRATION=1 + compose qdrant；单测不连网）。"""
 
 import pytest
-from quanta_bot.settings import get_settings
 
+from quanta_bot.infra.settings import Settings
 from quanta_bot.memory.ports import MemoryOp
 from quanta_bot.memory.user_memory import InMemoryUserMemoryStore  # noqa: F401 语义对照锚
 
@@ -15,7 +15,7 @@ def qdrant_store():
     from quanta_bot.infra.embedding import QwenEmbeddingClient
     from quanta_bot.infra.qdrant_memory import QdrantUserMemoryStore
 
-    settings = get_settings()
+    settings = Settings()
     client = AsyncQdrantClient(url=settings.qdrant_url)
     embedding = QwenEmbeddingClient(
         settings.embedding_base_url,

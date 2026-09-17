@@ -30,7 +30,14 @@ from quanta_bot.pipeline import pipeline
 from quanta_bot.pipeline.context import LLMSummarizer
 from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import PipelineDeps
-from quanta_bot.pipeline.ports import CommentNode, LLMClient, PostSummary, PostThread, RunTrace
+from quanta_bot.pipeline.ports import (
+    CommentNode,
+    LLMClient,
+    PostSummary,
+    PostThread,
+    RetrievedFragment,
+    RunTrace,
+)
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 CASES_DIR = Path(__file__).resolve().parents[2] / "eval" / "cases"
@@ -48,6 +55,7 @@ class EvalCase(BaseModel):
     mode: str
     tier: Literal["pipeline", "persona"]
     memories: list[dict] = []
+    retrieval_fragments: list[dict] = []  # Task 13：FakeRetriever 注入形态（空=不注入检索）
     trigger: dict
     llm_script: list[str] | None = None
     deterministic: list[dict] = []
@@ -144,6 +152,16 @@ class _SpyTracer:
         self.traces.append(trace)
 
 
+class _CaseRetriever:
+    """检索端口 fake（返回 case.retrieval_fragments 预置片段——Task 13 用例注入）。"""
+
+    def __init__(self, fragments: tuple) -> None:
+        self._fragments = fragments
+
+    async def retrieve(self, query: str, limit: int = 3, doc_kind=None):
+        return self._fragments
+
+
 def trigger_event_from(case: EvalCase) -> TriggerEvent:
     """trigger.comment → TriggerEvent（commentId/userId/content 三键映射；mentioned_bot 恒 True）。"""
     comment = case.trigger["comment"]
@@ -198,6 +216,10 @@ async def run_case(case: EvalCase) -> CaseResult:
     )
     deps, writer, tracer, spy_store = build_case_deps(case, llm)
     spy_store.preset(_stamp_memories(case.memories, deps.persona.persona_version))
+    if case.retrieval_fragments:  # Task 13：FakeRetriever 注入（片段按 case 字段预置）
+        deps.retriever = _CaseRetriever(
+            tuple(RetrievedFragment.model_validate(f) for f in case.retrieval_fragments)
+        )
     try:
         decision = await pipeline.run(trigger_event_from(case), deps)
     finally:
@@ -267,6 +289,16 @@ def _memory_selected_count(expected: int, result: CaseResult) -> bool:
     return result.trace is not None and len(result.trace.memory_selected_ids) == expected
 
 
+def _retrieval_in_context(expected: bool, result: CaseResult) -> bool:
+    """检索片段在场判定：context_text 含【检索| 行 == expected（Task 13 注入/降级断言）。"""
+    text = result.trace.context_text if result.trace is not None else ""
+    return ("【检索|" in text) == expected
+
+
+def _retrieval_degraded_is(expected: bool, result: CaseResult) -> bool:
+    return result.trace is not None and result.trace.retrieval_degraded == expected
+
+
 _ASSERTIONS: dict[str, Callable[[object, CaseResult], bool]] = {
     "mode_is": _mode_is,
     "decision_is": _decision_is,
@@ -278,6 +310,8 @@ _ASSERTIONS: dict[str, Callable[[object, CaseResult], bool]] = {
     "truncation_channel_dropped": _truncation_channel_dropped,
     "decay_warning_present": _decay_warning_present,
     "memory_selected_count": _memory_selected_count,
+    "retrieval_in_context": _retrieval_in_context,
+    "retrieval_degraded_is": _retrieval_degraded_is,
 }
 
 

@@ -100,6 +100,7 @@ def test_settings_m3_memory_rag_defaults() -> None:
     assert s.qdrant_content_collection == "qb_content"
     assert s.embedding_base_url == "" and s.embedding_api_key == ""
     assert s.embedding_model == "" and s.embedding_dim == 1024
+    assert s.admin_token == ""
     assert s.memory_recall_top_k == 8 and s.memory_select_max == 3
     assert s.dialogue_memory_ttl_hours == 48
     assert s.summary_cache_ttl_hours == 24

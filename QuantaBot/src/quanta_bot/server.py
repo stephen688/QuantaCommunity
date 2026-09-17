@@ -12,13 +12,22 @@ import logging
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 from quanta_bot import __version__
 from quanta_bot.composition import Runtime, build_runtime
 from quanta_bot.infra import mq as infra_mq
+from quanta_bot.infra.content_sync import ingest_content
 from quanta_bot.infra.kv import RedisKV
 from quanta_bot.infra.settings import Settings
+
+
+class IngestRequest(BaseModel):
+    """摄取请求体（token 与 Settings.admin_token 对账；未配置 admin_token 时不校验）。"""
+
+    token: str = ""
+
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +146,17 @@ async def _lifespan(app: FastAPI):
             await memory_store.ensure_collection(settings.embedding_dim)
         except Exception as exc:
             logger.warning("Qdrant collection 初始化失败（记忆将走运行期降级）：%s", exc)
+    rag = getattr(runtime, "rag", None)
+    content_index = getattr(rag, "index", None)
+    if (
+        settings.qdrant_url
+        and content_index is not None
+        and hasattr(content_index, "ensure_collection")
+    ):
+        try:
+            await content_index.ensure_collection(settings.embedding_dim)
+        except Exception as exc:
+            logger.warning("Qdrant 内容 collection 初始化失败（检索将运行期降级）：%s", exc)
     runtime.start()
     app.state.runtime = runtime
     yield
@@ -163,6 +183,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "dependencies": dependencies,
             "switches": switches,
         }
+
+    @app.post("/admin/ingest")
+    async def ingest(payload: IngestRequest) -> dict:
+        """手动触发 RAG 摄取（运营/联调用；定时自动化归 M5）。
+
+        admin_token 配置时校验（不符 403）；RAG 未配置 503（qdrant/embedding 缺一——
+        管线 ⑧ 步已走降级直说不知道，摄取无从谈起）。
+        """
+        runtime: Runtime | None = getattr(app.state, "runtime", None)
+        if s.admin_token and payload.token != s.admin_token:
+            raise HTTPException(status_code=403, detail="admin_token 不符")
+        if runtime is None or runtime.rag is None:
+            raise HTTPException(status_code=503, detail="RAG 未配置（qdrant/embedding 缺配置）")
+        count = await ingest_content(runtime.rag.source, runtime.rag.index)
+        return {"ingested": count}
 
     return app
 

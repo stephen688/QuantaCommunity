@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     langfuse_host: str = "http://127.0.0.1:3000"
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
-    # Qdrant（M3 记忆层才用；M2 仅 /health 连通检查）
+    # Qdrant（M3 用户记忆与 RAG 内容索引使用；/health 保留连通检查）
     qdrant_url: str = "http://127.0.0.1:6333"
 
     # ---- Tranche B [Phase 0 契约已对齐 C-1/C-2/C-5]（真接线见 Task 15/16；token/user_id 已于 Task 14 增）----
@@ -94,6 +94,7 @@ class Settings(BaseSettings):
     embedding_model: str = ""
     embedding_dim: int = 1024
     embedding_timeout_seconds: float = 10.0
+    admin_token: str = ""  # /admin/ingest 可选校验（空=不校验，默认 127.0.0.1 绑定已限内网）
     # 记忆召回参数（粗召回 top-k 与精选上限——精选 ≤3 是蓝图钉死的值）
     memory_recall_top_k: int = 8
     memory_select_max: int = 3

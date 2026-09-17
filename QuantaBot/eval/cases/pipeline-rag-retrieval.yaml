@@ -1,0 +1,28 @@
+# 场景 6 pipeline 档：FakeRetriever 注入政策片段，验证检索能进上下文且不走降级。
+# 片段为合成测试数据，真实政策导入不在 Task 13。
+id: pipeline-rag-retrieval
+scenario: 6
+scenario_name: 政策咨询检索注入
+mode: 专业答疑
+tier: pipeline
+memories: []
+retrieval_fragments:
+  - content: 奖助学金每年 9 月启动评审
+    source: 合成政策库
+    score: 0.95
+    doc_kind: POLICY
+trigger:
+  post: { postId: 4001, userId: 1, title: 奖助学金政策咨询, content: 奖助学金什么时候评审，申请要准备什么 }
+  comment: { commentId: 9401, userId: 42, content: "@QuantaBot 奖助学金什么时候评审" }
+  floors: []
+llm_script:
+  - '{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "政策咨询", "need_retrieval": true}'
+  - "依据检索到的政策片段，奖助学金每年 9 月启动评审。"
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 专业答疑 }
+  - { assert: retrieval_in_context, expected: true }
+  - { assert: retrieval_degraded_is, expected: false }
+  - { assert: reply_contains, expected: "奖助学金每年 9 月启动评审" }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+judge: null

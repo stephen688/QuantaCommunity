@@ -7,8 +7,8 @@
       failed 不回（红线 §0.3）；记忆四态落库与对话链 append 在 replied 后执行（失败 WARNING
       不阻断已成功回复）。
 边界：不建外部客户端（deps 由 composition 注入；人格/记忆/摘要三件 M3 起必填）；
-      熔断/频率/消费暂停不在本层（M5/Tranche B）；检索片段渲染随 Task 13 接线
-      （Retriever 端口落地前 deps.retriever 恒 None——need_retrieval 时降级留痕照常回复）。
+      熔断/频率/消费暂停不在本层（M5/Tranche B）；检索片段由 Task 13 的 Retriever 端口
+      注入，未配置或检索失败时 need_retrieval 走降级留痕并照常回复。
 已知坑：FakeLLM 剧本按调用序弹出——决策（json_mode）调用必须在生成调用之前（测试对齐依据）；
       对话链 read_chain/append_turn 走 kv 楼层链，read-modify-write 依赖同帖串行（M2 单消费者）。
 """
@@ -31,6 +31,7 @@ from quanta_bot.crosscutting.ports import (
 from quanta_bot.memory import dialogue, user_memory
 from quanta_bot.memory.ports import UserMemoryStore
 from quanta_bot.pipeline import context, decision, generation, trigger
+from quanta_bot.pipeline.context import RESERVED_BUDGET
 from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.ports import (
     CommentFetchError,
@@ -70,7 +71,7 @@ class PipelineDeps:
     llm_input_price_per_mtok: float = 12.0  # LLM 输入 token 价格
     llm_output_price_per_mtok: float = 24.0  # LLM 输出 token 价格
     cost_key_ttl_hours: int = 48  # 成本键 TTL 小时数
-    # M3 链路参数（composition 从 Settings 注入；Task 13 前 retriever 恒 None=检索降级）
+    # M3 链路参数（composition 从 Settings 注入；retriever=None=检索降级）
     retriever: "Retriever | None" = None  # RAG 检索端口（Task 13 落地）
     memory_recall_top_k: int = 8  # 记忆粗召回条数上限
     memory_select_max: int = 3  # 记忆精选上限（蓝图钉死 ≤3）
@@ -195,16 +196,38 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         )
         if not decision_result.should_reply:
             return _Outcome("skipped_decision", decision_result.reason, mode=decision_result.mode)
-        # ⑧ 检索（need_retrieval 且检索可用；不可用降级留痕照常回复——场景 6 降级链路）
+        # ⑧ 检索（need_retrieval 且检索可用；不可用降级留痕照常回复——场景 6 降级链路）。
+        # 片段渲染行注入预留区（Task 13 接线）：渲染以 RESERVED_BUDGET 为软上界，
+        # 超限丢末位片段并 TruncationRecord 留痕（病态长片段不挤爆预留区逼出末兜底切头部）
         retrieval_degraded = False
+        retrieval_lines: list[str] = []
+        retrieval_trunc: tuple[TruncationRecord, ...] = ()
         if decision_result.need_retrieval:
             if deps.retriever is None:
                 retrieval_degraded = True  # 检索未配置：降级直说不知道（生成侧 prompt 已含）
             else:
-                # 消费方在 Task 13（渲染 retrieval_lines 注入预留区）——端口落地前 F841 压制
-                fragments = list(  # noqa: F841
-                    await deps.retriever.retrieve(event.content, limit=deps.rag_fragment_limit)
-                )
+                try:
+                    fragments = await deps.retriever.retrieve(
+                        event.content, limit=deps.rag_fragment_limit
+                    )
+                except Exception as exc:  # 检索失败=降级不阻断（与未配置同口径，熔断归 M5）
+                    logger.warning("RAG 检索失败降级（不阻断回复）：%s", exc)
+                    retrieval_degraded = True
+                else:
+                    for fragment in fragments:  # 渲染行（来源标注随行——trace 对质用）
+                        line = f"【检索|{fragment.doc_kind}】{fragment.content}（来源：{fragment.source}）"
+                        if len("\n".join([*retrieval_lines, line])) > RESERVED_BUDGET:
+                            retrieval_trunc = (
+                                *retrieval_trunc,
+                                TruncationRecord(
+                                    channel="B",
+                                    what=f"检索片段（来源：{fragment.source}）",
+                                    reason="超预留预算丢末位",
+                                    chars_dropped=len(line),
+                                ),
+                            )
+                            break
+                        retrieval_lines.append(line)
         # ⑨ 四通道总装（B/C/D+预留；截断全部留痕；AI 历史区=C-2③ bot_history ∪ 对话链去重）
         selected = [
             record for record in candidates if record.memory_id in decision_result.memory_selection
@@ -223,6 +246,7 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
             deps.kv,
             persona_version,
             deps.summary_cache_ttl_hours,
+            retrieval_lines=retrieval_lines,
             extra_history_lines=_dialogue_history_lines(thread, dialogue_turns),
         )
         # ⑩ 生成（人格 system by mode）→ 成本 → ⑪ 写库
@@ -283,7 +307,7 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         completion_tokens=output.completion_tokens,
         cost_li=cost_li,
         daily_cost_li_after=cost_after,
-        truncations=assembled.truncations,
+        truncations=(*assembled.truncations, *retrieval_trunc),
         memory_selected_ids=tuple(decision_result.memory_selection),
         persona_version=persona_version,
         retrieval_degraded=retrieval_degraded,
