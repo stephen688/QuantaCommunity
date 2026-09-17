@@ -408,3 +408,111 @@ async def test_corrupted_dialogue_chain_degrades_to_empty(tmp_path) -> None:
     result = await run(_event("@QuantaBot 再帮我看看", comment_id=8), deps)
     assert result == "replied"  # 损坏链=丢弃不阻断（C-2③ 兜底数据源语义）
     assert deps.reply_writer.written
+
+
+# ---- Task 13：RAG 检索接入（⑧ 步渲染注入预留区 + 降级链路）----
+
+
+class _FakeRetriever:
+    """检索端口 fake（返回预置片段——注入用例消费）。"""
+
+    def __init__(self, fragments: tuple) -> None:
+        self._fragments = fragments
+        self.queries: list[str] = []
+
+    async def retrieve(self, query: str, limit: int = 3, doc_kind=None):
+        self.queries.append(query)
+        return self._fragments
+
+
+def _decision_json_retrieval() -> str:
+    """need_retrieval=True 的决策剧本（场景 6 政策类触发——检索路径用）。"""
+    return (
+        '{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "政策咨询",'
+        ' "need_retrieval": true}'
+    )
+
+
+async def test_retrieval_fragments_injected_into_context(tmp_path) -> None:
+    """need_retrieval=True + retriever 就位 → 检索片段进 user_text 预留区（review M-6 收口）。"""
+    from quanta_bot.pipeline.ports import RetrievedFragment
+
+    retriever = _FakeRetriever(
+        (
+            RetrievedFragment(
+                content="奖助学金每年 9 月评审", source="政策库", score=0.9, doc_kind="POLICY"
+            ),
+        )
+    )
+    deps = _m3_deps(FakeLLM(responses=[_decision_json_retrieval(), "政策回复"]), tmp_path=tmp_path)
+    deps.retriever = retriever
+    result = await run(_event("@QuantaBot 奖助学金怎么申请", comment_id=21), deps)
+    assert result == "replied"
+    trace = captured_trace(deps)
+    assert trace.retrieval_degraded is False
+    assert "奖助学金每年 9 月评审" in (trace.context_text or "")
+    assert "政策库" in (trace.context_text or "")  # 来源标注随片段注入
+    assert retriever.queries  # 检索被真实调用（触发评论文本作 query）
+
+
+async def test_retrieval_fragments_over_reserved_budget_drop_tail(tmp_path) -> None:
+    """渲染行超 RESERVED_BUDGET 软上界：丢末位片段并 TruncationRecord 留痕（Task 7 补注语义）。"""
+    from quanta_bot.pipeline.ports import RetrievedFragment
+
+    long_content = "政" * 600
+    retriever = _FakeRetriever(
+        tuple(
+            RetrievedFragment(content=long_content, source=f"源{i}", score=0.9, doc_kind="POLICY")
+            for i in range(5)
+        )
+    )
+    deps = _m3_deps(FakeLLM(responses=[_decision_json_retrieval(), "政策回复"]), tmp_path=tmp_path)
+    deps.retriever = retriever
+    result = await run(_event("@QuantaBot 政策咨询", comment_id=22), deps)
+    assert result == "replied"
+    trace = captured_trace(deps)
+    context_text = trace.context_text or ""
+    # 检索区总量不超 RESERVED_BUDGET（至少首个片段在场，末位被丢）
+    assert context_text.count("【检索|POLICY】") < 5
+    assert any(t.reason == "超预留预算丢末位" for t in trace.truncations)
+
+
+async def test_retrieval_degraded_when_not_configured(tmp_path) -> None:
+    """retriever=None + need_retrieval → 降级留痕照常回复（场景 6 降级链路）。"""
+    deps = _m3_deps(
+        FakeLLM(responses=[_decision_json_retrieval(), "这个我不确定，建议问教务处"]),
+        tmp_path=tmp_path,
+    )
+    # 触发内容须过硬规则（有效内容 ≥4 字符）——「奖助学金政策怎么算」是合法政策咨询
+    decision = await run(_event("@QuantaBot 奖助学金政策怎么算", comment_id=23), deps)
+    assert decision == "replied"
+    assert captured_trace(deps).retrieval_degraded is True
+
+
+async def test_no_retrieval_when_not_needed(tmp_path) -> None:
+    """need_retrieval=False → 不调检索、无降级标记（闲聊不付 embedding 成本）。"""
+    retriever = _FakeRetriever(())
+    deps = _m3_deps(FakeLLM(responses=[_DECISION_JSON, "玩梗回复"]), tmp_path=tmp_path)
+    deps.retriever = retriever
+    result = await run(_event("@QuantaBot 今天天气不错", comment_id=24), deps)
+    assert result == "replied"
+    assert not retriever.queries  # 零调用
+    assert captured_trace(deps).retrieval_degraded is False
+
+
+async def test_retrieval_exception_degrades_not_blocks(tmp_path) -> None:
+    """检索抛异常 → 降级留痕照常回复（不击穿单出口——与未配置同口径，熔断归 M5）。"""
+
+    class ExplodingRetriever:
+        async def retrieve(self, query: str, limit: int = 3, doc_kind=None):
+            raise RuntimeError("qdrant 连接失败")
+
+    deps = _m3_deps(
+        FakeLLM(responses=[_decision_json_retrieval(), "检索故障兜底回复"]), tmp_path=tmp_path
+    )
+    deps.retriever = ExplodingRetriever()
+    result = await run(_event("@QuantaBot 奖助学金政策怎么算", comment_id=25), deps)
+    assert result == "replied"
+    trace = captured_trace(deps)
+    assert trace.retrieval_degraded is True
+    assert deps.reply_writer.written

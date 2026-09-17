@@ -10,10 +10,14 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from qdrant_client import AsyncQdrantClient
+
 from quanta_bot.consumer import CommentEventConsumer
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
+from quanta_bot.infra.content_sync import ContentSyncClient, FakeContentSource
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
+from quanta_bot.infra.embedding import QwenEmbeddingClient
 from quanta_bot.infra.kv import InMemoryKV, RedisKV
 from quanta_bot.infra.main_service import (
     FakeCommentTreeFetcher,
@@ -23,6 +27,8 @@ from quanta_bot.infra.main_service import (
     MainServiceClient,
     UnimplementedReplyWriter,
 )
+from quanta_bot.infra.qdrant_content import QdrantContentIndex
+from quanta_bot.infra.qdrant_memory import QdrantUserMemoryStore
 from quanta_bot.infra.settings import Settings, resolve_data_path
 from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
 from quanta_bot.memory.ports import HashEmbeddingClient
@@ -35,12 +41,21 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class RagStack:
+    """RAG 组合（source 摄取源 + index 检索索引——/admin/ingest 端点消费）。"""
+
+    source: ContentSyncClient | FakeContentSource
+    index: QdrantContentIndex
+
+
+@dataclass
 class Runtime:
     """运行时包（deps + 资源回收 + 控制面轮询 + 消费者托管；server lifespan 托管）。"""
 
     deps: PipelineDeps
     settings: Settings
     control_plane: ControlPlane
+    rag: RagStack | None = None  # /admin/ingest 消费（None=RAG 未配置，端点 503）
     consumer: CommentEventConsumer | None = None
     _closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
     _consumer_task: asyncio.Task[None] | None = field(default=None, repr=False)
@@ -69,6 +84,7 @@ def build_runtime(settings: Settings) -> Runtime:
     """装配运行时：audit 恒为真 SQLite；其余按 fake_mode/配置逐项组装。"""
     audit = SQLiteAudit(str(resolve_data_path(settings.audit_db_path)))
     closers: list[Callable[[], Awaitable[None]]] = []
+    main_service: MainServiceClient | None = None
 
     if settings.fake_mode:
         kv: InMemoryKV | RedisKV = InMemoryKV()
@@ -128,10 +144,57 @@ def build_runtime(settings: Settings) -> Runtime:
     # M3 三件（fake/真模式同构装配）：人格库启动即读 prompts/（缺失=启动失败，人格不完整不上线）
     persona = PersonaLibrary()
     summarizer = LLMSummarizer(llm)
-    memory_store = InMemoryUserMemoryStore(HashEmbeddingClient())
-    if not settings.fake_mode:
-        # 诚实留痕：Qdrant 真实现未接（Task 12）——内存版重启即失，真模式记忆不持久
-        logger.warning("Qdrant 真接在 Task 12，当前内存版重启即失（用户级记忆不持久）")
+    # embedding（记忆与 RAG 共用）：三项配置齐 → Qwen 真客户端；否则 Hash 假向量 + WARNING
+    embedding: HashEmbeddingClient | QwenEmbeddingClient
+    if (
+        not settings.fake_mode
+        and settings.embedding_base_url
+        and settings.embedding_api_key
+        and settings.embedding_model
+    ):
+        embedding = QwenEmbeddingClient(
+            settings.embedding_base_url,
+            settings.embedding_api_key,
+            settings.embedding_model,
+            settings.embedding_timeout_seconds,
+        )
+        closers.append(embedding.aclose)
+    else:
+        if not settings.fake_mode:
+            logger.warning("embedding 配置不全——降级 HashEmbedding（假向量，召回无语义）")
+        embedding = HashEmbeddingClient(dim=settings.embedding_dim)
+    # 记忆存储：qdrant_url 配置 → Qdrant 真实现；否则 InMemory + WARNING（降级不阻断上线）
+    memory_store: InMemoryUserMemoryStore | QdrantUserMemoryStore
+    qdrant_client: AsyncQdrantClient | None = None
+    if not settings.fake_mode and settings.qdrant_url:
+        qdrant_client = AsyncQdrantClient(url=settings.qdrant_url)
+        closers.append(qdrant_client.close)
+        memory_store = QdrantUserMemoryStore(
+            qdrant_client, settings.qdrant_memory_collection, embedding
+        )
+    else:
+        if not settings.fake_mode:
+            logger.warning("qdrant_url 未配置——记忆降级为内存版（重启即失，不持久）")
+        memory_store = InMemoryUserMemoryStore(embedding)
+    # RAG（C-3 改形：bot 自建索引）：qdrant+embedding 真接齐 → 内容索引+同步客户端+retriever；
+    # 缺任一 → retriever=None（管线 ⑧ 步降级直说不知道——场景 6 降级链路）
+    retriever: QdrantContentIndex | None = None
+    content_source: ContentSyncClient | FakeContentSource
+    if qdrant_client is not None and isinstance(embedding, QwenEmbeddingClient):
+        content_index = QdrantContentIndex(
+            qdrant_client, settings.qdrant_content_collection, embedding
+        )
+        content_source = (
+            ContentSyncClient(main_service) if main_service is not None else FakeContentSource()
+        )
+        retriever = content_index
+        rag_stack = RagStack(source=content_source, index=content_index)
+    else:
+        if not settings.fake_mode:
+            logger.warning(
+                "RAG 未配置（qdrant/embedding 缺一）——检索降级直说不知道（场景 6 降级链路）"
+            )
+        rag_stack = None
 
     control_plane = ControlPlane(kv, poll_seconds=settings.control_plane_poll_seconds)
     deps = PipelineDeps(
@@ -145,7 +208,7 @@ def build_runtime(settings: Settings) -> Runtime:
         persona=persona,
         memory_store=memory_store,
         summarizer=summarizer,
-        retriever=None,  # RAG 检索 Task 13 接线（此前 need_retrieval 一律降级直说不知道）
+        retriever=retriever,  # Task 13：qdrant+embedding 齐 → 真索引；缺任一 → None（⑧ 步降级）
         llm_input_price_per_mtok=settings.llm_input_price_per_mtok,
         llm_output_price_per_mtok=settings.llm_output_price_per_mtok,
         cost_key_ttl_hours=settings.cost_key_ttl_hours,
@@ -164,6 +227,7 @@ def build_runtime(settings: Settings) -> Runtime:
         deps=deps,
         settings=settings,
         control_plane=control_plane,
+        rag=rag_stack,
         consumer=consumer,
         _closers=closers,
     )

@@ -132,7 +132,7 @@ def test_summary_cache_key_covers_all_floor_ids() -> None:
 
     base = [_floor(i, None, f"楼{i}") for i in range(1, 6)]
     set_a = base
-    set_b = [node for node in base if node.comment_id != 3]  # 中段被 chain 吃掉一栋
+    set_b = [node for node in base if node.comment_id != 3]
     key_a = _summary_cache_key(10, set_a, "pv")
     key_b = _summary_cache_key(10, set_b, "pv")
     assert key_a != key_b

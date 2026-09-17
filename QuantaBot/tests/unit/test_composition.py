@@ -3,6 +3,7 @@
 from quanta_bot.composition import build_runtime
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
+from quanta_bot.infra.content_sync import FakeContentSource
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
 from quanta_bot.infra.kv import InMemoryKV, RedisKV
 from quanta_bot.infra.main_service import (
@@ -12,6 +13,7 @@ from quanta_bot.infra.main_service import (
     HTTPReplyWriter,
     UnimplementedReplyWriter,
 )
+from quanta_bot.infra.qdrant_content import QdrantContentIndex
 from quanta_bot.infra.settings import Settings
 from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
 from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
@@ -81,9 +83,12 @@ async def test_real_mode_degrades_gracefully_when_unconfigured(tmp_path) -> None
     assert isinstance(deps.tracer, NullTracer)  # 降级
     assert isinstance(deps.reply_writer, UnimplementedReplyWriter)  # 不假装：P0-5 未接入
     assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)  # P0-2 未接入
-    # M3 三件真模式同样装配（memory_store 暂为内存版——Qdrant 真接在 Task 12，WARNING 留痕）
+    # M3 三件真模式同样装配（qdrant_url 默认指向 localhost——真模式即视为配置了 Qdrant，
+    # 建真实现但不连网；embedding 配置不全降级 Hash 假向量，WARNING 留痕）
     assert isinstance(deps.persona, PersonaLibrary)
-    assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+    from quanta_bot.infra.qdrant_memory import QdrantUserMemoryStore
+
+    assert isinstance(deps.memory_store, QdrantUserMemoryStore)
     assert isinstance(deps.summarizer, LLMSummarizer)
 
 
@@ -110,10 +115,34 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
             deps.reply_writer, HTTPReplyWriter
         )  # C-5 真写库接入（与评论树共享 client）
         assert isinstance(deps.comment_tree, HTTPCommentTreeFetcher)  # C-2 真客户端接入
-        # M3 三件与模式无关（人格/摘要/记忆恒装配）
+        # M3 三件与模式无关（人格/摘要/记忆恒装配）；配置齐的真模式记忆走 Qdrant 真实现
         assert isinstance(deps.persona, PersonaLibrary)
-        assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+        from quanta_bot.infra.qdrant_memory import QdrantUserMemoryStore
+
+        assert isinstance(deps.memory_store, QdrantUserMemoryStore)
         assert isinstance(deps.summarizer, LLMSummarizer)
+    finally:
+        await runtime.aclose()
+
+
+async def test_real_mode_rag_without_main_service_token_uses_fake_source(tmp_path) -> None:
+    """主服务只有 URL 时，RAG 不引用未装配的 main_service，改用合成源。"""
+    runtime = build_runtime(
+        _settings(
+            tmp_path,
+            fake_mode=False,
+            qdrant_url="http://qdrant.test",
+            embedding_base_url="http://embedding.test",
+            embedding_api_key="embedding-key",
+            embedding_model="text-embedding-v3",
+            main_service_base_url="http://demo0.test",
+            main_service_token="",
+        )
+    )
+    try:
+        assert runtime.rag is not None
+        assert isinstance(runtime.rag.source, FakeContentSource)
+        assert isinstance(runtime.deps.retriever, QdrantContentIndex)
     finally:
         await runtime.aclose()
 
