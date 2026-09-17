@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from quanta_bot.crosscutting import budget, idempotency, moderation
+from quanta_bot.crosscutting import budget, idempotency, leak_scan, moderation
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.crosscutting.ports import (
     Decision,
@@ -100,6 +100,7 @@ class _Outcome:
     memory_selected_ids: tuple[str, ...] = ()
     persona_version: str | None = None
     retrieval_degraded: bool = False
+    leak_hits: tuple[str, ...] = ()
 
 
 async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
@@ -132,6 +133,7 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
             memory_selected_ids=outcome.memory_selected_ids,
             persona_version=outcome.persona_version,
             retrieval_degraded=outcome.retrieval_degraded,
+            leak_hits=outcome.leak_hits,
         )
     )
     return outcome.decision
@@ -172,6 +174,7 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
     decision_result: decision.DecisionResult | None = (
         None  # failed 归因锚（决策成功后链路炸时携带 mode）
     )
+    leak_hits: tuple[str, ...] = ()
     try:
         # ⑤ 拉取现场（C-2①③ 线程 + C-2② 全量楼层）
         thread = await deps.comment_tree.fetch_context(event)
@@ -262,6 +265,12 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         cost_after = await budget.add_cost(
             deps.kv, cost_li, datetime.now(UTC).date(), deps.cost_key_ttl_hours
         )
+        # ⑪ 泄漏扫描（第三道审核，写库前）→ 命中替换但不断流
+        sanitized = leak_scan.sanitize(output.reply.content, deps.leak_extra_patterns)
+        if sanitized.hits:
+            logger.warning("输出泄漏扫描命中（已脱敏）：%s", sanitized.hits)
+        output.reply.content = sanitized.content
+        leak_hits = sanitized.hits
         await deps.reply_writer.write_reply(output.reply)
     except (CommentFetchError, LLMClientError, ReplyWriteError) as exc:
         # 已知失败类型静默不回（红线 §0.3）；决策已成功时携带 mode 归因（M2 口径保持）。
@@ -272,6 +281,7 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
             f"链路异常静默不回：{exc}",
             mode=decision_result.mode if decision_result is not None else None,
             error=str(exc),
+            leak_hits=leak_hits,
         )
 
     # ⑫ replied 后：记忆四态落库 + 对话链 append（失败 WARNING 不阻断——回复已成功）
@@ -311,4 +321,5 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         memory_selected_ids=tuple(decision_result.memory_selection),
         persona_version=persona_version,
         retrieval_degraded=retrieval_degraded,
+        leak_hits=leak_hits,
     )

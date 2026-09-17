@@ -128,6 +128,7 @@ class RunTrace(BaseModel):
     memory_selected_ids: tuple[str, ...] = ()  # 一车四用精选的记忆 id
     persona_version: str | None = None  # 人格版本指纹（归因人格变更对回复的影响）
     retrieval_degraded: bool = False  # need_retrieval 但检索未配置（场景 6 降级链路）
+    leak_hits: tuple[str, ...] = ()  # 输出泄漏扫描命中类别（写库前替换后的留痕）
 
 
 class RunTracer(Protocol):

@@ -289,6 +289,10 @@ def _memory_selected_count(expected: int, result: CaseResult) -> bool:
     return result.trace is not None and len(result.trace.memory_selected_ids) == expected
 
 
+def _leak_hits_present(expected: bool, result: CaseResult) -> bool:
+    return (result.trace is not None and bool(result.trace.leak_hits)) == expected
+
+
 def _retrieval_in_context(expected: bool, result: CaseResult) -> bool:
     """检索片段在场判定：context_text 含【检索| 行 == expected（Task 13 注入/降级断言）。"""
     text = result.trace.context_text if result.trace is not None else ""
@@ -310,6 +314,7 @@ _ASSERTIONS: dict[str, Callable[[object, CaseResult], bool]] = {
     "truncation_channel_dropped": _truncation_channel_dropped,
     "decay_warning_present": _decay_warning_present,
     "memory_selected_count": _memory_selected_count,
+    "leak_hits_present": _leak_hits_present,
     "retrieval_in_context": _retrieval_in_context,
     "retrieval_degraded_is": _retrieval_degraded_is,
 }
