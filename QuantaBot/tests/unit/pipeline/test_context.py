@@ -1,4 +1,4 @@
-"""context 组装测试：M2 异步渲染（fake 评论树）+ M3 B 通道（父链分区/保真截断）+ C 摘要与四通道总装。"""
+"""context 组装测试：M3 B 通道（父链分区/保真截断）+ C 摘要与四通道总装（build_context 旧路径已随 Task 9 删除）。"""
 
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
@@ -9,7 +9,6 @@ from quanta_bot.pipeline.context import (
     LLMSummarizer,
     assemble,
     build_channel_c,
-    build_context,
 )
 from quanta_bot.pipeline.ports import CommentNode, PostSummary, PostThread
 from quanta_bot.pipeline.trigger import TriggerEvent
@@ -30,20 +29,6 @@ def _floor(
     comment_id: int, parent_id: int | None = None, content: str = "楼层内容", user_id: int = 7
 ) -> CommentNode:
     return CommentNode(commentId=comment_id, parentId=parent_id, userId=user_id, content=content)
-
-
-async def test_build_context_renders_thread() -> None:
-    """渲染主楼 + 评论（含父链与 AI 标记）——最小可读文本，M3 再做筛选与长度预算。"""
-    text = await build_context(_event(), FakeCommentTreeFetcher())
-    assert "主楼" in text and "占位" in text
-    assert "评论#" in text
-
-
-async def test_build_context_fake_thread_matches_post() -> None:
-    """fake fetcher 返回与触发事件同帖线程（隔离锚点正确）。"""
-    thread = await FakeCommentTreeFetcher().fetch_context(_event())
-    assert thread.post.post_id == 22
-    assert all(isinstance(c.is_ai, bool) for c in thread.chain)
 
 
 def test_partition_by_parent_chain_not_recency() -> None:

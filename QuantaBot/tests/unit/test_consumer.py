@@ -9,6 +9,10 @@ from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
+from quanta_bot.memory.ports import HashEmbeddingClient
+from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
+from quanta_bot.pipeline.context import LLMSummarizer
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import PipelineDeps
 from quanta_bot.pipeline.ports import RunTrace
 
@@ -41,14 +45,18 @@ def _deps(tmp_path) -> tuple[PipelineDeps, SQLiteAudit, FakeReplyWriter, InMemor
     audit = SQLiteAudit(str(tmp_path / "d.db"))
     writer = FakeReplyWriter()
     kv = InMemoryKV()
+    llm = FakeLLM(responses=[_DECISION_JSON, "消费者链路测试回复"])  # 决策+生成两次调用剧本
     deps = PipelineDeps(
         kv=kv,
         audit=audit,
         reply_writer=writer,
-        llm=FakeLLM(responses=[_DECISION_JSON, "消费者链路测试回复"]),  # 决策+生成两次调用剧本
+        llm=llm,
         tracer=SpyTracer(),
         control_plane=ControlPlane(kv),
         comment_tree=FakeCommentTreeFetcher(),
+        persona=PersonaLibrary(),  # M3 必填三件（人格/记忆/摘要）
+        memory_store=InMemoryUserMemoryStore(HashEmbeddingClient()),
+        summarizer=LLMSummarizer(llm),
     )
     return deps, audit, writer, kv
 

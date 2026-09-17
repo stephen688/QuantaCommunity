@@ -18,6 +18,10 @@ from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
 from quanta_bot.infra.settings import Settings
+from quanta_bot.memory.ports import HashEmbeddingClient
+from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
+from quanta_bot.pipeline.context import LLMSummarizer
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import PipelineDeps
 from quanta_bot.pipeline.ports import PostSummary, PostThread, RunTrace
 
@@ -107,14 +111,18 @@ async def test_consume_same_post_messages_serialized(tmp_path) -> None:
     writer = FakeReplyWriter()
     kv = InMemoryKV()
     fetcher = _SnapshotFetcher(writer)
+    llm = FakeLLM()
     deps = PipelineDeps(
         kv=kv,
         audit=audit,
         reply_writer=writer,
-        llm=FakeLLM(),
+        llm=llm,
         tracer=SpyTracer(),
         control_plane=ControlPlane(kv),
         comment_tree=fetcher,
+        persona=PersonaLibrary(),  # M3 必填三件（人格/记忆/摘要）
+        memory_store=InMemoryUserMemoryStore(HashEmbeddingClient()),
+        summarizer=LLMSummarizer(llm),
     )
     consumer = CommentEventConsumer(s.mq_url, deps, ControlPlane(kv))
     task = asyncio.create_task(consumer.run_forever())
@@ -156,14 +164,18 @@ async def test_consume_paused_while_kill_enabled(tmp_path) -> None:
     writer = FakeReplyWriter()
     kv = InMemoryKV()
     cp = ControlPlane(kv)
+    llm = FakeLLM()
     deps = PipelineDeps(
         kv=kv,
         audit=audit,
         reply_writer=writer,
-        llm=FakeLLM(),
+        llm=llm,
         tracer=SpyTracer(),
         control_plane=cp,
         comment_tree=FakeCommentTreeFetcher(),
+        persona=PersonaLibrary(),  # M3 必填三件（人格/记忆/摘要）
+        memory_store=InMemoryUserMemoryStore(HashEmbeddingClient()),
+        summarizer=LLMSummarizer(llm),
     )
     consumer = CommentEventConsumer(s.mq_url, deps, cp, poll_seconds=0.05)
     await kv.set(SWITCH_KILL_KEY, "true", ttl_seconds=60)

@@ -1,14 +1,14 @@
-"""pipeline/context —— 上下文组装（M2：渲染线程文本；M3：B/C/D 通道与四通道总装）。
+"""pipeline/context —— 上下文组装（M3：B/C/D 通道与四通道总装）。
 
-职责：build_context 渲染主楼/父链/AI 历史文本（M2 旧路径，Task 9 总装时切 assemble）；
-      partition_floors 按父链关系分区近/远区、build_channel_b 组装 B 通道原文并保真截断；
+职责：partition_floors 按父链关系分区近/远区、build_channel_b 组装 B 通道原文并保真截断；
       LLMSummarizer/build_channel_c 远区五项清单摘要（缓存复用+畸形重试一次+失败降级丢远区）；
       assemble 四通道总装（B+AI历史+C摘要+D记忆+预留，总预算校验，超限砍序 D→C→AI历史区丢
       最旧→末兜底保触发行——用户当前发言红线不可丢）。
 边界：不触碰网络（评论树客户端经端口注入）；D 记忆召回渲染在 memory/user_memory.py；
       预算常量是项目级钉死契约（改动需先改 M3 计划——eval「超预算必截断」断言依据）。
 已知坑：摘要缓存 key 带 persona_version（人格变版本旧摘要自动失效）；bot_history 节点在近区
-      与远区都要排除（只走 AI 历史区——落远区会进 C 摘要+历史区双份，Task 7 执行发现）。
+      与远区都要排除（只走 AI 历史区——落远区会进 C 摘要+历史区双份，Task 7 执行发现）；
+      M2 旧路径 build_context/_render 已随 Task 9 总装切换删除（唯一入口=assemble）。
 """
 
 import json
@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from quanta_bot.crosscutting.ports import KeyValueStore, TruncationRecord
 from quanta_bot.pipeline.ports import (
     CommentNode,
-    CommentTreeFetcher,
     LLMClient,
     PostThread,
     Summarizer,
@@ -32,22 +31,6 @@ CHANNEL_C_BUDGET = 2500  # C 摘要：远区楼层压缩
 CHANNEL_D_BUDGET = 1500  # D 记忆：精选+负面
 RESERVED_BUDGET = 1000  # 预留：触发评论+格式开销+检索片段
 NEAR_PARALLEL_FLOORS = 2  # 近区平行一级楼层数（分区=父链优先，非机械最近 N 楼）
-
-
-# 渲染线程文本
-def _render(thread: PostThread) -> str:
-    lines = [f"【主楼#{thread.post.post_id}】{thread.post.title}：{thread.post.content}"]
-    for node in thread.chain:
-        ai_tag = "[AI]" if node.is_ai else ""
-        lines.append(f"【评论#{node.comment_id}】{ai_tag}{node.user_id}：{node.content}")
-    for node in thread.bot_history:
-        lines.append(f"【AI历史#{node.comment_id}】{node.content}")
-    return "\n".join(lines)
-
-
-async def build_context(event: TriggerEvent, fetcher: CommentTreeFetcher) -> str:
-    """拉取线程并渲染上下文文本（M3 起做筛选与长度预算）。"""
-    return _render(await fetcher.fetch_context(event))
 
 
 def partition_floors(

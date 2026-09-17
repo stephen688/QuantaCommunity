@@ -11,7 +11,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from quanta_bot.crosscutting.ports import Decision
+from quanta_bot.crosscutting.ports import Decision, TruncationRecord
 from quanta_bot.pipeline.generation import GeneratedReply
 from quanta_bot.pipeline.trigger import TriggerEvent
 
@@ -115,6 +115,11 @@ class RunTrace(BaseModel):
     cost_li: int | None = None
     daily_cost_li_after: int | None = None
     error: str | None = None
+    # M3 扩展（观测对质与归因；SQLite 明细不扩列——truncations 只进 Langfuse trace）
+    truncations: tuple[TruncationRecord, ...] = ()  # 上下文截断留痕（通道/砍了什么/为什么）
+    memory_selected_ids: tuple[str, ...] = ()  # 一车四用精选的记忆 id
+    persona_version: str | None = None  # 人格版本指纹（归因人格变更对回复的影响）
+    retrieval_degraded: bool = False  # need_retrieval 但检索未配置（场景 6 降级链路）
 
 
 class RunTracer(Protocol):

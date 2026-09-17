@@ -14,6 +14,9 @@ from quanta_bot.infra.main_service import (
 )
 from quanta_bot.infra.settings import Settings
 from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
+from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
+from quanta_bot.pipeline.context import LLMSummarizer
+from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import run
 from quanta_bot.pipeline.trigger import TriggerEvent
 
@@ -45,6 +48,14 @@ async def test_fake_mode_deps_and_pipeline_run(tmp_path) -> None:
     assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)
     assert isinstance(deps.control_plane, ControlPlane)
     assert isinstance(deps.audit, SQLiteAudit)
+    # M3 装配：人格/记忆/摘要三件必配；检索 Task 13 前恒 None；Settings 数值参数透传
+    assert isinstance(deps.persona, PersonaLibrary)
+    assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+    assert isinstance(deps.summarizer, LLMSummarizer)
+    assert deps.retriever is None
+    assert deps.memory_recall_top_k == 8 and deps.memory_select_max == 3
+    assert deps.rag_fragment_limit == 3
+    assert deps.dialogue_memory_ttl_hours == 48 and deps.summary_cache_ttl_hours == 24
     # 决策层 v2 真实化：默认 FakeLLM 固定文本过不了决策 JSON 解析，替换为同类型剧本版跑通 replied
     deps.llm = FakeLLM(responses=[_DECISION_JSON, "fake 模式端到端回复"])
     result = await run(
@@ -70,6 +81,10 @@ async def test_real_mode_degrades_gracefully_when_unconfigured(tmp_path) -> None
     assert isinstance(deps.tracer, NullTracer)  # 降级
     assert isinstance(deps.reply_writer, UnimplementedReplyWriter)  # 不假装：P0-5 未接入
     assert isinstance(deps.comment_tree, FakeCommentTreeFetcher)  # P0-2 未接入
+    # M3 三件真模式同样装配（memory_store 暂为内存版——Qdrant 真接在 Task 12，WARNING 留痕）
+    assert isinstance(deps.persona, PersonaLibrary)
+    assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+    assert isinstance(deps.summarizer, LLMSummarizer)
 
 
 async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
@@ -95,6 +110,10 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
             deps.reply_writer, HTTPReplyWriter
         )  # C-5 真写库接入（与评论树共享 client）
         assert isinstance(deps.comment_tree, HTTPCommentTreeFetcher)  # C-2 真客户端接入
+        # M3 三件与模式无关（人格/摘要/记忆恒装配）
+        assert isinstance(deps.persona, PersonaLibrary)
+        assert isinstance(deps.memory_store, InMemoryUserMemoryStore)
+        assert isinstance(deps.summarizer, LLMSummarizer)
     finally:
         await runtime.aclose()
 
