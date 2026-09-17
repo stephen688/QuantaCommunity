@@ -175,14 +175,19 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         # ⑤ 拉取现场（C-2①③ 线程 + C-2② 全量楼层）
         thread = await deps.comment_tree.fetch_context(event)
         floors = await deps.comment_tree.fetch_floors(event.post_id)
-        # ⑥ 记忆粗召回（向量管"找得到"；负面 feedback 全量并行取）
+        # ⑥ 记忆粗召回（向量管"找得到"；负面 feedback 全量并行取）——记忆是可降级通道：
+        # 召回/负面失败降级为空候选 WARNING 留痕照常回复（真存储故障不阻断回复链路）
         persona_version = deps.persona.persona_version
-        candidates = await deps.memory_store.recall(
-            event.commenter_user_id, persona_version, event.content, deps.memory_recall_top_k
-        )
-        negatives = await deps.memory_store.negative_feedback(
-            event.commenter_user_id, persona_version
-        )
+        try:
+            candidates = await deps.memory_store.recall(
+                event.commenter_user_id, persona_version, event.content, deps.memory_recall_top_k
+            )
+            negatives = await deps.memory_store.negative_feedback(
+                event.commenter_user_id, persona_version
+            )
+        except Exception as exc:  # 记忆读失败降级（熔断归 M5）
+            logger.warning("记忆召回失败降级为空候选（不阻断回复）：%s", exc)
+            candidates, negatives = (), ()
         # ⑦ 决策一车四用（轻量调用收口；失败=failed 静默）
         nearby_digest = "\n".join(f"{node.user_id}：{node.content}" for node in thread.chain)
         decision_result = await decision.decide(

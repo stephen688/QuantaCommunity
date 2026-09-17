@@ -10,10 +10,13 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from qdrant_client import AsyncQdrantClient
+
 from quanta_bot.consumer import CommentEventConsumer
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
+from quanta_bot.infra.embedding import QwenEmbeddingClient
 from quanta_bot.infra.kv import InMemoryKV, RedisKV
 from quanta_bot.infra.main_service import (
     FakeCommentTreeFetcher,
@@ -23,6 +26,7 @@ from quanta_bot.infra.main_service import (
     MainServiceClient,
     UnimplementedReplyWriter,
 )
+from quanta_bot.infra.qdrant_memory import QdrantUserMemoryStore
 from quanta_bot.infra.settings import Settings, resolve_data_path
 from quanta_bot.infra.tracing import LangfuseTracer, NullTracer
 from quanta_bot.memory.ports import HashEmbeddingClient
@@ -128,10 +132,37 @@ def build_runtime(settings: Settings) -> Runtime:
     # M3 三件（fake/真模式同构装配）：人格库启动即读 prompts/（缺失=启动失败，人格不完整不上线）
     persona = PersonaLibrary()
     summarizer = LLMSummarizer(llm)
-    memory_store = InMemoryUserMemoryStore(HashEmbeddingClient())
-    if not settings.fake_mode:
-        # 诚实留痕：Qdrant 真实现未接（Task 12）——内存版重启即失，真模式记忆不持久
-        logger.warning("Qdrant 真接在 Task 12，当前内存版重启即失（用户级记忆不持久）")
+    # embedding（记忆与 RAG 共用）：三项配置齐 → Qwen 真客户端；否则 Hash 假向量 + WARNING
+    embedding: HashEmbeddingClient | QwenEmbeddingClient
+    if (
+        not settings.fake_mode
+        and settings.embedding_base_url
+        and settings.embedding_api_key
+        and settings.embedding_model
+    ):
+        embedding = QwenEmbeddingClient(
+            settings.embedding_base_url,
+            settings.embedding_api_key,
+            settings.embedding_model,
+            settings.embedding_timeout_seconds,
+        )
+        closers.append(embedding.aclose)
+    else:
+        if not settings.fake_mode:
+            logger.warning("embedding 配置不全——降级 HashEmbedding（假向量，召回无语义）")
+        embedding = HashEmbeddingClient(dim=settings.embedding_dim)
+    # 记忆存储：qdrant_url 配置 → Qdrant 真实现；否则 InMemory + WARNING（降级不阻断上线）
+    memory_store: InMemoryUserMemoryStore | QdrantUserMemoryStore
+    if not settings.fake_mode and settings.qdrant_url:
+        qdrant_client = AsyncQdrantClient(url=settings.qdrant_url)
+        closers.append(qdrant_client.close)
+        memory_store = QdrantUserMemoryStore(
+            qdrant_client, settings.qdrant_memory_collection, embedding
+        )
+    else:
+        if not settings.fake_mode:
+            logger.warning("qdrant_url 未配置——记忆降级为内存版（重启即失，不持久）")
+        memory_store = InMemoryUserMemoryStore(embedding)
 
     control_plane = ControlPlane(kv, poll_seconds=settings.control_plane_poll_seconds)
     deps = PipelineDeps(

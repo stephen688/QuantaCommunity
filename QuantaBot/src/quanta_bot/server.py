@@ -129,6 +129,14 @@ async def _lifespan(app: FastAPI):
     """启动装配 Runtime；关闭统一收尾（真模式才起控制面轮询）。"""
     settings: Settings = app.state.settings
     runtime = build_runtime(settings)
+    # Qdrant 记忆 collection 幂等创建（真模式 + QdrantStore 时；失败 WARNING 不阻断启动
+    # ——记忆是可降级通道，运行期召回失败走管线降级路径）
+    memory_store = runtime.deps.memory_store
+    if settings.qdrant_url and hasattr(memory_store, "ensure_collection"):
+        try:
+            await memory_store.ensure_collection(settings.embedding_dim)
+        except Exception as exc:
+            logger.warning("Qdrant collection 初始化失败（记忆将走运行期降级）：%s", exc)
     runtime.start()
     app.state.runtime = runtime
     yield

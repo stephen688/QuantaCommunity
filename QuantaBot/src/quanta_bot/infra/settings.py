@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     embedding_api_key: str = ""
     embedding_model: str = ""
     embedding_dim: int = 1024
+    embedding_timeout_seconds: float = 10.0
     # 记忆召回参数（粗召回 top-k 与精选上限——精选 ≤3 是蓝图钉死的值）
     memory_recall_top_k: int = 8
     memory_select_max: int = 3
