@@ -3,11 +3,12 @@
 职责：build_context 渲染主楼/父链/AI 历史文本（M2 旧路径，Task 9 总装时切 assemble）；
       partition_floors 按父链关系分区近/远区、build_channel_b 组装 B 通道原文并保真截断；
       LLMSummarizer/build_channel_c 远区五项清单摘要（缓存复用+畸形重试一次+失败降级丢远区）；
-      assemble 四通道总装（B+AI历史+C摘要+D记忆+预留，总预算校验，超限砍序 D→C）。
+      assemble 四通道总装（B+AI历史+C摘要+D记忆+预留，总预算校验，超限砍序 D→C→AI历史区丢
+      最旧→末兜底保触发行——用户当前发言红线不可丢）。
 边界：不触碰网络（评论树客户端经端口注入）；D 记忆召回渲染在 memory/user_memory.py；
       预算常量是项目级钉死契约（改动需先改 M3 计划——eval「超预算必截断」断言依据）。
-已知坑：摘要缓存 key 带 persona_version（人格变版本旧摘要自动失效）；近区渲染必须排除
-      祖先链与 bot_history 节点（分别走 chain_text / AI 历史区——防双重渲染，Task 6 发现）。
+已知坑：摘要缓存 key 带 persona_version（人格变版本旧摘要自动失效）；bot_history 节点在近区
+      与远区都要排除（只走 AI 历史区——落远区会进 C 摘要+历史区双份，Task 7 执行发现）。
 """
 
 import json
@@ -207,27 +208,38 @@ async def build_channel_c(
     post_id: int,
     persona_version: str,
     summary_cache_ttl_hours: int,
-) -> tuple[str, tuple[TruncationRecord, ...]]:
-    """C 通道：远区摘要（缓存 key 带 persona_version——人格变版本旧摘要自动失效，蓝图 §5.4）。"""
+) -> tuple[str, tuple[TruncationRecord, ...], bool]:
+    """C 通道：远区摘要（缓存 key 带 persona_version——人格变版本旧摘要自动失效，蓝图 §5.4）。
+
+    返回 (摘要文本, 留痕, from_cache)——from_cache 供 assemble 透传 used_summary_cache（缓存
+    复用率观测；2026-09-17 修正：原二元组使该标记只能推断，C 被总预算砍掉时误报 True）。
+    """
     if not remote:
-        return "", ()
+        return "", (), False
     key = _summary_cache_key(post_id, remote, persona_version)
     cached = await summary_cache.get(key)
     if cached is not None:  # 缓存命中：零 LLM 调用（同帖第二条 @ 直接复用）
-        return cached, ()
+        return cached, (), True
     try:
         summary = await summarizer.summarize(remote)
     except SummaryError:  # 失败降级=丢弃远区照常回复（静默优于乱回）
-        return "", (
-            TruncationRecord(
-                channel="C", what="远区全部楼层", reason="摘要两次失败，远区丢弃", chars_dropped=0
+        return (
+            "",
+            (
+                TruncationRecord(
+                    channel="C",
+                    what="远区全部楼层",
+                    reason="摘要两次失败，远区丢弃",
+                    chars_dropped=0,
+                ),
             ),
+            False,
         )
     if len(summary) > CHANNEL_C_BUDGET:  # 摘要自身超预算截尾留痕
         summary = summary[:CHANNEL_C_BUDGET]
         summary += "（摘要超限截断）"
     await summary_cache.set(key, summary, summary_cache_ttl_hours * 3600)
-    return summary, ()
+    return summary, (), False
 
 
 @dataclass
@@ -258,47 +270,86 @@ async def assemble(
     2026-09-16 执行前修正（Task 6 执行发现）：①AI 历史区=thread.bot_history + extra_history_lines
     （对话级记忆链由 Task 9 去重后注入——C-2③ 权威、Redis 链兜底）；②近区楼层中与祖先链/
     bot_history 重复的节点由 build_channel_b 排除，防双重渲染。
+    2026-09-17 Task 7 执行后修正：③远区同样排除 bot_history 节点（bot 楼层只走 AI 历史区，
+    否则落远区时进 C 摘要+历史区双份）；④砍序扩为 D→C→AI历史区丢最旧→末兜底保触发行
+    （原 D→C 两刀+尾部盲切会把触发行切掉——用户当前发言红线不可丢）；⑤used_summary_cache=
+    build_channel_c 的 from_cache 直传（原推断式语义不诚实）。
     """
     chain_ids = {node.comment_id for node in thread.chain}
+    bot_ids = {node.comment_id for node in thread.bot_history}
     trigger_floor = event.parent_id  # 触发评论所在一级楼层（一级评论时=自身）
     nearby, remote = partition_floors(floors, chain_ids, trigger_floor)
+    remote = [node for node in remote if node.comment_id not in bot_ids]  # ③ bot 楼层只走历史区
     b_text, b_trunc = build_channel_b(thread, nearby)  # 内部排除链/bot_history 节点（防双重渲染）
-    history_text = "\n".join(
-        [f"【AI历史#{node.comment_id}】{node.content}" for node in thread.bot_history]
-        + list(extra_history_lines)
-    )
-    c_text, c_trunc = await build_channel_c(
+    history_lines = [
+        f"【AI历史#{node.comment_id}】{node.content}" for node in thread.bot_history
+    ] + list(extra_history_lines)
+    c_text, c_trunc, used_cache = await build_channel_c(
         remote, summarizer, summary_cache, event.post_id, persona_version, summary_cache_ttl_hours
     )
     retrieval_text = "\n".join(
         retrieval_lines
-    )  # 检索片段行（Task 13 由 pipeline 从 RetrievedFragment 渲染）
+    )  # 检索片段行（Task 13 由 pipeline 从 RetrievedFragment 渲染，软上界 RESERVED_BUDGET）
     trigger_line = f"触发评论：{event.content}"
-    parts = [b_text, history_text, c_text, memory_text, retrieval_text, trigger_line]
-    total = sum(len(part) for part in parts if part)
+    parts = [b_text, "\n".join(history_lines), c_text, memory_text, retrieval_text, trigger_line]
     truncations = [*b_trunc, *c_trunc, *memory_truncations]
-    if total > TOTAL_CONTEXT_BUDGET:  # 超总预算：砍序 D→C（B 与历史区保真优先）
-        if memory_text:
-            truncations.append(
-                TruncationRecord(
-                    channel="D",
-                    what="记忆通道整体",
-                    reason="超总预算",
-                    chars_dropped=len(memory_text),
-                )
+
+    def _user_text() -> str:
+        return "\n".join(part for part in parts if part)
+
+    user_text = _user_text()
+    if len(user_text) > TOTAL_CONTEXT_BUDGET and memory_text:  # 第一刀：D 整体
+        truncations.append(
+            TruncationRecord(
+                channel="D",
+                what="记忆通道整体",
+                reason="超总预算",
+                chars_dropped=len(memory_text),
             )
-            parts[3] = memory_text = ""
-        total = sum(len(part) for part in parts if part)
-        if total > TOTAL_CONTEXT_BUDGET and c_text:
-            truncations.append(
-                TruncationRecord(
-                    channel="C", what="摘要通道整体", reason="超总预算", chars_dropped=len(c_text)
-                )
+        )
+        parts[3] = memory_text = ""
+        user_text = _user_text()
+    if len(user_text) > TOTAL_CONTEXT_BUDGET and c_text:  # 第二刀：C 整体
+        truncations.append(
+            TruncationRecord(
+                channel="C", what="摘要通道整体", reason="超总预算", chars_dropped=len(c_text)
             )
-            parts[2] = ""
-    user_text = "\n".join(part for part in parts if part)
+        )
+        parts[2] = ""
+        user_text = _user_text()
+    drop_count = 0
+    dropped_chars = 0
+    while len(user_text) > TOTAL_CONTEXT_BUDGET and history_lines:  # 第三刀：AI 历史区丢最旧
+        oldest = history_lines.pop(0)  # bot 老楼层先丢；extra（对话链）在列表尾最后丢
+        drop_count += 1
+        dropped_chars += len(oldest)
+        parts[1] = "\n".join(history_lines)
+        user_text = _user_text()
+    if drop_count:
+        truncations.append(
+            TruncationRecord(
+                channel="B",
+                what=f"AI历史区最旧{drop_count}行",
+                reason="超总预算丢最旧",
+                chars_dropped=dropped_chars,
+            )
+        )
+    if len(user_text) > TOTAL_CONTEXT_BUDGET:
+        # 末兜底（病态：B+检索自身超限）：保触发行在场，切其余部分头部（开头定话题保头）
+        overflow = len(user_text) - TOTAL_CONTEXT_BUDGET
+        body = "\n".join(part for part in parts[:-1] if part)
+        user_text = (
+            body[: max(0, TOTAL_CONTEXT_BUDGET - len(trigger_line) - 1)] + "\n" + trigger_line
+        )
+        if len(user_text) > TOTAL_CONTEXT_BUDGET:  # 触发行自身超总预算的极端：整体保头
+            user_text = user_text[:TOTAL_CONTEXT_BUDGET]
+        truncations.append(
+            TruncationRecord(
+                channel="B", what="总装头部", reason="末兜底保触发行", chars_dropped=overflow
+            )
+        )
     return AssembledContext(
-        user_text=user_text[:TOTAL_CONTEXT_BUDGET],
+        user_text=user_text,
         truncations=tuple(truncations),
-        used_summary_cache=bool(c_text) and not c_trunc,
+        used_summary_cache=used_cache,
     )

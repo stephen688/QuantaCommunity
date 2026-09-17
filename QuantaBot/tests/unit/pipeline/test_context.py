@@ -108,7 +108,7 @@ async def test_fake_fetcher_injectable_data() -> None:
 
 
 async def test_channel_c_summarizes_with_cache_reuse() -> None:
-    """C 通道：五项清单摘要+缓存复用（同帖第二条 @ 不再调 LLM）；失败降级丢远区照常回复。"""
+    """C 通道：五项清单摘要+缓存复用（同帖第二条 @ 不再调 LLM）；from_cache 观测标记诚实。"""
     llm = FakeLLM(
         responses=[
             '{"topic":"选课","conclusions":[],"disputes":[],'
@@ -118,30 +118,33 @@ async def test_channel_c_summarizes_with_cache_reuse() -> None:
     summarizer = LLMSummarizer(llm)
     cache = InMemoryKV()
     remote = [_floor(i, None, f"远区{i}谈选课") for i in range(100, 120)]
-    first, _ = await build_channel_c(
+    first, _, cache_hit_first = await build_channel_c(
         remote, summarizer, cache, post_id=10, persona_version="v1", summary_cache_ttl_hours=24
     )
     assert "6月30号截止" in first and "几号出课表" in first  # 清单关键项进摘要
     assert "仅供参考，以触发评论与父链原文为准" in first  # 非授权声明（蓝图 §5.3）
-    second, _ = await build_channel_c(
+    assert cache_hit_first is False  # 首次=新摘要非缓存
+    second, _, cache_hit_second = await build_channel_c(
         remote, summarizer, cache, post_id=10, persona_version="v1", summary_cache_ttl_hours=24
     )
     assert len(llm.calls) == 1  # 缓存命中，零额外调用
     assert first == second
+    assert cache_hit_second is True  # 二次=缓存命中（used_summary_cache 观测口径）
 
 
 async def test_channel_c_malformed_retries_then_drops() -> None:
-    """摘要畸形喂回一次→仍畸形→丢弃远区+留痕（静默优于乱回）。"""
+    """摘要畸形喂回一次→仍畸形→丢弃远区+留痕（静默优于乱回）；from_cache=False。"""
     llm = FakeLLM(responses=["坏JSON", "还是坏"])
     summarizer = LLMSummarizer(llm)
-    text, truncations = await build_channel_c(
+    text, truncations, cache_hit = await build_channel_c(
         [_floor(1, None, "远区")], summarizer, InMemoryKV(), 10, "v1", 24
     )
-    assert text == "" and any("远区丢弃" in t.reason for t in truncations)
+    assert text == "" and cache_hit is False
+    assert any("远区丢弃" in t.reason for t in truncations)
 
 
 async def test_assemble_respects_total_budget() -> None:
-    """总装：注入总量 ≤ TOTAL_CONTEXT_BUDGET；祖先链零截断；超总预算先砍 D 再砍 C。"""
+    """总装：总量 ≤ TOTAL_CONTEXT_BUDGET；祖先链零截断；砍序 D→C→AI历史区丢最旧；触发行永在场。"""
     chain_node = _floor(4, 3, "祖先链内容唯一标记" * 20)  # 180 字祖先链（B 通道保真区）
     remote_floors = [
         _floor(comment_id, None, f"远区楼层{comment_id}谈选课") for comment_id in range(100, 140)
@@ -155,7 +158,7 @@ async def test_assemble_respects_total_budget() -> None:
             ),  # 6000 字
         ),
     )
-    memory_text = "记忆材料" * 1500  # 6000 字 D 通道材料（B+C+D 三通道合计远超总预算）
+    memory_text = "记忆材料" * 1500  # 6000 字 D 通道材料（B+历史+C+D 四路合计远超总预算）
     llm = FakeLLM(
         responses=[
             '{"topic":"选课","conclusions":[],"disputes":[],"unanswered_questions":[],"key_facts":[]}'
@@ -174,26 +177,30 @@ async def test_assemble_respects_total_budget() -> None:
     )
     assert len(assembled.user_text) <= TOTAL_CONTEXT_BUDGET  # 注入总量上界
     assert "祖先链内容唯一标记" * 20 in assembled.user_text  # 祖先链原文零截断（红线）
-    assert any(t.channel == "D" for t in assembled.truncations)  # 超总预算先砍 D
-    assert any(t.channel == "C" for t in assembled.truncations)  # 砍完 D 仍超再砍 C
+    assert assembled.user_text.endswith("触发评论：@QuantaBot hi")  # 触发行永在场（红线）
+    assert any(t.channel == "D" for t in assembled.truncations)  # 第一刀砍 D
+    assert any(t.channel == "C" for t in assembled.truncations)  # 第二刀砍 C
+    assert any("AI历史区" in t.what for t in assembled.truncations)  # 第三刀丢最旧 AI 历史
 
 
-async def test_assemble_no_double_render_and_history_present() -> None:
-    """链/bot_history 节点不双重渲染；AI 历史区含 bot_history 与对话链注入行（Task 6 执行发现补测）。"""
-    chain_node = _floor(4, 3, "祖先链节点内容唯一标记")
-    bot_node = CommentNode(
-        commentId=99, parentId=None, userId=1, content="bot 历史发言唯一标记", is_ai=True
+async def test_assemble_history_overflow_keeps_newest_and_trigger() -> None:
+    """AI 历史区超总预算丢最旧保最新；对话链注入行（extra）比 bot 老楼层后丢；触发行在场。"""
+    old_bots = tuple(
+        CommentNode(
+            commentId=bot_id, parentId=None, userId=1, content=f"最旧bot历史{bot_id}标记" * 300
+        )
+        for bot_id in range(10, 13)  # 3 条各 ~3300 字老历史（合计 ~9900）
     )
-    floors = [chain_node, _floor(5, None, "普通近区楼"), bot_node]
+    newest_bot = CommentNode(commentId=99, parentId=None, userId=1, content="最新bot历史标记")
     thread = PostThread(
-        post=PostSummary(postId=1, userId=2, title="t", content="主楼"),
-        chain=(chain_node,),
-        bot_history=(bot_node,),
+        post=PostSummary(postId=1, userId=2, title="t", content="主楼内容" * 750),  # 3000 字主楼
+        chain=(),
+        bot_history=(*old_bots, newest_bot),  # 合计 ~13000 超总预算
     )
     assembled = await assemble(
         _event(),
         thread,
-        floors,
+        [],
         memory_text="",
         memory_truncations=(),
         summarizer=LLMSummarizer(FakeLLM()),
@@ -202,6 +209,48 @@ async def test_assemble_no_double_render_and_history_present() -> None:
         summary_cache_ttl_hours=24,
         extra_history_lines=("【AI回复#77】对话链注入行唯一标记",),
     )
+    assert len(assembled.user_text) <= TOTAL_CONTEXT_BUDGET
+    assert "最旧bot历史10标记" not in assembled.user_text  # 最老历史先丢
+    assert "最新bot历史标记" in assembled.user_text  # 最新 bot 历史保留
+    assert "对话链注入行唯一标记" in assembled.user_text  # extra（近对话）最后丢，仍在场
+    assert assembled.user_text.endswith("触发评论：@QuantaBot hi")  # 触发行永在场
+    assert any("AI历史区" in t.what for t in assembled.truncations)  # 丢最旧留痕
+
+
+async def test_assemble_no_double_render_and_history_present() -> None:
+    """链/bot_history 节点不双重渲染（近区与远区都排除）；AI 历史区含 bot_history 与对话链注入行。"""
+    chain_node = _floor(4, 3, "祖先链节点内容唯一标记")
+    bot_node = CommentNode(
+        commentId=99, parentId=None, userId=1, content="bot 历史发言唯一标记", is_ai=True
+    )
+    old_bot = CommentNode(
+        commentId=1, parentId=None, userId=1, content="远区bot楼层唯一标记", is_ai=True
+    )  # 老 bot 楼层落远区（一级楼降序 [99,5] 进近区，1 号在远区）
+    floors = [old_bot, chain_node, _floor(5, None, "普通近区楼"), bot_node]
+    thread = PostThread(
+        post=PostSummary(postId=1, userId=2, title="t", content="主楼"),
+        chain=(chain_node,),
+        bot_history=(old_bot, bot_node),
+    )
+    llm = FakeLLM()
+    assembled = await assemble(
+        _event(),
+        thread,
+        floors,
+        memory_text="",
+        memory_truncations=(),
+        summarizer=LLMSummarizer(llm),
+        summary_cache=InMemoryKV(),
+        persona_version="v1",
+        summary_cache_ttl_hours=24,
+        extra_history_lines=("【AI回复#77】对话链注入行唯一标记",),
+    )
     assert assembled.user_text.count("祖先链节点内容唯一标记") == 1  # 链节点只在祖先链区出现一次
-    assert assembled.user_text.count("bot 历史发言唯一标记") == 1  # bot 楼层只在 AI 历史区出现一次
+    assert (
+        assembled.user_text.count("bot 历史发言唯一标记") == 1
+    )  # 近区 bot 楼层只在 AI 历史区出现一次
+    assert (
+        assembled.user_text.count("远区bot楼层唯一标记") == 1
+    )  # 远区 bot 楼层也只在 AI 历史区（不进 C 摘要）
+    assert len(llm.calls) == 0  # 远区排空 bot 楼层后无远区可摘要（零 LLM 调用）
     assert "【AI回复#77】对话链注入行唯一标记" in assembled.user_text  # 对话链注入行在场
