@@ -11,11 +11,13 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from quanta_bot.pipeline.decision import DecisionResult
 from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 if TYPE_CHECKING:
+    from quanta_bot.pipeline.decision import (
+        DecisionResult,
+    )  # 仅注解用途——模块级导入会与 decision→ports 成环
     from quanta_bot.pipeline.ports import LLMClient
 
 # AI 身份标识（红线 §0.1——生成层强制注入，不依赖模型自觉）

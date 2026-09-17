@@ -5,25 +5,22 @@
 边界：不碰网络存储（LLM 经端口注入、记忆候选由上游粗召回后传入）；
       决策失败上抛 LLMClientError 由管线 failed 分支静默不回（用户可见链路不喂回，蓝图 §5.5）；
       模式枚举四值（PRD F3），场景是 eval 覆盖维度不是路由维度。
-已知坑：本模块禁止模块级 from-import pipeline.ports——ports（先于本模块加载时）经
-      generation 反向依赖本模块，模块级导入必成环（ImportError partially initialized）；
-      故 LLMClient 走 TYPE_CHECKING、LLMClientError 走函数内延迟导入（见使用现场）。
+已知坑：ports→generation→decision 存在依赖链，generation 对 DecisionResult 的导入必须留在
+      TYPE_CHECKING（仅注解用途）——一旦 generation 模块级 import decision，本模块对 ports 的
+      模块级导入即成环（ImportError partially initialized）。曾以函数内延迟导入破环，已改为
+      generation 侧 TYPE_CHECKING 收口（更干净），此处恢复模块级常态导入。
 """
-
-from __future__ import annotations  # 延迟注解求值：LLMClient 仅 TYPE_CHECKING 可见（见已知坑）
 
 import json
 import re
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import BaseModel
 
 from quanta_bot.memory.ports import MemoryOp, MemoryRecord
+from quanta_bot.pipeline.ports import LLMClient, LLMClientError
 from quanta_bot.pipeline.trigger import AI_NICKNAME, TriggerEvent
-
-if TYPE_CHECKING:
-    from quanta_bot.pipeline.ports import LLMClient
 
 # 四表达模式（PRD F3；路由唯一维度——场景是 eval 覆盖维度，grill 决议 9）
 Mode = Literal["专业答疑", "生活玩梗", "情绪陪伴", "治理"]
@@ -99,8 +96,6 @@ DECISION_SYSTEM_PROMPT = """你是校园社区 AI 学长 QuantaBot 的决策器�
 
 def parse_decision_json(raw: str) -> DecisionResult:
     """解析决策 JSON（契约不符统一 LLMClientError——纯函数便于单测与喂回复用）。"""
-    from quanta_bot.pipeline.ports import LLMClientError  # 函数内导入破环（见文件头已知坑）
-
     try:
         data = json.loads(raw)
         result = DecisionResult.model_validate(data)
@@ -128,8 +123,6 @@ async def decide(
     candidates: Sequence[MemoryRecord],
 ) -> DecisionResult:
     """一车四用决策（硬规则由管线在前置调用；本函数=轻量 LLM 调用收口）。"""
-    from quanta_bot.pipeline.ports import LLMClientError  # 函数内导入破环（见文件头已知坑）
-
     user_prompt = (
         f"【主楼摘要】{post_digest}\n【近区楼层】{nearby_digest or '（无）'}\n"
         f"【触发评论】{event.content}\n【候选记忆】\n{_candidates_digest(candidates)}\n"
