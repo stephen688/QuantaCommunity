@@ -8,6 +8,7 @@ pytest.skip(allow_module_level=True) 会在 conftest 预加载阶段炸成 colle
 """
 
 import os
+from types import SimpleNamespace
 
 import pytest
 
@@ -27,3 +28,49 @@ def _integration_gate() -> None:
         pytest.skip(
             "integration 未启用（需 QUANTABOT_INTEGRATION=1 且 compose 全栈/DeepSeek key 就绪）"
         )
+
+
+@pytest.fixture
+async def qdrant_client():
+    """真 Qdrant 客户端；连接生命周期归 integration fixture 管理。"""
+    from qdrant_client import AsyncQdrantClient
+
+    from quanta_bot.infra.settings import Settings
+
+    settings = Settings()
+    assert settings.qdrant_url, "integration 需要 .env 配置 QUANTABOT_QDRANT_URL"
+    client = AsyncQdrantClient(url=settings.qdrant_url)
+    try:
+        yield client
+    finally:
+        await client.close()
+
+
+@pytest.fixture
+async def rag_stack(qdrant_client):
+    """FakeContentSource → Qwen embedding → 真 Qdrant 的 RAG integration 栈。"""
+    from quanta_bot.infra.content_sync import FakeContentSource
+    from quanta_bot.infra.embedding import QwenEmbeddingClient
+    from quanta_bot.infra.qdrant_content import QdrantContentIndex
+    from quanta_bot.infra.settings import Settings
+
+    settings = Settings()
+    assert settings.embedding_base_url, "integration 需要配置 QUANTABOT_EMBEDDING_BASE_URL"
+    assert settings.embedding_api_key, "integration 需要配置 QUANTABOT_EMBEDDING_API_KEY"
+    assert settings.embedding_model, "integration 需要配置 QUANTABOT_EMBEDDING_MODEL"
+    embedding = QwenEmbeddingClient(
+        settings.embedding_base_url,
+        settings.embedding_api_key,
+        settings.embedding_model,
+        timeout_seconds=settings.embedding_timeout_seconds,
+    )
+    try:
+        index = QdrantContentIndex(
+            qdrant_client,
+            settings.qdrant_content_collection,
+            embedding,
+        )
+        await index.ensure_collection(settings.embedding_dim)
+        yield SimpleNamespace(source=FakeContentSource(), index=index, retriever=index)
+    finally:
+        await embedding.aclose()
