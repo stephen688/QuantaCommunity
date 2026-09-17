@@ -16,9 +16,7 @@ from quanta_bot.pipeline.context import (
 from quanta_bot.pipeline.ports import CommentNode, PostSummary, PostThread
 from quanta_bot.pipeline.trigger import TriggerEvent
 
-_SUMMARY_FIVE_KEYS = (
-    '{"topic": "选课", "conclusions": [], "disputes": [], "unanswered_questions": [], "key_facts": []}'
-)
+_SUMMARY_FIVE_KEYS = '{"topic": "选课", "conclusions": [], "disputes": [], "unanswered_questions": [], "key_facts": []}'
 
 
 def _event() -> TriggerEvent:
@@ -122,6 +120,22 @@ async def test_summarizer_first_non_dict_retries_and_succeeds() -> None:
     llm = FakeLLM(responses=['["topic"]', _SUMMARY_FIVE_KEYS])
     text = await LLMSummarizer(llm).summarize((_floor(1),))
     assert "选课" in text
+
+
+def test_summary_cache_key_covers_all_floor_ids() -> None:
+    """缓存 key 覆盖全部楼层 id（review I-2 回归）：首尾相同、中段不同 → key 必须不同。
+
+    原缺陷：key 只取首-尾两点，不同触发评论的 chain 吃掉中段楼层后 remote 首尾不变、
+    中段不同——B 命中 A 的摘要，注入与现场不符的旧集合。
+    """
+    from quanta_bot.pipeline.context import _summary_cache_key
+
+    base = [_floor(i, None, f"楼{i}") for i in range(1, 6)]
+    set_a = base
+    set_b = [node for node in base if node.comment_id != 3]  # 中段被 chain 吃掉一栋
+    key_a = _summary_cache_key(10, set_a, "pv")
+    key_b = _summary_cache_key(10, set_b, "pv")
+    assert key_a != key_b
 
 
 async def test_channel_c_summarizes_with_cache_reuse() -> None:

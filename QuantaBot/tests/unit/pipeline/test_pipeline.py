@@ -22,6 +22,7 @@ from quanta_bot.pipeline.context import LLMSummarizer
 from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.pipeline import PipelineDeps, run
 from quanta_bot.pipeline.ports import (
+    CommentFetchError,
     CommentNode,
     LLMClientError,
     LLMResult,
@@ -374,3 +375,36 @@ async def test_reply_write_failure_records_failed(tmp_path) -> None:
     entries = await deps.audit.fetch_entries()
     assert entries[0].decision == "failed"
     assert deps.tracer.traces[0].decision == "failed"
+
+
+async def test_comment_fetch_failure_records_failed_with_trace(tmp_path) -> None:
+    """拉取失败（CommentFetchError）→ failed 分支接住：RunTrace/决策日志不丢（review I-1 回归）。
+
+    原缺陷：fetch 异常裸逃 _execute 击穿 run() 单出口，落 consumer 兜底——观测断档无归因。
+    """
+
+    class ExplodingFetcher:
+        async def fetch_context(self, event) -> PostThread:
+            raise CommentFetchError("评论树拉取失败（chain/history）：connect timeout")
+
+        async def fetch_floors(self, post_id):
+            raise AssertionError("fetch_context 已失败不应再拉楼层")
+
+    deps = _m3_deps(FakeLLM(), tree=ExplodingFetcher(), tmp_path=tmp_path)
+    result = await run(_event("@QuantaBot 选课求指导", comment_id=7), deps)
+    assert result == "failed"
+    trace = captured_trace(deps)  # 单出口契约：failed 也有 RunTrace（review I-1）
+    assert trace.decision == "failed"
+    assert "评论树拉取失败" in (trace.error or "")
+    entries = await deps.audit.fetch_entries()
+    assert entries[0].decision == "failed"
+
+
+async def test_corrupted_dialogue_chain_degrades_to_empty(tmp_path) -> None:
+    """对话链损坏（非法 JSON/shape 不符）→ 空链照常回复，不击穿单出口（review I-1 回归）。"""
+    kv = InMemoryKV()
+    await kv.set(dialogue.dialogue_key(10), "not-json-at-all", 3600)
+    deps = _m3_deps(FakeLLM(responses=[_DECISION_JSON, "坏链兜底回复"]), kv=kv, tmp_path=tmp_path)
+    result = await run(_event("@QuantaBot 再帮我看看", comment_id=8), deps)
+    assert result == "replied"  # 损坏链=丢弃不阻断（C-2③ 兜底数据源语义）
+    assert deps.reply_writer.written

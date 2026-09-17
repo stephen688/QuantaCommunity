@@ -7,7 +7,7 @@
 """
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,6 +26,14 @@ class LLMResult(BaseModel):
 
 class LLMClientError(Exception):
     """LLM 调用失败（网络/HTTP/响应契约不符统一包装；管线 failed 分支捕获类型）。"""
+
+
+class CommentFetchError(Exception):
+    """评论树/楼层拉取失败（HTTPCommentTreeFetcher 统一包装——管线 failed 分支捕获类型）。
+
+    2026-09-17 review I-1：fetch 异常原本裸逃 _execute（httpx.HTTPError/MainServiceError
+    均非捕获类型），击穿 run() 单出口——无 RunTrace、无 mode 归因，落 consumer 兜底丢观测。
+    """
 
 
 class LLMClient(Protocol):
@@ -127,6 +135,28 @@ class RunTracer(Protocol):
 
     async def record(self, trace: RunTrace) -> None:
         """上报一条 run 轨迹（不抛异常是本端口的硬契约）。"""
+        ...
+
+
+class RetrievedFragment(BaseModel):
+    """检索片段（C-2 演化 RAG；Task 13 落地，pipeline 层把片段渲染为文本行入 assemble）。"""
+
+    content: str
+    source: str
+    score: float = 0.0
+    doc_kind: Literal["POLICY", "POST", "ANSWER"] = "POST"
+
+
+class Retriever(Protocol):
+    """检索端口（场景 6 RAG 链路；未配置时管线记录 retrieval_degraded 走降级，不阻塞回复）。"""
+
+    async def retrieve(
+        self,
+        query: str,
+        limit: int = 3,
+        doc_kind: Literal["POLICY", "POST", "ANSWER"] | None = None,
+    ) -> tuple[RetrievedFragment, ...]:
+        """按语义相似度召回片段（limit 控制上限；doc_kind 可过滤文档类别，None=全类）。"""
         ...
 
 

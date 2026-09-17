@@ -40,4 +40,9 @@ async def read_chain(kv: KeyValueStore, post_id: int) -> tuple[DialogueTurn, ...
     raw = await kv.get(dialogue_key(post_id))
     if raw is None:
         return ()
-    return tuple(DialogueTurn.model_validate(item) for item in json.loads(raw))
+    # 损坏数据（json 炸/shape 不符）返回空链而非上抛（2026-09-17 review I-1：原 JSONDecodeError
+    # 裸逃 _execute 击穿 run() 单出口丢 RunTrace；本链是 C-2③ 的兜底数据源，损坏=丢弃不阻断回复）
+    try:
+        return tuple(DialogueTurn.model_validate(item) for item in json.loads(raw))
+    except (json.JSONDecodeError, ValueError):
+        return ()

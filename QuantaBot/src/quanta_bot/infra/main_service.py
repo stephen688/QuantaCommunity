@@ -10,7 +10,13 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from quanta_bot.pipeline.generation import GeneratedReply
-from quanta_bot.pipeline.ports import CommentNode, PostSummary, PostThread, ReplyWriteError
+from quanta_bot.pipeline.ports import (
+    CommentFetchError,
+    CommentNode,
+    PostSummary,
+    PostThread,
+    ReplyWriteError,
+)
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
@@ -76,22 +82,25 @@ class HTTPCommentTreeFetcher:
         self._bot_user_id = bot_user_id
 
     async def fetch_context(self, event: TriggerEvent) -> PostThread:
-        # C-2① 评论+父级链+主楼摘要
-        chain_data = await self._client.get_json(
-            "/bot/comment/chain", params={"commentId": event.comment_id}
-        )
-        parsed = CommentChainResponse.model_validate(chain_data)
-        # C-2③ bot 本帖历史发言（防穿越楼层快照数据源）
-        history_data = await self._client.get_json(
-            "/bot/comment/history",
-            params={
-                "userId": self._bot_user_id,
-                "postId": event.post_id,
-                "pageNum": 1,
-                "pageSize": 50,
-            },
-        )
-        history = CommentHistoryResponse.model_validate(history_data)
+        try:
+            # C-2① 评论+父级链+主楼摘要
+            chain_data = await self._client.get_json(
+                "/bot/comment/chain", params={"commentId": event.comment_id}
+            )
+            parsed = CommentChainResponse.model_validate(chain_data)
+            # C-2③ bot 本帖历史发言（防穿越楼层快照数据源）
+            history_data = await self._client.get_json(
+                "/bot/comment/history",
+                params={
+                    "userId": self._bot_user_id,
+                    "postId": event.post_id,
+                    "pageNum": 1,
+                    "pageSize": 50,
+                },
+            )
+            history = CommentHistoryResponse.model_validate(history_data)
+        except (httpx.HTTPError, MainServiceError) as exc:
+            raise CommentFetchError(f"评论树拉取失败（chain/history）：{exc}") from exc
         return PostThread(
             post=parsed.post,
             chain=tuple(self._mark_ai(node) for node in parsed.chain),
@@ -103,18 +112,21 @@ class HTTPCommentTreeFetcher:
         collected: list[CommentNode] = []
         page_num, page_size = 1, 50
         while True:
-            # ① 逐页拉取（sortType=asc：楼层按时间正序，拼接后即天然有序）
-            data = await self._client.get_json(
-                "/bot/comment/tree",
-                params={
-                    "postId": post_id,
-                    "pageNum": page_num,
-                    "pageSize": page_size,
-                    "sortType": "asc",
-                },
-            )
-            # ② get_json 已剥 Result 外壳，此处直接做 DTO 校验（与 fetch_context 同口径）
-            parsed = CommentTreePage.model_validate(data)
+            try:
+                # ① 逐页拉取（sortType=asc：楼层按时间正序，拼接后即天然有序）
+                data = await self._client.get_json(
+                    "/bot/comment/tree",
+                    params={
+                        "postId": post_id,
+                        "pageNum": page_num,
+                        "pageSize": page_size,
+                        "sortType": "asc",
+                    },
+                )
+                # ② get_json 已剥 Result 外壳，此处直接做 DTO 校验（与 fetch_context 同口径）
+                parsed = CommentTreePage.model_validate(data)
+            except (httpx.HTTPError, MainServiceError) as exc:
+                raise CommentFetchError(f"楼层拉取失败（tree 第{page_num}页）：{exc}") from exc
             collected.extend(parsed.list)
             # ③ 取满 total 即止；空页防御——total 虚高时不死循环
             if len(collected) >= parsed.total or not parsed.list:

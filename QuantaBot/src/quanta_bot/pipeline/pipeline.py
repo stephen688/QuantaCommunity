@@ -33,6 +33,7 @@ from quanta_bot.memory.ports import UserMemoryStore
 from quanta_bot.pipeline import context, decision, generation, trigger
 from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.ports import (
+    CommentFetchError,
     CommentTreeFetcher,
     LLMClient,
     LLMClientError,
@@ -233,8 +234,10 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
             deps.kv, cost_li, datetime.now(UTC).date(), deps.cost_key_ttl_hours
         )
         await deps.reply_writer.write_reply(output.reply)
-    except (LLMClientError, ReplyWriteError) as exc:
-        # 已知失败类型静默不回（红线 §0.3）；决策已成功时携带 mode 归因（M2 口径保持）
+    except (CommentFetchError, LLMClientError, ReplyWriteError) as exc:
+        # 已知失败类型静默不回（红线 §0.3）；决策已成功时携带 mode 归因（M2 口径保持）。
+        # 2026-09-17 review I-1：拉取异常原裸逃 _execute 击穿 run() 单出口（无 RunTrace/
+        # 无归因，consumer 兜底丢观测）——HTTPCommentTreeFetcher 现统一包装 CommentFetchError。
         return _Outcome(
             "failed",
             f"链路异常静默不回：{exc}",

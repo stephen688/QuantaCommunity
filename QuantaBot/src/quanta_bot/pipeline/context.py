@@ -11,6 +11,7 @@
       M2 旧路径 build_context/_render 已随 Task 9 总装切换删除（唯一入口=assemble）。
 """
 
+import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -177,7 +178,9 @@ class LLMSummarizer:
             json_mode=True,
             max_tokens=4000,
         )
-        return self._render(_parse_summary(retry.content))  # 仍畸形 → SummaryError（build_channel_c 降级丢远区）
+        return self._render(
+            _parse_summary(retry.content)
+        )  # 仍畸形 → SummaryError（build_channel_c 降级丢远区）
 
     @staticmethod
     def _render(parsed: dict) -> str:
@@ -193,8 +196,12 @@ class LLMSummarizer:
 
 
 def _summary_cache_key(post_id: int, floors: Sequence[CommentNode], persona_version: str) -> str:
-    ids = [floor.comment_id for floor in floors]
-    return f"quantabot:summary:{post_id}:{ids[0] if ids else 0}-{ids[-1] if ids else 0}:{persona_version}"
+    # key 必须覆盖全部楼层 id（2026-09-17 review I-2：首-尾两点会碰撞——不同触发评论的
+    # chain 吃掉中段楼层后 remote 首尾不变、中段不同，错摘要注入与现场不符的旧集合）
+    ids_digest = hashlib.sha1(
+        ",".join(str(floor.comment_id) for floor in floors).encode()
+    ).hexdigest()[:12]
+    return f"quantabot:summary:{post_id}:{ids_digest}:{persona_version}"
 
 
 async def build_channel_c(
@@ -231,7 +238,9 @@ async def build_channel_c(
             ),
             False,
         )
-    if len(summary) > CHANNEL_C_BUDGET:  # 摘要自身超预算截尾留痕（标记计入预算——与 truncate_head_tail 口径一致）
+    if (
+        len(summary) > CHANNEL_C_BUDGET
+    ):  # 摘要自身超预算截尾留痕（标记计入预算——与 truncate_head_tail 口径一致）
         marker = "（摘要超限截断）"
         summary = summary[: CHANNEL_C_BUDGET - len(marker)] + marker
     await summary_cache.set(key, summary, summary_cache_ttl_hours * 3600)

@@ -116,7 +116,9 @@ async def test_judge_tolerates_empty_and_malformed_json() -> None:
     result = CaseResult(decision="replied", reply="一条正常回复")
     empty = await judge_case(case, result, llm=_StaticLLM(""))
     assert empty and "无法解析" in empty[0]
-    truncated = await judge_case(case, result, llm=_StaticLLM('{"p0": {"pass": true, "reason": "截'))
+    truncated = await judge_case(
+        case, result, llm=_StaticLLM('{"p0": {"pass": true, "reason": "截')
+    )
     assert truncated and "无法解析" in truncated[0]
 
 

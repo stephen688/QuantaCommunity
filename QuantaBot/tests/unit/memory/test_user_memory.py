@@ -48,3 +48,29 @@ def test_render_memory_block_decay_warning_by_type() -> None:
     assert "记录于 15 天前" in text and "可能过时" in text  # project 超阈值→警告
     assert "记录于 100 天前" in text
     assert "可能过时" not in text.split("跨专业考研")[1][:60]  # user 未超阈值→无警告
+
+
+def test_render_memory_block_enforces_channel_budget_keeps_negatives() -> None:
+    """D 预算在渲染侧执行（review I-3 回归）：精选超预算丢末位留痕，负面永远保留。
+
+    原缺陷：CHANNEL_D_BUDGET 死常量，负面无上限可撑爆 D 通道 → assemble 第一刀把
+    黑名单连同精选整体丢弃——安全信息恰在最需要时消失。
+    """
+    negatives = [_record(content="别推考研班", type_="feedback", valence="negative")]
+    selected = [_record(content=f"画像{'x' * 400}{i}", type_="user") for i in range(4)]
+    text, truncations = render_memory_block(
+        selected=selected, negatives=negatives, select_max=3, budget=1000
+    )
+    assert "别推考研班" in text  # 负面安全信息在精选被裁时仍全量在场
+    assert len(text) <= 1000 + 1  # D 通道预算被执行（+1 容忍负面独占时边界拼接差一）
+    assert any("超 D 通道预算丢末位" in t.reason for t in truncations)
+
+
+def test_render_memory_block_negatives_over_budget_survive_with_trace() -> None:
+    """负面自身击穿预算：保留全部负面（安全优先不裁剪）+ 留痕供观测（review I-3 语义）。"""
+    negatives = [_record(content="别" * 600, type_="feedback", valence="negative")]
+    text, truncations = render_memory_block(
+        selected=(), negatives=negatives, select_max=3, budget=100
+    )
+    assert "别" * 600 in text  # 不裁剪
+    assert any(t.reason == "负面超 D 通道预算（安全优先不裁剪）" for t in truncations)
