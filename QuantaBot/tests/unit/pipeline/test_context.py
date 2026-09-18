@@ -13,7 +13,7 @@ from quanta_bot.pipeline.context import (
     assemble,
     build_channel_c,
 )
-from quanta_bot.pipeline.ports import LLMClientError, CommentNode, PostSummary, PostThread
+from quanta_bot.pipeline.ports import CommentNode, LLMClientError, PostSummary, PostThread
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 _SUMMARY_FIVE_KEYS = '{"topic": "选课", "conclusions": [], "disputes": [], "unanswered_questions": [], "key_facts": []}'

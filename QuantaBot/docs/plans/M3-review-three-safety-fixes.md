@@ -54,3 +54,13 @@
 2. 运行 `uv run ruff check src tests`、`uv run pytest tests/unit -q`、`uv run pytest tests/eval -q`。
 3. 自查 diff；派发独立 reviewer，修复 Critical/Important。
 4. 分块提交，review 通过后本地合并到 `main`；未经授权不 push。
+
+## 执行记录（2026-09-18）
+
+- [x] Task 1：`LLMClientError` 回归测试先红，C 通道扩展为内容/传输失败均丢远区。
+- [x] Task 2：空白生成回归测试先红，生成层在补 AI 徽章前拒绝空内容。
+- [x] Task 3：真模式缺主服务测试先红，现保留 retriever、关闭摄取栈并 WARNING 留痕。
+- [x] `uv run ruff format src tests`、`uv run ruff check src tests`。
+- [x] `uv run pytest tests/unit -q`：145 passed。
+- [x] `uv run pytest tests/eval -q`：11 passed，17 skipped（persona 真调档未触发）。
+- [ ] 独立 reviewer 与本地合并。
