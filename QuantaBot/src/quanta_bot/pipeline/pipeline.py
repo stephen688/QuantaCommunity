@@ -2,7 +2,7 @@
 记忆双段召回→一车四用决策→检索→四通道总装→生成→成本→写库→记忆落库+对话链→打点）。
 
 职责：run() 单出口——所有回/不回分支统一落决策日志（诚实口径，PRD F6）+ RunTrace 上报
-      （M3 增截断留痕/精选记忆 id/persona_version/检索降级四观测字段）；
+      （M3 增截断留痕/精选记忆 id/persona_version/检索降级/leak_hits 五观测字段）；
       kill switch 短路（G5）；硬规则低价值拉取前零成本拦截（§5.6 ①）；LLM/写库失败静默记
       failed 不回（红线 §0.3）；记忆四态落库与对话链 append 在 replied 后执行（失败 WARNING
       不阻断已成功回复）。

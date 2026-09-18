@@ -14,6 +14,7 @@ deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
   - { assert: retrieval_in_context, expected: false }
+  - { assert: retrieval_degraded_is, expected: true }
   - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
