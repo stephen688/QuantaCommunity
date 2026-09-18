@@ -188,14 +188,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def ingest(payload: IngestRequest) -> dict:
         """手动触发 RAG 摄取（运营/联调用；定时自动化归 M5）。
 
-        admin_token 配置时校验（不符 403）；RAG 未配置 503（qdrant/embedding 缺一——
-        管线 ⑧ 步已走降级直说不知道，摄取无从谈起）。
+        admin_token 配置时校验（不符 403）；RAG 摄取未配置 503（qdrant/embedding/main_service
+        缺一；检索可能仍可使用已有索引）。
         """
         runtime: Runtime | None = getattr(app.state, "runtime", None)
         if s.admin_token and payload.token != s.admin_token:
             raise HTTPException(status_code=403, detail="admin_token 不符")
         if runtime is None or runtime.rag is None:
-            raise HTTPException(status_code=503, detail="RAG 未配置（qdrant/embedding 缺配置）")
+            raise HTTPException(
+                status_code=503,
+                detail="RAG 摄取未配置（需 qdrant/embedding/main_service）",
+            )
         count = await ingest_content(runtime.rag.source, runtime.rag.index)
         return {"ingested": count}
 
