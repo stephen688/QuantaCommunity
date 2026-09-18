@@ -16,7 +16,7 @@ from qdrant_client import AsyncQdrantClient
 from quanta_bot.consumer import CommentEventConsumer
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
-from quanta_bot.infra.content_sync import ContentSyncClient, FakeContentSource
+from quanta_bot.infra.content_sync import ContentSyncClient
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
 from quanta_bot.infra.embedding import QwenEmbeddingClient
 from quanta_bot.infra.kv import InMemoryKV, RedisKV
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class RagStack:
     """RAG 组合（source 摄取源 + index 检索索引——/admin/ingest 端点消费）。"""
 
-    source: ContentSyncClient | FakeContentSource
+    source: ContentSyncClient
     index: QdrantContentIndex
 
 
@@ -56,7 +56,7 @@ class Runtime:
     deps: PipelineDeps
     settings: Settings
     control_plane: ControlPlane
-    rag: RagStack | None = None  # /admin/ingest 消费（None=RAG 未配置，端点 503）
+    rag: RagStack | None = None  # /admin/ingest 摄取栈（None=摄取未配置，端点 503）
     consumer: CommentEventConsumer | None = None
     _closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
     _consumer_task: asyncio.Task[None] | None = field(default=None, repr=False)
@@ -177,19 +177,21 @@ def build_runtime(settings: Settings) -> Runtime:
         if not settings.fake_mode:
             logger.warning("qdrant_url 未配置——记忆降级为内存版（重启即失，不持久）")
         memory_store = InMemoryUserMemoryStore(embedding)
-    # RAG（C-3 改形：bot 自建索引）：qdrant+embedding 真接齐 → 内容索引+同步客户端+retriever；
-    # 缺任一 → retriever=None（管线 ⑧ 步降级直说不知道——场景 6 降级链路）
+    # RAG（C-3 改形）：qdrant+embedding 真接齐 → 内容索引+retriever；主服务齐才开放摄取。
+    # qdrant/embedding 缺任一 → retriever=None（管线 ⑧ 步降级直说不知道——场景 6 降级链路）
     retriever: QdrantContentIndex | None = None
-    content_source: ContentSyncClient | FakeContentSource
     if qdrant_client is not None and isinstance(embedding, QwenEmbeddingClient):
         content_index = QdrantContentIndex(
             qdrant_client, settings.qdrant_content_collection, embedding
         )
-        content_source = (
-            ContentSyncClient(main_service) if main_service is not None else FakeContentSource()
-        )
         retriever = content_index
-        rag_stack = RagStack(source=content_source, index=content_index)
+        if main_service is not None:
+            rag_stack = RagStack(source=ContentSyncClient(main_service), index=content_index)
+        else:
+            logger.warning(
+                "main_service 未配置——保留 RAG 检索但关闭内容摄取，/admin/ingest 返回 503"
+            )
+            rag_stack = None
     else:
         if not settings.fake_mode:
             logger.warning(

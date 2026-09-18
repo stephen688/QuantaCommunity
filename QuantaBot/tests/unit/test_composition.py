@@ -3,7 +3,6 @@
 from quanta_bot.composition import build_runtime
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
-from quanta_bot.infra.content_sync import FakeContentSource
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
 from quanta_bot.infra.kv import InMemoryKV, RedisKV
 from quanta_bot.infra.main_service import (
@@ -125,8 +124,8 @@ async def test_real_mode_builds_real_clients_when_configured(tmp_path) -> None:
         await runtime.aclose()
 
 
-async def test_real_mode_rag_without_main_service_token_uses_fake_source(tmp_path) -> None:
-    """主服务只有 URL 时，RAG 不引用未装配的 main_service，改用合成源。"""
+async def test_real_mode_rag_without_main_service_disables_ingest(tmp_path) -> None:
+    """主服务缺 token 时保留索引检索，但关闭摄取，禁止合成政策进入真 Qdrant。"""
     runtime = build_runtime(
         _settings(
             tmp_path,
@@ -140,8 +139,7 @@ async def test_real_mode_rag_without_main_service_token_uses_fake_source(tmp_pat
         )
     )
     try:
-        assert runtime.rag is not None
-        assert isinstance(runtime.rag.source, FakeContentSource)
+        assert runtime.rag is None
         assert isinstance(runtime.deps.retriever, QdrantContentIndex)
     finally:
         await runtime.aclose()

@@ -1,10 +1,12 @@
 """generation 异步真调行为测试（FakeLLM 注入，hermetic）。"""
 
+import pytest
+
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.pipeline.decision import DecisionResult
 from quanta_bot.pipeline.generation import generate
 from quanta_bot.pipeline.persona import PersonaLibrary
-from quanta_bot.pipeline.ports import LLMResult
+from quanta_bot.pipeline.ports import LLMClientError, LLMResult
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
@@ -49,6 +51,30 @@ async def test_generate_keeps_badge_when_present() -> None:
         persona=PersonaLibrary(),
     )
     assert output.reply.content.count("[QuantaBot·AI 学长]") == 1
+
+
+async def test_generate_rejects_empty_model_content() -> None:
+    """模型只返回空白时静默失败，不生成只有 AI 徽章的空壳评论。"""
+
+    class EmptyFakeLLM(FakeLLM):
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+        ) -> LLMResult:
+            return LLMResult(content=" \n", prompt_tokens=1, completion_tokens=0)
+
+    with pytest.raises(LLMClientError, match="空内容"):
+        await generate(
+            _event(),
+            decision=None,
+            llm=EmptyFakeLLM(),
+            context_text="上下文",
+            persona=PersonaLibrary(),
+        )
 
 
 async def test_generate_uses_assembled_context_verbatim() -> None:
