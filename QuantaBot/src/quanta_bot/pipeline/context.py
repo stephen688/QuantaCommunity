@@ -20,6 +20,7 @@ from quanta_bot.crosscutting.ports import KeyValueStore, TruncationRecord
 from quanta_bot.pipeline.ports import (
     CommentNode,
     LLMClient,
+    LLMClientError,
     PostThread,
     Summarizer,
 )
@@ -225,7 +226,7 @@ async def build_channel_c(
         return cached, (), True
     try:
         summary = await summarizer.summarize(remote)
-    except SummaryError:  # 失败降级=丢弃远区照常回复（静默优于乱回）
+    except (SummaryError, LLMClientError):  # 摘要内容或传输失败都只丢远区，主回复继续
         return (
             "",
             (

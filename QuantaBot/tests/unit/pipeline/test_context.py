@@ -13,7 +13,7 @@ from quanta_bot.pipeline.context import (
     assemble,
     build_channel_c,
 )
-from quanta_bot.pipeline.ports import CommentNode, PostSummary, PostThread
+from quanta_bot.pipeline.ports import LLMClientError, CommentNode, PostSummary, PostThread
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 _SUMMARY_FIVE_KEYS = '{"topic": "选课", "conclusions": [], "disputes": [], "unanswered_questions": [], "key_facts": []}'
@@ -183,6 +183,32 @@ async def test_channel_c_malformed_retries_then_drops() -> None:
     )
     assert text == "" and cache_hit is False
     assert any("远区丢弃" in t.reason for t in truncations)
+
+
+async def test_channel_c_llm_failure_drops_remote_and_continues() -> None:
+    """摘要 LLM 超时/限流时丢弃远区，不让异常击穿整条回复。"""
+
+    class FailingLLM:
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+        ) -> None:
+            raise LLMClientError("摘要请求超时")
+
+    text, truncations, cache_hit = await build_channel_c(
+        [_floor(1, None, "远区")],
+        LLMSummarizer(FailingLLM()),
+        InMemoryKV(),
+        10,
+        "v1",
+        24,
+    )
+    assert text == "" and cache_hit is False
+    assert any("远区丢弃" in truncation.reason for truncation in truncations)
 
 
 async def test_assemble_respects_total_budget() -> None:
