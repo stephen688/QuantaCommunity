@@ -65,6 +65,11 @@ async def generate(
     )  # 人格 system（A 通道）
     result = await llm.complete(system=system, user=user_prompt)  # 调用 LLM
     content = result.content.strip()
+    if not content:
+        # 局部导入避开 ports→generation 的运行时契约环；空输出按 LLM 失败交由管线静默处理。
+        from quanta_bot.pipeline.ports import LLMClientError
+
+        raise LLMClientError("生成模型返回空内容")
     if AI_BADGE not in content:
         content = f"{AI_BADGE} {content}"
     parent_floor = event.parent_id if event.parent_id is not None else event.comment_id
