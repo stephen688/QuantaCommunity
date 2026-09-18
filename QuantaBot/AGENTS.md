@@ -7,6 +7,7 @@
 > v0.4.2（2026-09-13）——§3 本地运行消除端口 [待确认]：端口是 Agent 自有服务配置（默认 8000，--port 可覆盖），非主服务联调契约；联调配置项仍随 Phase 0 结论更新。
 > v0.4.3（2026-09-16）——M2 完成：§3 增「本地全栈」「integration 显式档」命令；「与主服务联调」[待确认] 按 Phase 0 结论（C-1~C-7）落为契约级事实（真联调回补随 demo0 D1-D7）。
 > v0.4.4（2026-09-16）——§4.3 硬规则收紧两条：①命名禁止单字母/过度简化变量（循环索引除外）；②核心业务链路每一步必须跟简短行内注释说明业务意图（M2 review 反馈）。
+> v0.4.5（2026-09-18）——M3 完成：§3 回填 eval 两档运行说明（默认 pipeline 档零成本；`QUANTABOT_EVAL=1` persona 档真调 DeepSeek 并产生费用），从零初始化口径同步落定。
 
 ***
 
@@ -70,11 +71,11 @@ QuantaBot/
 - **单测**：`uv run pytest tests/unit -q`。
 - **本地全栈（M2 起）**：`docker compose -f docker/docker-compose.yml up -d`（app+qdrant+dev RabbitMQ+agent-redis+Langfuse v4 全家桶，共 10 容器；资源 12GB+）。
 - **integration 显式档（真依赖 smoke）**：`QUANTABOT_INTEGRATION=1 uv run pytest tests/integration`（默认 skip；真调 DeepSeek/Langfuse/Redis/MQ/Qdrant，LLM 产生真实计费；跑前 `docker compose stop app` 防消费者抢消息，跑完恢复）。
-- **评测门禁**：`uv run pytest tests/eval`（改人格/策略后必须通过才能提交发布；种子 = PRD 7.5 三个验收样例）。
+- **评测门禁（两档）**：`uv run pytest tests/eval` = pipeline 档（FakeLLM，默认运行、零成本、persona 用例跳过）；`QUANTABOT_EVAL=1 uv run pytest tests/eval` = persona 档（真调 DeepSeek 生成 + deterministic + Judge，产生真实费用；改人格/策略后本地终验必须全绿）。
 - **promptfoo 红队**：`promptfoo redteam run --config eval/redteam.yaml`（独立 CLI，不进 Python 依赖树；报告进发布门禁）。
 - **lint/格式化**：`uv run ruff check src tests` + `uv run ruff format src tests`（ruff 同时承担 lint 与 format，不引入 black/isort）。
 - **与主服务联调**（Phase 0 已对齐 C-1~C-7，契约级等价物已落地）：MQ 队列 `quantabot.comment.queue`（C-1 消息契约=BotMentionMessage）；评论树 GET `/bot/comment/chain|history`、写库 POST `/comment/send`（C-2/C-5，Bearer service token）；**端到端真联调随 demo0 D1-D7 回补**（M2 计划 Task 19）。
-- **从零初始化** `[待确认]`：`.env` 从 `.env.example` 复制（settings.py 定稿后提供模板）、promptfoo 独立 CLI 安装步骤、红队通过标准 → 见《技术选型.md》评测阈值细节节；eval/ 落地后回填本条。
+- **从零初始化**：复制 `.env.example` 为 `.env` 并填写所需密钥，执行 `uv sync --frozen`；先跑默认 pipeline 档 eval，配置 DeepSeek 后再显式跑 persona 档。promptfoo 为独立 CLI、不进 Python 依赖树，其红队配置与发布门禁在 M4 收紧。
 
 ***
 
