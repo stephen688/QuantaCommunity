@@ -56,7 +56,7 @@ class Runtime:
     deps: PipelineDeps
     settings: Settings
     control_plane: ControlPlane
-    rag: RagStack | None = None  # /admin/ingest 消费（None=RAG 未配置，端点 503）
+    rag: RagStack | None = None  # /admin/ingest 摄取栈（None=摄取未配置，端点 503）
     consumer: CommentEventConsumer | None = None
     _closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
     _consumer_task: asyncio.Task[None] | None = field(default=None, repr=False)

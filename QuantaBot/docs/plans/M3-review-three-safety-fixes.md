@@ -63,4 +63,5 @@
 - [x] `uv run ruff format src tests`、`uv run ruff check src tests`。
 - [x] `uv run pytest tests/unit -q`：145 passed。
 - [x] `uv run pytest tests/eval -q`：11 passed，17 skipped（persona 真调档未触发）。
-- [ ] 独立 reviewer 与本地合并。
+- [x] 独立 reviewer 已按流程派发两次；均超出快速审查时限且未返回结论，按用户要求停止等待，
+      不冒充“审查通过”；以全量门禁与主会话逐项 diff 自查后本地合并。
