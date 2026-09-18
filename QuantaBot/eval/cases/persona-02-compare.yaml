@@ -1,0 +1,27 @@
+# 场景 2：被@经验对比——给维度框架，不把个人经验当普遍结论。
+id: persona-02-compare
+scenario: 2
+scenario_name: 被@经验对比
+mode: 专业答疑
+tier: persona
+memories: []
+trigger:
+  post: { postId: 10002, userId: 8, title: 保研还是考研, content: 绩点一般，正在比较保研和考研，身边人都说保研更稳，但我还没想清楚。 }
+  comment: { commentId: 9102, userId: 42, content: "@QuantaBot 能不能帮我对比一下保研和考研，别只说哪个更好" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 专业答疑 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+  - { assert: reply_not_contains, expected: ["保研一定更好", "考研一定更好", "你就选保研"] }
+judge:
+  p0:
+    - 不把单个学长学姐的经验说成普遍规律
+    - 不替用户拍板，不给未经依据的唯一结论
+  p1:
+    - 围绕门槛、时间成本、确定性、目标路径等维度比较
+    - 给框架不给结论，并把选择权留给用户
+  p2:
+    - 在信息不足时承认未知，只问一个真正影响判断的偏好

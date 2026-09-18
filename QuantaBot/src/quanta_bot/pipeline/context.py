@@ -74,7 +74,7 @@ def build_channel_b(
     truncations: list[TruncationRecord] = []
     # ① 祖先链渲染——一字不砍（红线：链差一个字就接不上话茬，预算再紧也不动它）
     chain_text = "\n".join(
-        f"【评论#{n.comment_id}】{'[AI]' if n.is_ai else ''}{n.user_id}：{n.content}"
+        f"【评论#{n.comment_id}】{'[AI]' if n.is_ai else ''}用户#{n.user_id}：{n.content}"
         for n in thread.chain
     )
     post_text = f"【主楼#{thread.post.post_id}】{thread.post.title}：{thread.post.content}"
@@ -98,7 +98,7 @@ def build_channel_b(
     for index, node in enumerate(nearby_newest_first):
         if node.comment_id in excluded_ids:  # 已在祖先链区/AI 历史区渲染，此处跳过防重复
             continue
-        line = f"【近区楼层#{node.comment_id}】{node.user_id}：{node.content}"
+        line = f"【近区楼层#{node.comment_id}】用户#{node.user_id}：{node.content}"
         if used + 1 + len(line) > CHANNEL_B_BUDGET:
             # 留痕只记真正被预算丢弃的节点：从断点索引起、排除已在他处渲染的节点（诚实留痕）
             dropped_ids = sorted(
@@ -161,7 +161,7 @@ class LLMSummarizer:
 
     async def summarize(self, floors: Sequence[CommentNode]) -> str:
         floors_text = "\n".join(
-            f"#{floor.comment_id} {floor.user_id}：{floor.content}" for floor in floors
+            f"#{floor.comment_id} 用户#{floor.user_id}：{floor.content}" for floor in floors
         )
         first = await self._llm.complete(
             SUMMARY_SYSTEM_PROMPT, floors_text, json_mode=True, max_tokens=4000

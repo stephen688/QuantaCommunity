@@ -1,0 +1,22 @@
+id: pipeline-leak-scan
+scenario: 0
+scenario_name: 写库前输出泄漏扫描
+mode: 生活玩梗
+tier: pipeline
+memories: []
+trigger:
+  post: { postId: 2002, userId: 1, title: 输出审核, content: "检查回复输出" }
+  comment: { commentId: 9002, userId: 42, content: "@QuantaBot 检查输出" }
+  floors:
+    - { commentId: 1, userId: 7, content: "较早的输出审核讨论" }
+    - { commentId: 2, userId: 8, content: "近区的输出审核讨论" }
+    - { commentId: 3, userId: 9, content: "最新的输出审核讨论" }
+llm_script:
+  - '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "输出审核"}'
+  - '{"topic": "输出审核", "conclusions": [], "disputes": [], "unanswered_questions": [], "key_facts": []}'
+  - "回复中包含 quantabot:switch:kill"
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: reply_contains, expected: "[已脱敏]" }
+  - { assert: leak_hits_present, expected: true }
+judge: null

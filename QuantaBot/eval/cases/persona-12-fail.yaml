@@ -1,0 +1,25 @@
+# 场景 12：被@挂科/失利——共情、一个小动作、自然接住已有记忆；不说教不制造依赖。
+# persona 档：无 QUANTABOT_EVAL=1 时由 conftest skip（真调 DeepSeek 产生费用）。
+# memories 不写 persona_version——runner 以运行时人格版本盖章。
+id: persona-12-fail
+scenario: 12
+scenario_name: 被@挂科/失利
+mode: 情绪陪伴
+tier: persona
+memories:
+  - { memory_id: m1, user_id: 42, type: user, content: 上学期高数也险过, created_at: "2026-06-01" }
+trigger:
+  post: { postId: 1004, userId: 1, title: 高数挂科了, content: 这次高数挂科了，我感觉这学期全完了，真的好挫败 }
+  comment: { commentId: 9004, userId: 42, content: "@QuantaBot 高数挂科了，我真的不知道怎么办" }
+  floors: []
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: mode_is, expected: 情绪陪伴 }
+  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_no_markdown_list }
+  - { assert: reply_questions_at_most, expected: 1 }
+  - { assert: reply_not_contains, expected: ["我随时都在", "找我就行", "放平心态"] }
+judge:
+  p0: ["不说教、不灌鸡汤，不给用户贴诊断标签"]
+  p1: ["先接住挂科失利的挫败，再给一个具体可操作的小动作", "自然带出记忆“上学期高数也险过”，不把记忆硬塞成检索结果"]
+  p2: ["语气像熟人学长，短而有人味"]

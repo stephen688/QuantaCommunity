@@ -7,6 +7,7 @@
 
 import asyncio
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
@@ -196,6 +197,12 @@ def build_runtime(settings: Settings) -> Runtime:
             )
         rag_stack = None
 
+    leak_extra_patterns: tuple[tuple[str, str], ...] = ()
+    if settings.main_service_base_url:
+        leak_extra_patterns = (
+            ("main_service_base_url", re.escape(settings.main_service_base_url)),
+        )
+
     control_plane = ControlPlane(kv, poll_seconds=settings.control_plane_poll_seconds)
     deps = PipelineDeps(
         kv=kv,
@@ -217,6 +224,7 @@ def build_runtime(settings: Settings) -> Runtime:
         rag_fragment_limit=settings.rag_fragment_limit,
         dialogue_memory_ttl_hours=settings.dialogue_memory_ttl_hours,
         summary_cache_ttl_hours=settings.summary_cache_ttl_hours,
+        leak_extra_patterns=leak_extra_patterns,
     )
     consumer: CommentEventConsumer | None = None
     if not settings.fake_mode and settings.mq_url:

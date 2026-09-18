@@ -516,3 +516,24 @@ async def test_retrieval_exception_degrades_not_blocks(tmp_path) -> None:
     trace = captured_trace(deps)
     assert trace.retrieval_degraded is True
     assert deps.reply_writer.written
+
+
+async def test_leak_scan_before_write(tmp_path) -> None:
+    """写库前命中泄漏即替换并留痕，但不阻断回复。"""
+    deps = _m3_deps(
+        FakeLLM(
+            responses=[
+                _DECISION_JSON,
+                "回复中包含 quantabot:switch:kill",
+            ]
+        ),
+        tmp_path=tmp_path,
+    )
+
+    result = await run(_event("@QuantaBot 检查输出", comment_id=26), deps)
+
+    assert result == "replied"
+    written_content = deps.reply_writer.written[0].content
+    assert "[已脱敏]" in written_content
+    assert "quantabot:switch:kill" not in written_content
+    assert captured_trace(deps).leak_hits
