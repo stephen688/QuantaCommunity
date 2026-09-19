@@ -1,0 +1,191 @@
+name: QuantaBot M4 Persona and Release Gate
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "QuantaBot/prompts/**"
+      - "QuantaBot/src/quanta_bot/**"
+      - "QuantaBot/eval/**"
+      - "QuantaBot/tests/eval/**"
+      - "QuantaBot/scripts/**"
+  pull_request:
+    paths:
+      - "QuantaBot/prompts/**"
+      - "QuantaBot/src/quanta_bot/**"
+      - "QuantaBot/eval/**"
+      - "QuantaBot/tests/eval/**"
+      - "QuantaBot/scripts/**"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "付费门禁档位"
+        required: true
+        type: choice
+        options:
+          - persona
+          - release
+        default: persona
+      base_sha:
+        description: "可选：用于触发判断的基线 SHA；留空时保守要求 Persona"
+        required: false
+        type: string
+        default: ""
+      head_sha:
+        description: "可选：用于触发判断的目标 SHA；留空时使用当前 workflow SHA"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m4-gate-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    name: Determine M4 gate trigger
+    runs-on: ubuntu-latest
+    outputs:
+      persona_required: ${{ steps.classify.outputs.persona_required }}
+    steps:
+      - name: Checkout full history for path classification
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.head_sha || github.sha }}
+      - name: Classify changed paths without reading secrets
+        id: classify
+        env:
+          BASE_SHA: ${{ inputs.base_sha || (github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before) }}
+          HEAD_SHA: ${{ inputs.head_sha || github.sha }}
+        working-directory: QuantaBot
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${BASE_SHA}" ]]; then
+            result="$(python scripts/check_m4_trigger.py "${BASE_SHA}" "${HEAD_SHA}")"
+          else
+            result="$(python scripts/check_m4_trigger.py)"
+          fi
+          printf '%s\n' "${result}"
+          printf '%s\n' "${result}" >> "${GITHUB_OUTPUT}"
+
+  fork-pr-notice:
+    name: Fork PR requires maintainer dispatch
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block paid gate without a protected secret
+        shell: bash
+        run: |
+          echo "::error::persona gate requires maintainer dispatch"
+          {
+            echo "### M4 Persona gate"
+            echo
+            echo "persona gate requires maintainer dispatch"
+            echo ""
+            echo "External fork pull requests cannot access QUANTABOT_DEEPSEEK_API_KEY."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          exit 1
+
+  m4-paid-gate:
+    name: M4 ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'persona' }} gate
+    needs: detect
+    if: >-
+      needs.detect.outputs.persona_required == 'true' &&
+      !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      M4_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'persona' }}
+      QUANTABOT_DEEPSEEK_API_KEY: ${{ secrets.QUANTABOT_DEEPSEEK_API_KEY }}
+    steps:
+      - name: Checkout exact gate SHA
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.head_sha || github.sha }}
+      - name: Install uv and Python 3.12
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - name: Install locked Python dependencies
+        working-directory: QuantaBot
+        run: uv sync --frozen
+      - name: Assert the version-controlled M4 model
+        working-directory: QuantaBot
+        run: >-
+          uv run python -c
+          "import yaml; manifest=yaml.safe_load(open('eval/gate-manifest.yaml', encoding='utf-8')); assert manifest['model'] == 'deepseek-v4-flash', manifest['model']"
+      - name: Run Persona or Release gate
+        working-directory: QuantaBot
+        env:
+          QUANTABOT_EVAL: "1"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${M4_MODE}" == "release" ]]; then
+            uv run python scripts/run_m4_gate.py \
+              --runs 2 \
+              --manifest eval/gate-manifest.yaml \
+              --output-dir eval/reports
+          else
+            uv run python scripts/run_m4_gate.py \
+              --runs 1 \
+              --manifest eval/gate-manifest.yaml \
+              --output-dir eval/reports
+          fi
+      - name: Install Node.js 20 for Release red team
+        if: env.M4_MODE == 'release'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: QuantaBot/package-lock.json
+      - name: Install pinned Promptfoo dependencies
+        if: env.M4_MODE == 'release'
+        working-directory: QuantaBot
+        run: npm ci
+      - name: Run Promptfoo red team without cache
+        if: env.M4_MODE == 'release'
+        working-directory: QuantaBot
+        run: >-
+          npx promptfoo redteam run
+          --config eval/redteam.yaml
+          --no-cache
+          --tag gate=m4-v1
+          --tag git.sha=${{ github.sha }}
+      - name: Upload raw gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4-${{ env.M4_MODE }}-raw-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            QuantaBot/eval/reports/raw/
+            QuantaBot/.promptfoo/output/
+      - name: Publish only the sanitized summary
+        if: always()
+        working-directory: QuantaBot
+        shell: bash
+        run: |
+          {
+            echo "### M4 ${M4_MODE} gate"
+            echo
+            echo "Gate SHA: \`$(git rev-parse HEAD)\`"
+            echo "\nProtected release branches must require this paid gate for the same SHA."
+            if [[ -f eval/reports/m4-v1-summary.md ]]; then
+              echo
+              echo "#### Sanitized summary"
+              sed -n '1,240p' eval/reports/m4-v1-summary.md
+            else
+              echo
+              echo "No sanitized summary was produced; inspect the retained raw artifact."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
