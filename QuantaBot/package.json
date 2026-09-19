@@ -1,7 +1,7 @@
 {
   "scripts": {
     "redteam:validate": "promptfoo validate config -c eval/redteam.yaml",
-    "redteam": "promptfoo redteam run --config eval/redteam.yaml --no-cache"
+    "redteam": "uv run npx promptfoo redteam run --config eval/redteam.yaml --output eval/reports/raw/m4-v1-redteam-generated.yaml --no-cache"
   },
   "devDependencies": {
     "promptfoo": "0.123.1"

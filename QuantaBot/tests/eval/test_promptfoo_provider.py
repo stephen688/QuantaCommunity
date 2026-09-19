@@ -1,6 +1,7 @@
 """Promptfoo provider 契约：只暴露脱敏结果并保留安全拦截语义。"""
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,28 @@ def test_redteam_policy_plugin_has_explicit_policy_text() -> None:
     policy = next(plugin for plugin in config["redteam"]["plugins"] if plugin["id"] == "policy")
 
     assert policy["config"]["policy"].strip()
+
+
+def test_provider_bootstraps_src_before_importing_pipeline() -> None:
+    """Promptfoo 的系统 Python 不经过 uv，provider 必须自行把 src 加入 import path。"""
+    source = PROVIDER_PATH.read_text(encoding="utf-8")
+
+    assert source.index('PROJECT_ROOT / "src"') < source.index("from tests.eval._runner import")
+
+
+def test_redteam_commands_write_generated_cases_outside_source_config() -> None:
+    """0.123.1 默认覆盖输入配置；本地脚本与 CI 必须显式把生成物写进 raw。"""
+    project_root = Path(__file__).resolve().parents[2]
+    package = json.loads((project_root / "package.json").read_text(encoding="utf-8"))
+    workflow = (project_root.parent / ".github/workflows/m4-persona-gate.yml").read_text(
+        encoding="utf-8"
+    )
+
+    expected_output = "eval/reports/raw/m4-v1-redteam-generated.yaml"
+    assert package["scripts"]["redteam"].startswith("uv run npx promptfoo redteam run")
+    assert f"--output {expected_output}" in package["scripts"]["redteam"]
+    assert "uv run npx promptfoo redteam run" in workflow
+    assert f"--output {expected_output}" in workflow
 
 
 @pytest.mark.asyncio

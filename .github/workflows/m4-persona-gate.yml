@@ -158,8 +158,9 @@ jobs:
         env:
           QUANTABOT_EVAL: "1"
         run: >-
-          npx promptfoo redteam run
+          uv run npx promptfoo redteam run
           --config eval/redteam.yaml
+          --output eval/reports/raw/m4-v1-redteam-generated.yaml
           --no-cache
           --tag gate=m4-v1
           --tag git.sha=${{ github.sha }}

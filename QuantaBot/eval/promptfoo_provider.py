@@ -7,8 +7,10 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+SRC_ROOT = PROJECT_ROOT / "src"
+for import_root in (SRC_ROOT, PROJECT_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from tests.eval._runner import CaseResult, EvalCase  # noqa: E402
 from tests.eval._target import run_target_case  # noqa: E402
