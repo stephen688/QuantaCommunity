@@ -83,7 +83,16 @@ public final class RolePermissionMapping {
                     PermissionConstants.EVENT_REPLAY,
                     PermissionConstants.AUDIT_LOG_READ,
                     PermissionConstants.ROLE_MANAGE
-            )
+            ),
+
+            /*
+             * QuantaBot 系统账号：
+             * 服务间鉴权身份（C-5 契约），无任何管理权限，
+             * 注册进来只为让 user_role 表中的 BOT 角色能通过
+             * isManagementRole 校验进入 Spring Security。
+             */
+            RoleConstants.BOT,
+            Set.of()
     );
 
     /**

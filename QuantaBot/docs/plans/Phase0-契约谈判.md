@@ -3,7 +3,7 @@
 > **定位**：Phase 0 外部契约对齐轨道的实施计划——记录 grill-me 需求结论、demo0 现状侦察证据、七项契约草案文本与 demo0 侧改造清单。
 > **上游权威**：红线与工作流读 `AGENTS.md`；里程碑结构读 `总计划.md`；本文件结论敲定后，契约细节唯一权威落 `docs/技术选型.md`，本文件只留谈判过程与状态。
 > **谈判方式**：双方均为本人（QuantaBot Owner = demo0 Owner），"谈判"= 逐项对照 demo0 代码核实 → 出契约文本 → 授权后实施 demo0 改造 → 勾掉 `总计划.md` §1 对应项。
-> **状态**：`谈判中`（七项结论已对齐，待逐项落契约文本并实施）
+> **状态**：`已决议（后端）`（2026-09-18：昵称、service token 方案、限流、AI 标识与 policy upsert/墓碑管理路径均有代码及真实后端验收证据；小程序与 17 场景真链路另行回补）
 
 ---
 
@@ -14,7 +14,7 @@
 | # | 问题 | 结论 | 影响 |
 |---|---|---|---|
 | G1 | bot 以什么身份存在？ | **demo0 新增系统账号**（非微信养号、非内网裸奔）。bot 拥有独立 user_id + 专属角色，昵称/头像带 AI 标识 | P0-5 硬前置；所有接口鉴权围绕它设计 |
-| G2 | 服务间鉴权机制？ | **系统账号 + 长期 service token**。demo0 签发长期 token，复用现有 JWT 过滤器链认证，BaseContext 映射到 bot user_id；token 可吊销 | P0-2/P0-3(内容源)/P0-5 全部走这套鉴权 |
+| G2 | 服务间鉴权机制？ | **系统账号 + service token**。demo0 签发 1 年 JWT，复用现有 JWT 过滤器链认证，`tokenType=service`/`userId=10000` 映射到 BaseContext；本轮采用到期或 secret rotation 后重签的失效方案，未承诺单 token 吊销接口 | P0-2/P0-3(内容源)/P0-5 全部走这套鉴权 |
 | G3 | 事件触发时机？ | **评论审核通过后发**。bot 只见合规内容，不会回复后续被驳回的评论；代价是回复延迟多一个机审时长（可接受） | P0-1 事件挂在现有"审核通过"钩子处 |
 | G4 | @ 检测归属？ | **前端 @ 卡片方案**：选中机器人 → 插入结构化 @；直接回复机器人也自动带 @。demo0 在评论创建时已知道是否命中 bot，**事件里直接打结构化 mention 标记**，bot 不做文本正则猜测 | P0-1 事件字段含 `mentionedBot: boolean`；前端需加 @ 选择卡片 |
 | G5 | bot 回复怎么过审核？ | **双层**：bot 侧规则预检（已有，同步）+ demo0 对 bot 评论开启阿里云 AI 机审（异步，复用现有链路）。demo0 需让 `targets.comment.enabled` 对 bot 生效（当前全局为 false） | 红线 §0.3/0.4 第一天存在；P0-4 无需新接口 |
@@ -69,21 +69,21 @@
 
 - **归属变更**：RAG 检索归 QuantaBot 自建（Qdrant，M2 compose 已规划）；demo0 `/rag/search` 不对 bot 承诺，继续服务社区搜索。
 - **① 政策文档通道（P0-6）**：demo0 提供 `POST /bot/knowledge/policy-docs`（或约定文件目录），bot 拉取后自行 chunk、embedding、入 Qdrant（`docKind=POLICY`）。文档来源与更新频率由 Owner 维护。
-- **② 社区内容增量同步**：`GET /bot/content/sync?since={ts}&pageNum&pageSize`，返回审核通过（可见状态）的帖子/回答（含 `contentId/answerId/docKind/content/createTime/updateTime`）；bot 定时拉取增量，全量初始化走 `since=0`。帖子删除/编辑的清理语义见 §5 待定项。
+- **② 社区内容增量同步**：`GET /bot/content/sync?since={ts}&pageNum&pageSize`，返回审核通过（可见状态）的帖子/回答（含 `contentId/answerId/docKind/content/createTime/updateTime`）；bot 定时拉取增量，全量初始化走 `since=0`。本轮已有 `ingest=156,deleted=53` 的 bot 侧摄取证据；B1-05 upsert、B1-06 delete、B1-06b 翻页发现 deleted 均通过，临时管理员权限已清理 count=0。
 - **鉴权**：bot service token。
 
 ### C-4 @ 卡片与 mention 标记契约（前端 + demo0）
 
-- **前端**：评论框 @ 按钮 → 弹出机器人选择卡片（bot 头像/昵称/AI 标识）→ 选中插入结构化 @（前端记录 `mentionBot=true`，评论内容含 @ 昵称文本）；直接回复 bot 的评论（`replyUserId == botUserId`）自动视为命中。
-- **demo0**：评论创建/审核链路计算 `mentionedBot = (前端标记) || (replyUserId == botUserId)`，随 C-1 事件发出。
-- **兜底**：若前端标记缺失，bot 侧对文本 `@<bot昵称>`（人格定名后同步）做一层容错正则——仅作降级，不作为主判定。
+- **前端**：评论框 @ 按钮 → 弹出机器人选择卡片（bot 头像/昵称/AI 标识）→ 选中插入结构化 @（前端记录 `mentionBot=true`，评论内容含 @ 昵称文本）；直接回复 bot 的评论（`replyUserId == botUserId`）自动视为命中。本轮小程序 Task 11 暂缓；后端 `mentionBot` 透传与单条真 E2E 已由 B2 证据确认。
+- **demo0**：评论创建/审核链路计算 `mentionedBot = (mentionBot) || (replyUserId == botUserId)`，随 C-1 事件发出。
+- **兜底**：若前端标记缺失，bot 侧对文本 `@框框` 做一层容错正则——仅作降级，不作为主判定。
 
 ### C-5 系统账号与服务间鉴权契约（P0-5 前置）
 
-- **系统账号**：demo0 建 bot 用户（固定 user_id，昵称=量量/波仔/路路 定名后同步，头像带 AI 标识，角色新增 `ROLE_BOT`），不走微信登录。
-- **鉴权机制**：demo0 为 bot 签发**长期 service token**（JWT，`TokenAuthenticationService` 识别后 `BaseContext = botUserId`，角色 `ROLE_BOT` → 满足 `/comment/send` 的 `@PreAuthorize("hasRole('VERIFIED_USER')")`，或为 bot 单独放行配置）；token 可吊销，泄露即换。
-- **写库**：bot 发评论走现有 `POST /comment/send`，请求体即 `CommentAddDTO`，不改字段；限流单独设档（scene=`comment-send-bot`，保守值建议 ≤6 条/分钟，待定项回填）。
-- **发帖身份标识**：bot 评论落库带 AI 标识（前端渲染"AI 生成"角标的依据），实现方式（独立字段 or 用户类型）实施时定。
+- **系统账号**：demo0 建 bot 用户（固定 `user_id=10000`，昵称=**框框**，头像带 AI 标识，角色为 `BOT`），不走微信登录。
+- **鉴权机制**：demo0 为 bot 签发 **1 年 service JWT**（`tokenType=service`、`userId=10000`；`TokenAuthenticationService` 识别后映射 `BaseContext`）。本轮确认到期与轮换 `JWT_USER_SECRET_KEY` 后重签是失效/轮换方案；未把单 token 吊销接口写成已验证能力。
+- **写库**：bot 发评论走现有 `POST /comment/send`，请求体即 `CommentAddDTO`，不改字段；限流单独设档（scene=`comment-send-bot`，**6 次/60s**）。
+- **发帖身份标识**：bot 评论使用 `BOT` 用户角色与评论 VO `isBot` 布尔供前端渲染 AI 角标，不在评论表重复存一套身份字段。
 
 ### C-6 审核契约（P0-4）
 
@@ -123,8 +123,8 @@
 
 ## 5. 待定项（实施时回填）
 
-- [ ] bot 昵称定名（量量/波仔/路路）→ C-4 @ 文本、C-5 昵称头像
-- [ ] service token 有效期与吊销机制细节 → C-5
-- [ ] bot 限流配额具体值 → C-5
-- [ ] 内容同步的删除/编辑清理语义 → C-3
-- [ ] AI 标识的存储实现（独立字段 or 用户类型）→ C-5
+- [x] bot 昵称定名 = **框框** → C-4 `@框框` 文本、C-5 系统账号昵称；真实回复 VO 已见 `nickName=框框`
+- [x] service token 方案 = **1 年 JWT**，`tokenType=service`、`userId=10000`；到期或轮换 `JWT_USER_SECRET_KEY` 后重签；单 token 吊销接口不作为本轮已证实能力 → C-5
+- [x] bot 限流配额 = **6 次/60s**，scene=`comment-send-bot` → C-5
+- [x] 内容同步的删除/编辑清理语义 → C-3；B1-05 upsert、B1-06 delete、B1-06b 翻页发现 `status=deleted`、B1-07 权限边界均通过，`ingest=156,deleted=53`，临时管理员权限清理 count=0
+- [x] AI 标识 = `BOT` 用户角色 + 评论 VO `isBot` 布尔，不在评论表重复存字段 → C-5；真实 public comment/list/replyList 已见 `isBot=true`

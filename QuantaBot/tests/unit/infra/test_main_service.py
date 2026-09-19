@@ -33,7 +33,7 @@ _CHAIN_BODY = {
                 "parentId": 100,
                 "replyCommentId": 100,
                 "userId": 5,
-                "content": "@QuantaBot hi",
+                "content": "@框框 hi",
                 "createTime": "2026-09-15 10:00:00",
             },
         ],
@@ -71,7 +71,7 @@ def _event() -> TriggerEvent:
             "commentId": 101,
             "postId": 9,
             "commenterUserId": 5,
-            "commentContent": "@QuantaBot hi",
+            "commentContent": "@框框 hi",
             "mentionedBot": True,
             "botTriggerKind": "mentioned",
         }
@@ -175,7 +175,7 @@ _REPLY = GeneratedReply(
     reply_to_comment_id=101,
     reply_to_user_id=5,
     parent_floor_comment_id=100,
-    content="[QuantaBot·AI 学长] 回复内容",
+    content="[框框·AI 学长] 回复内容",
 )
 
 
@@ -203,7 +203,7 @@ async def test_http_reply_writer_posts_comment_add_dto() -> None:
     assert body["parentId"] == 100
     assert body["replyCommentId"] == 101
     assert body["replyUserId"] == 5
-    assert body["content"] == "[QuantaBot·AI 学长] 回复内容"
+    assert body["content"] == "[框框·AI 学长] 回复内容"
     assert body["imageUrls"] == []
 
 

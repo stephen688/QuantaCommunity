@@ -19,6 +19,13 @@ public @interface RateLimit {
     int windowSeconds();
 
     /**
+     * BOT 角色独立配额（次/窗口）。
+     * -1 = 不区分（默认，BOT 与普通用户同档）；
+     * >= 0 时 BOT 角色自动改用 scene + "-bot" 与本配额（C-5 契约）。
+     */
+    int botLimit() default -1;
+
+    /**
      * Redis异常时是否拒绝请求。
      */
     boolean failClosed() default true;

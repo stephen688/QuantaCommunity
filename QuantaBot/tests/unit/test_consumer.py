@@ -79,7 +79,7 @@ async def test_handle_valid_message_runs_pipeline_and_acks(tmp_path) -> None:
     """契约消息 → pipeline 跑通（replied）+ ack。"""
     deps, audit, writer, kv = _deps(tmp_path)
     consumer = CommentEventConsumer("amqp://x", deps, ControlPlane(kv))
-    msg = StubMessage(_msg(1, "@QuantaBot 帮我选课"))
+    msg = StubMessage(_msg(1, "@框框 帮我选课"))
     await consumer._handle(msg)
     assert msg.acked is True
     assert len(writer.written) == 1
@@ -120,7 +120,7 @@ async def test_handle_pipeline_crash_bailed_out_as_failed(tmp_path) -> None:
             await real_audit.record(entry)
 
     deps.audit = ExplodingAudit()
-    msg = StubMessage(_msg(2, "@QuantaBot 帮我选课"))
+    msg = StubMessage(_msg(2, "@框框 帮我选课"))
     await consumer._handle(msg)
     assert msg.acked is True
     entries = await audit.fetch_entries()
@@ -135,7 +135,7 @@ async def test_handle_pauses_while_kill_enabled(tmp_path) -> None:
     consumer = CommentEventConsumer("amqp://x", deps, cp, poll_seconds=0.01)
     await kv.set(SWITCH_KILL_KEY, "true", ttl_seconds=60)
     await cp.refresh()
-    msg = StubMessage(_msg(3, "@QuantaBot 帮我选课"))
+    msg = StubMessage(_msg(3, "@框框 帮我选课"))
     task = asyncio.create_task(consumer._handle(msg))
     await asyncio.sleep(0.1)
     assert msg.acked is False and writer.written == []  # 暂停：零新回复

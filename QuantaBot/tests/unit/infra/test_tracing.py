@@ -12,11 +12,11 @@ def _trace(**overrides) -> RunTrace:
     base = dict(
         comment_id=7,
         post_id=99,
-        trigger_content="@QuantaBot hi",
+        trigger_content="@框框 hi",
         decision="replied",
         mode="生活玩梗",
         reason="链路完整",
-        generated_content="[QuantaBot·AI 学长] 回复",
+        generated_content="[框框·AI 学长] 回复",
         prompt_tokens=500,
         completion_tokens=100,
         cost_li=8,
@@ -92,7 +92,7 @@ async def test_langfuse_tracer_records_trace_and_generation() -> None:
     assert call["trace_context"] == {"trace_id": "tid[run-7]"}
     assert call["name"] == "pipeline.run"
     assert call["as_type"] == "span"
-    assert call["input"] == "@QuantaBot hi"
+    assert call["input"] == "@框框 hi"
     assert call["output"] == "replied: 链路完整"
     assert len(stub.root_handles) == 1
     root = stub.root_handles[0]

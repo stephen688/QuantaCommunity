@@ -23,7 +23,7 @@ def test_load_case_parses_yaml_contract(tmp_path: Path) -> None:
             "tier: pipeline",
             "trigger:",
             "  post: { postId: 1, userId: 1, title: t, content: 主楼 }",
-            '  comment: { commentId: 2, userId: 42, commentContent: "@QuantaBot 你好" }',
+            '  comment: { commentId: 2, userId: 42, commentContent: "@框框 你好" }',
             "deterministic:",
             "  - { assert: decision_is, expected: replied }",
         ]
@@ -51,8 +51,8 @@ def _pipeline_case(asserts: list[dict], reply: str) -> tuple[EvalCase, CaseResul
 
 def test_deterministic_assertions_positive_and_negative() -> None:
     """断言函数正反例：反格式化红线与问句上限（可执行判据，非 Judge 感觉）。"""
-    good = "[QuantaBot·AI 学长] 抱抱，先拆个小计划。"
-    bad = "[QuantaBot·AI 学长] 建议：\n- 早睡\n- 列清单"
+    good = "[框框·AI 学长] 抱抱，先拆个小计划。"
+    bad = "[框框·AI 学长] 建议：\n- 早睡\n- 列清单"
     asserts = [
         {"assert": "reply_no_markdown_list"},
         {"assert": "reply_questions_at_most", "expected": 1},

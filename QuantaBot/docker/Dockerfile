@@ -7,12 +7,14 @@ COPY pyproject.toml uv.lock ./
 # --no-install-project：依赖层只装三方（源码改动不破缓存；运行层用 PYTHONPATH 载入源码）
 RUN uv sync --frozen --no-dev --no-install-project
 COPY src ./src
+COPY prompts ./prompts
 
 FROM python:3.12-slim
 RUN useradd --create-home --uid 1000 quanta
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/src /app/src
+COPY --from=builder /app/prompts /app/prompts
 ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH="/app/src" PYTHONUNBUFFERED=1
 USER quanta
 EXPOSE 8000

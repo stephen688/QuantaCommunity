@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from quanta_bot.pipeline.ports import LLMClient
 
 # AI 身份标识（红线 §0.1——生成层强制注入，不依赖模型自觉）
-AI_BADGE = "[QuantaBot·AI 学长]"
+AI_BADGE = "[框框·AI 学长]"
 
 
 class GeneratedReply(BaseModel):

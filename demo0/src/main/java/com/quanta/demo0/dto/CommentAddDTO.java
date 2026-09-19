@@ -69,4 +69,10 @@ public class CommentAddDTO implements Serializable {
 
     private List<String> imageUrls;
 
+    /**
+     * 是否通过 @ 卡片提及 bot（C-4 前端结构化标记）。
+     * 可选；服务端事件判定以文本 @昵称 + replyUserId 为准，本字段仅作观测记录。
+     */
+    private Boolean mentionBot;
+
 }

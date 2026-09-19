@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -42,6 +43,20 @@ public class GlobalExceptionHandler {
     public Result<Void> handleAuthFailedException(AuthFailedException ex){
         log.error("认证失败：{}", ex.getMessage());
         return Result.error(401, ex.getMessage());
+    }
+
+    /**
+     * 方法级授权拒绝发生在 MVC 调用阶段，不会经过过滤器的 AccessDeniedHandler。
+     * 在这里保持与过滤器一致的 HTTP/body 403 语义，避免被通用异常误报为 500。
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public Result<Void> handleAccessDeniedException(
+            AccessDeniedException exception,
+            HttpServletResponse response
+    ) {
+        log.warn("访问被拒绝：{}", exception.getMessage());
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        return Result.error(403, "无权访问该资源");
     }
 
     // 3. 资源未找到 → 404

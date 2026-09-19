@@ -122,6 +122,19 @@ public class OutboxRouteRegistry {
                     .build();
         }
 
+        /**
+         * bot 触发事件（C-1）：路由到 quantabot 拓扑。
+         */
+        if (OutboxEventType.BOT_MENTION_REQUESTED.getCode().equals(event.getEventType())) {
+            BotMentionMessage message = deserializePayload(event.getPayload(), BotMentionMessage.class);
+
+            return OutboxRoute.builder()
+                    .exchange(RabbitMQConfig.BOT_MENTION_EXCHANGE)
+                    .routingKey(RabbitMQConfig.BOT_MENTION_ROUTING_KEY)
+                    .message(message)
+                    .build();
+        }
+
 
         throw new IllegalArgumentException(
                 "不支持的 Outbox 事件类型：" + event.getEventType()

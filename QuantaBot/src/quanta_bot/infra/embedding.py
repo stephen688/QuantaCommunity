@@ -8,6 +8,8 @@
 
 import httpx
 
+_DASHSCOPE_MAX_BATCH_SIZE = 10
+
 
 class EmbeddingError(Exception):
     """embedding 调用失败（网络/HTTP/契约不符统一包装）。"""
@@ -35,6 +37,14 @@ class QwenEmbeddingClient:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), _DASHSCOPE_MAX_BATCH_SIZE):
+            vectors.extend(
+                await self._embed_batch(texts[start : start + _DASHSCOPE_MAX_BATCH_SIZE])
+            )
+        return vectors
+
+    async def _embed_batch(self, texts: list[str]) -> list[list[float]]:
         payload: dict[str, object] = {"model": self._model, "input": texts}
         try:
             resp = await self._http.post("/embeddings", json=payload)

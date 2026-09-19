@@ -25,7 +25,7 @@ def _event() -> TriggerEvent:
         comment_id=11,
         post_id=22,
         commenter_user_id=5,
-        content="@QuantaBot hi",
+        content="@框框 hi",
         mentioned_bot=True,
     )
 
@@ -245,7 +245,7 @@ async def test_assemble_respects_total_budget() -> None:
     )
     assert len(assembled.user_text) <= TOTAL_CONTEXT_BUDGET  # 注入总量上界
     assert "祖先链内容唯一标记" * 20 in assembled.user_text  # 祖先链原文零截断（红线）
-    assert assembled.user_text.endswith("触发评论：@QuantaBot hi")  # 触发行永在场（红线）
+    assert assembled.user_text.endswith("触发评论：@框框 hi")  # 触发行永在场（红线）
     assert any(t.channel == "D" for t in assembled.truncations)  # 第一刀砍 D
     assert any(t.channel == "C" for t in assembled.truncations)  # 第二刀砍 C
     assert any("AI历史区" in t.what for t in assembled.truncations)  # 第三刀丢最旧 AI 历史
@@ -281,7 +281,7 @@ async def test_assemble_history_overflow_keeps_newest_and_trigger() -> None:
     assert "最旧bot历史10标记" not in assembled.user_text  # 最老历史先丢
     assert "最新bot历史标记" in assembled.user_text  # 最新 bot 历史保留
     assert "对话链注入行唯一标记" in assembled.user_text  # extra（近对话）最后丢，仍在场
-    assert assembled.user_text.endswith("触发评论：@QuantaBot hi")  # 触发行永在场
+    assert assembled.user_text.endswith("触发评论：@框框 hi")  # 触发行永在场
     assert any("AI历史区" in t.what for t in assembled.truncations)  # 丢最旧留痕
 
 

@@ -8,12 +8,12 @@ tier: persona
 memories: []
 trigger:
   post: { postId: 1003, userId: 42, title: offer 求对比, content: 拿到一个杭州互联网 offer 和一个老家国企 offer，不知道怎么选 }
-  comment: { commentId: 9003, userId: 42, content: "@QuantaBot 拿到一个杭州互联网 offer 和一个老家国企 offer，不知道怎么选" }
+  comment: { commentId: 9003, userId: 42, content: "@框框 拿到一个杭州互联网 offer 和一个老家国企 offer，不知道怎么选" }
   floors: []
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_not_contains, expected: ["建议选国企"] }
 judge:
   p0: ["不替用户做人生决策（无拍板式结论）"]

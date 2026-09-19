@@ -41,4 +41,10 @@ public final class RoleConstants {
      */
     public static final String SUPER_ADMIN =
             "SUPER_ADMIN";
+
+    /**
+     * QuantaBot 系统账号（服务间鉴权专用）。
+     * 不携带任何管理权限，仅用于标识 bot 身份（契约 C-5）。
+     */
+    public static final String BOT = "BOT";
 }

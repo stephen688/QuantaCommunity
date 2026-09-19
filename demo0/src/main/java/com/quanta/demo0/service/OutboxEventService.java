@@ -41,6 +41,20 @@ public interface OutboxEventService {
      */
     String createCommentModerationEvent(ContentComment comment, List<String> imageUrls);
 
+    /**
+     * 在评论审核通过事务中创建 bot 触发事件。
+     *
+     * @param comment 评论实体（审核已通过）
+     * @param imageUrls 评论图片 URL，可空
+     * @param botTriggerKind mentioned 或 replied
+     * @return eventId
+     */
+    String createBotMentionEvent(
+            ContentComment comment,
+            List<String> imageUrls,
+            String botTriggerKind
+    );
+
 
     /**
      * 帖子审核通过时创建 Feed 校准事件。

@@ -6,7 +6,7 @@ tier: pipeline
 memories: []
 trigger:
   post: { postId: 2002, userId: 1, title: 输出审核, content: "检查回复输出" }
-  comment: { commentId: 9002, userId: 42, content: "@QuantaBot 检查输出" }
+  comment: { commentId: 9002, userId: 42, content: "@框框 检查输出" }
   floors:
     - { commentId: 1, userId: 7, content: "较早的输出审核讨论" }
     - { commentId: 2, userId: 8, content: "近区的输出审核讨论" }

@@ -16,7 +16,7 @@ def _event() -> TriggerEvent:
         comment_id=11,
         post_id=22,
         commenter_user_id=3,
-        content="@QuantaBot hi",
+        content="@框框 hi",
         mentioned_bot=True,
     )
 
@@ -27,10 +27,10 @@ async def test_generate_injects_ai_badge_when_missing() -> None:
     output = await generate(
         _event(), decision=None, llm=llm, context_text="上下文", persona=PersonaLibrary()
     )
-    assert output.reply.content.startswith("[QuantaBot·AI 学长]")
+    assert output.reply.content.startswith("[框框·AI 学长]")
     assert "AI" in output.reply.content
     system = llm.calls[0]["system"]
-    assert system.startswith("# QuantaBot 人格内核")  # system 以人格内核开头（A 通道内核在前）
+    assert system.startswith("# 框框人格内核")  # system 以人格内核开头（A 通道内核在前）
     assert "# 模式：生活玩梗" in system  # 无决策 → 默认生活玩梗模式
 
 
@@ -40,7 +40,7 @@ async def test_generate_keeps_badge_when_present() -> None:
     class BadgedFakeLLM(FakeLLM):
         async def complete(self, system: str, user: str) -> LLMResult:
             return LLMResult(
-                content="[QuantaBot·AI 学长] 我自己带了标识", prompt_tokens=1, completion_tokens=1
+                content="[框框·AI 学长] 我自己带了标识", prompt_tokens=1, completion_tokens=1
             )
 
     output = await generate(
@@ -50,7 +50,7 @@ async def test_generate_keeps_badge_when_present() -> None:
         context_text="上下文",
         persona=PersonaLibrary(),
     )
-    assert output.reply.content.count("[QuantaBot·AI 学长]") == 1
+    assert output.reply.content.count("[框框·AI 学长]") == 1
 
 
 async def test_generate_rejects_empty_model_content() -> None:
@@ -80,7 +80,7 @@ async def test_generate_rejects_empty_model_content() -> None:
 async def test_generate_uses_assembled_context_verbatim() -> None:
     """user_prompt=assemble 产物原样：触发评论已由 assemble 触发行承载（红线），M2 后缀曾致三重注入。"""
     llm = FakeLLM()
-    context_text = "【主楼】选课帖\n【触发行】@QuantaBot hi"
+    context_text = "【主楼】选课帖\n【触发行】@框框 hi"
     await generate(
         _event(), decision=None, llm=llm, context_text=context_text, persona=PersonaLibrary()
     )
@@ -106,5 +106,5 @@ async def test_generate_output_anchors_and_usage() -> None:
     assert output.prompt_tokens == 500
     assert output.completion_tokens == 100
     system = llm.calls[0]["system"]
-    assert system.startswith("# QuantaBot 人格内核")  # 内核开头（QuantaBot 身份锚定）
+    assert system.startswith("# 框框人格内核")  # 内核开头（框框身份锚定）
     assert "# 模式：生活玩梗" in system  # decision.mode 驱动对应模式文本

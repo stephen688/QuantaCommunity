@@ -43,6 +43,31 @@ async def test_embed_empty_input_returns_empty_without_call() -> None:
     await client.aclose()
 
 
+async def test_embed_splits_dashscope_batches_at_ten_and_preserves_order() -> None:
+    """DashScope 单次最多 10 条；大批量应透明分片并按输入顺序拼回。"""
+    batches: list[list[str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content.decode("utf-8"))
+        batch = payload["input"]
+        batches.append(batch)
+        return httpx.Response(
+            200,
+            json={"data": [{"embedding": [float(text.removeprefix("doc-"))]} for text in batch]},
+        )
+
+    client = QwenEmbeddingClient(
+        "https://emb.test", "sk-x", "text-embedding-v4", 5.0, transport=httpx.MockTransport(handler)
+    )
+    texts = [f"doc-{index}" for index in range(23)]
+
+    vectors = await client.embed(texts)
+
+    assert [len(batch) for batch in batches] == [10, 10, 3]
+    assert vectors == [[float(index)] for index in range(23)]
+    await client.aclose()
+
+
 async def test_embed_wraps_contract_violations() -> None:
     """非 JSON/缺 data 字段统一 EmbeddingError（不留逃逸域异常）。"""
     client = QwenEmbeddingClient(

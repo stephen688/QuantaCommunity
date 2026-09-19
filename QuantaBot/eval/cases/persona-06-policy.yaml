@@ -8,14 +8,14 @@ memories: []
 retrieval_fragments: []
 trigger:
   post: { postId: 10006, userId: 12, title: 奖助学金政策咨询, content: 学校今年奖助学金什么时候评审？绩点门槛和材料清单是什么？请按官方政策回答，查不到就直说。 }
-  comment: { commentId: 9106, userId: 42, content: "@QuantaBot 奖助学金什么时候评审，绩点和材料要求能确认吗" }
+  comment: { commentId: 9106, userId: 42, content: "@框框 奖助学金什么时候评审，绩点和材料要求能确认吗" }
   floors: []
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
   - { assert: retrieval_in_context, expected: false }
   - { assert: retrieval_degraded_is, expected: true }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
 judge:

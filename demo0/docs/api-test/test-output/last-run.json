@@ -1,4 +1,4 @@
-﻿{
+{
     "results":  [
                     {
                         "msg":  "",
@@ -67,8 +67,8 @@
     "env":  {
                 "BASE_URL":  "http://localhost:9191",
                 "USER_ID":  "1",
-                "ADMIN_TOKEN":  "eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjoxLCJ1c2VySWQiOjEsImlhdCI6MTc3OTE4NDY5NiwiZXhwIjoxNzc5Nzg5NDk2fQ.kByKgAwO33noSZxAIegOMSbDeRJrhTXJY9tqtaTH5cY",
-                "USER_TOKEN":  "eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjoxLCJ1c2VySWQiOjEsImlhdCI6MTc3OTE4NDY5NiwiZXhwIjoxNzc5Nzg5NDk2fQ.kByKgAwO33noSZxAIegOMSbDeRJrhTXJY9tqtaTH5cY"
+                "ADMIN_TOKEN":  "<REDACTED_TOKEN>",
+                "USER_TOKEN":  "<REDACTED_TOKEN>"
             },
     "timestamp":  "2026-05-19 17:58:16",
     "passCount":  8,

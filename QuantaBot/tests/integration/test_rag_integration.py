@@ -30,8 +30,8 @@ async def redis_kv():
 
 async def test_rag_ingest_and_retrieve(rag_stack) -> None:
     """合成源摄取真 Qdrant 后，POLICY 命中且 payload doc_kind 过滤生效。"""
-    count = await ingest_content(rag_stack.source, rag_stack.index)
-    assert count >= 8
+    upserted, _ = await ingest_content(rag_stack.source, rag_stack.index)
+    assert upserted >= 8
 
     fragments = await rag_stack.retriever.retrieve(
         "奖助学金什么时候评审", limit=3, doc_kind="POLICY"

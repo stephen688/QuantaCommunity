@@ -14,7 +14,7 @@ _MQ_MESSAGE = {
     "postId": 9,
     "answerId": None,
     "commenterUserId": 5,
-    "commentContent": "@QuantaBot 帮我看看选课",
+    "commentContent": "@框框 帮我看看选课",
     "commentImages": [],
     "mentionedBot": True,
     "botTriggerKind": "mentioned",
@@ -31,7 +31,7 @@ def test_trigger_event_from_mq_contract_json() -> None:
     assert ev.post_id == 9
     assert ev.answer_id is None
     assert ev.commenter_user_id == 5
-    assert ev.content == "@QuantaBot 帮我看看选课"
+    assert ev.content == "@框框 帮我看看选课"
     assert ev.images == ()
     assert ev.mentioned_bot is True
     assert ev.trigger_kind == "mentioned"
@@ -62,7 +62,7 @@ def test_trigger_event_rejects_missing_contract_field() -> None:
 
 def test_detect_mention_fallback_semantics() -> None:
     """C-4 兜底：文本 @ 检测保留（主判定已切结构化标记，此函数仅前端标记缺失时降级用）。"""
-    assert detect_mention("@QuantaBot hi") is True
-    assert detect_mention("@quantabot 在吗") is True
+    assert detect_mention("@框框 hi") is True
+    assert detect_mention("@框框 在吗") is True
     assert detect_mention("随便聊聊") is False
-    assert AI_NICKNAME == "QuantaBot"  # [待定项] bot 昵称定名后同步（Phase0 谈判 §5）
+    assert AI_NICKNAME == "框框"

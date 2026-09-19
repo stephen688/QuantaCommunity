@@ -5,14 +5,13 @@
       detect_mention 文本兜底（C-4：主判定=事件结构化 mentionedBot 标记，前端标记缺失时降级）。
 边界：不做幂等（crosscutting 负责，幂等键=comment_id，eventId 仅投递层辅助）；
       不解析楼层（评论树接口负责）。
-[待定项] AI_NICKNAME 随 bot 昵称定名同步（Phase0 谈判 §5：量量/波仔/路路）。
 """
 
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-AI_NICKNAME = "QuantaBot"
+AI_NICKNAME = "框框"
 
 
 class TriggerEvent(BaseModel):

@@ -11,13 +11,17 @@ import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
+import com.quanta.demo0.properties.QuantabotProperties;
+import com.quanta.demo0.service.bot.BotMentionDetector;
 import com.quanta.demo0.service.CommentAuditService;
 import com.quanta.demo0.service.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -42,6 +46,10 @@ public class CommentAuditServiceImpl implements CommentAuditService {
     private final ContentMapper contentMapper;
     private final QuestionMapper questionMapper;
     private final OutboxEventService outboxEventService;
+
+    /** bot 账号与昵称配置；审核服务只消费配置，不持有 HTTP 上下文。 */
+    @Autowired
+    private QuantabotProperties quantabotProperties;
 
     @Transactional
     @Override
@@ -75,6 +83,8 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_ADD");
 
         createCommentSearchEvents(comment, "COMMENT_ADD");
+        // C-1/C-4：评论可见后再判定 bot mention，并将触发事件写入同一事务。
+        maybeCreateBotMentionEvent(comment);
         return true;
     }
 
@@ -121,6 +131,8 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         // 驳回评论重新通过后，评论数和热度 Outbox 一起提交。
         outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_ADD");
         createCommentSearchEvents(comment, "COMMENT_ADD");
+        // C-1/C-4：驳回评论重新通过也必须进入同一 bot 触发判定。
+        maybeCreateBotMentionEvent(comment);
         return true;
     }
 
@@ -172,6 +184,28 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         if (comment.getAnswerId() != null) {
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), comment.getAnswerId(), triggerType);
         }
+    }
+
+    /**
+     * C-1/C-4：仅在审核通过后判定 bot 命中，命中才创建触发 Outbox。
+     */
+    private void maybeCreateBotMentionEvent(ContentComment comment) {
+        boolean mentioned = BotMentionDetector.isBotMentioned(
+                comment.getContent(),
+                quantabotProperties.getBotNickname(),
+                comment.getReplyUserId(),
+                quantabotProperties.getBotUserId()
+        );
+        if (!mentioned) {
+            return;
+        }
+
+        List<String> imageUrls = commentMapper.selectImagesByCommentId(comment.getCommentId());
+        String triggerKind = BotMentionDetector.triggerKind(
+                comment.getReplyUserId(),
+                quantabotProperties.getBotUserId()
+        );
+        outboxEventService.createBotMentionEvent(comment, imageUrls, triggerKind);
     }
 
     /** 在审核事务中创建评论、回答和回复通知 Outbox。 */

@@ -29,6 +29,8 @@
 | Phase 5 | 写操作与业务规则 | `ANSWER_ID`, `COMMENT_ID` |
 | Phase 6 | 管理端治理 | 封禁、举报处理等 |
 | Phase 7 | 破坏性清理 | 仅删除测试数据 |
+| Bot-0 | Task 13 真栈前置 | `07-bot.http` 的 B0/B1/B2 鉴权、契约和单条 E2E |
+| Bot-1 | Task 14 回归 | `07-bot.http` 的 S01-S17 人格场景；未有真证据不得勾 M3 |
 
 ## 登录 Mock
 
@@ -46,7 +48,7 @@ curl -s -X POST "$BASE_URL/user/login" \
 |------|------|
 | `RESULTS.md` | 64 接口唯一执行记录 |
 | `env.example.sh` | 环境变量模板 |
-| `cases/` | 可选 curl / `.http` 用例（`01`–`02` 鉴权/造数/审核；`03-read`/`04-write` 读写；`05-admin`/`06-destructive` 治理/清理） |
+| `cases/` | 可选 curl / `.http` 用例（`01`–`02` 鉴权/造数/审核；`03-read`/`04-write` 读写；`05-admin`/`06-destructive` 治理/清理；`07-bot` QuantaBot 联调） |
 | `scripts/run-phase.sh` | **主入口**（Git Bash / Linux / macOS）：curl + jq，写 `env.sh` + `test-output/last-run.json`；连续 3 次同类失败暂停 |
 | `scripts/run-phase.ps1` | Windows 备选（同上能力，无 jq 依赖） |
 
@@ -70,3 +72,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-phase.ps1 -Pha
 - **拦截器**：无 Token / 无效 Token → HTTP **401**；普通用户访问 `/admin/**` → HTTP **403**
 - **业务**：看 JSON `code` 与 `msg`（200 成功；400/401/404/500 见 `GlobalExceptionHandler`）
 - **contentType**：以 Service 为准 — `1`=生活求助，`2`=专业问答
+
+## Bot 主链路验收（Task 14）
+
+`cases/07-bot.http` 是独立的 QuantaBot 联调套件，不替代既有 Phase 0-7 用例。执行前必须满足：
+
+1. Task 13 已启动 demo0 `:9191`、QuantaBot `:8000`、RabbitMQ、Redis、Qdrant、Langfuse，并确认 `/health` 为真模式且依赖均为 `ok`。
+2. 先运行 `01-auth-user.http` 取得 `userToken`；`adminToken` 必须具备运营管理员权限；`botToken` 只能从本机 `cases/http-client.private.env.json` 注入。
+3. 先用一个真实可见帖子 ID 填 `botTestContentId`；B2-01 运行后由响应脚本写 `botTriggerCommentId`，等待异步链路完成后再跑 B2-02~B2-04。
+4. IntelliJ HTTP Client 不做无界轮询；异步链路 60 秒内未可见即记录 `FAIL/BLOCKED`，并回到 Task 13 五段证据定位。`B1-06b` 使用 B1-05 生成的本地当前时间回拨水位线（`yyyy-MM-dd HH:mm:ss`，URL 编码）与 `/bot/content/sync` 的 `pageSize=200` 上限，并要求 `hasMore=false`；缺少水位线或仍有下一页都记录为 `BLOCKED`，不得用历史全量第一页缺少 docId 推断墓碑不存在。
+
+变量模板中只保留空值和 `botUserId=10000`。真 token 不得进入 `http-client.env.json`、`env.example.sh`、`RESULTS.md` 或 Git diff。验收状态只能写 `PASS`、`FAIL`、`BLOCKED`；没有 Task 13 真运行证据时，Bot 章节保持 `BLOCKED`。

@@ -7,12 +7,12 @@ tier: persona
 memories: []
 trigger:
   post: { postId: 10003, userId: 9, title: 六级备考怎么排, content: 六级还有六周，词汇和听力都比较薄弱，平时每天只有一小时，想把复习节奏排得现实一点。 }
-  comment: { commentId: 9103, userId: 42, content: "@QuantaBot 六级只剩六周了，词汇和听力该怎么安排" }
+  comment: { commentId: 9103, userId: 42, content: "@框框 六级只剩六周了，词汇和听力该怎么安排" }
   floors: []
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["保过", "一定能过", "照做就能过"] }

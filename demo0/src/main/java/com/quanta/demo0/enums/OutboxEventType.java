@@ -37,7 +37,12 @@ public enum OutboxEventType {
     /**
      * 根据 MySQL 当前状态，重新校准 Elasticsearch 文档。
      */
-    SEARCH_RECONCILE_REQUESTED("SEARCH_RECONCILE_REQUESTED");
+    SEARCH_RECONCILE_REQUESTED("SEARCH_RECONCILE_REQUESTED"),
+
+    /**
+     * 审核通过的评论命中 bot（@ 或直接回复），请求 QuantaBot 触发处理（C-1）。
+     */
+    BOT_MENTION_REQUESTED("BOT_MENTION_REQUESTED");
 
 
 

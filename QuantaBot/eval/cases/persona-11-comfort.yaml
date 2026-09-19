@@ -10,12 +10,12 @@ memories:
   - { memory_id: m1, user_id: 42, type: user, content: 上学期也经历过考试周崩溃, created_at: "2026-06-01" }
 trigger:
   post: { postId: 1001, userId: 1, title: 期末焦虑, content: 期末要挂科了，室友都在卷，我好焦虑 }
-  comment: { commentId: 9001, userId: 42, content: "@QuantaBot 好焦虑啊怎么办" }
+  comment: { commentId: 9001, userId: 42, content: "@框框 好焦虑啊怎么办" }
   floors: []
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 情绪陪伴 }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["我随时都在", "找我就行", "放平心态"] }

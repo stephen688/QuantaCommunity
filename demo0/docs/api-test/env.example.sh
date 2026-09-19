@@ -35,3 +35,15 @@ export IMAGE_URL=""         # POST /common/upload 返回
 # --- 可选：举报 / 搜索历史等用例 ---
 export REPORT_ID=""
 export SEARCH_HISTORY_ID=""
+
+# --- QuantaBot 主链路（Task 13/14；真值只进本机 private env）---
+# BOT_TOKEN 使用 demo0 service token；不要写进本文件或提交到 Git。
+export BOT_TOKEN=""
+export BOT_USER_ID="10000"
+export BOT_TEST_CONTENT_ID=""
+export BOT_TRIGGER_COMMENT_ID=""
+export BOT_REPLY_COMMENT_ID=""
+export BOT_POLICY_DOC_ID=""
+
+# IntelliJ HTTP Client 可在 cases/http-client.private.env.json 中覆盖 botToken，
+# 该文件已被 .gitignore 忽略；没有真 token 时保持空值，套件应标 BLOCKED。

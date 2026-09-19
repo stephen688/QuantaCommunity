@@ -193,7 +193,7 @@ async def test_full_m3_flow_with_memory_and_assembly() -> None:
     )
     llm = FakeLLM(responses=[decision_json, "抱抱，先拆个小计划"])  # 决策+生成两次调用
     deps = _m3_deps(llm, preset_memory_id="m1")  # 辅助构造：预置一条 m1 记忆 + 全 fake 依赖
-    decision = await run(_event("@QuantaBot 期末要挂科了好焦虑"), deps)
+    decision = await run(_event("@框框 期末要挂科了好焦虑"), deps)
     assert decision == "replied"
     store = deps.memory_store
     hits = await store.recall(42, deps.persona.persona_version, "期末", limit=5)
@@ -208,7 +208,7 @@ async def test_low_value_hard_rule_skips_before_fetch() -> None:
     llm = FakeLLM()
     fetcher_calls = CountingFetcher()
     deps = _m3_deps(llm, fetcher_calls)
-    decision = await run(_event("@QuantaBot 哈哈哈哈哈"), deps)
+    decision = await run(_event("@框框 哈哈哈哈哈"), deps)
     assert decision == "skipped_low_value"
     assert llm.calls == [] and fetcher_calls.count == 0
 
@@ -220,7 +220,7 @@ async def test_decision_not_worth_replying_skips_silently() -> None:
             '{"should_reply": false, "mode": "生活玩梗", "confidence": 0.7, "reason": "纯凑热闹"}'
         ]
     )
-    decision = await run(_event("@QuantaBot 今天食堂好像换了新窗口"), _m3_deps(llm))
+    decision = await run(_event("@框框 今天食堂好像换了新窗口"), _m3_deps(llm))
     assert decision == "skipped_decision"
 
 
@@ -228,7 +228,7 @@ async def test_memory_apply_failure_does_not_rollback_reply() -> None:
     """记忆四态落库失败：回复已成功不回滚，WARNING 留痕（决策仍 replied）。"""
     deps = _m3_deps(FakeLLM(responses=[_decision_json_with_add(), "回复"]))
     deps.memory_store = FailingMemoryStore()  # apply_ops 抛异常的 fake
-    decision = await run(_event("@QuantaBot 期末求安慰"), deps)
+    decision = await run(_event("@框框 期末求安慰"), deps)
     assert decision == "replied"  # 记忆失败不阻断已成功回复
 
 
@@ -247,7 +247,7 @@ async def test_trace_records_truncations_and_selection() -> None:
         tree=FakeCommentTreeFetcher(post=huge_post),
         preset_memory_id="m1",
     )
-    decision = await run(_event("@QuantaBot 这帖子太长了帮我总结下"), deps)
+    decision = await run(_event("@框框 这帖子太长了帮我总结下"), deps)
     assert decision == "replied"
     trace = captured_trace(deps)
     assert trace.truncations  # 截断留痕非空
@@ -261,10 +261,10 @@ async def test_reply_flows_to_writer_with_audit_and_trace(tmp_path) -> None:
     deps = _m3_deps(
         FakeLLM(responses=[_DECISION_JSON, "选课方面我可以帮你梳理～"]), tmp_path=tmp_path
     )
-    result = await run(_event("@QuantaBot 帮我选课", comment_id=1), deps)
+    result = await run(_event("@框框 帮我选课", comment_id=1), deps)
     assert result == "replied"
     assert len(deps.reply_writer.written) == 1
-    assert deps.reply_writer.written[0].content.startswith("[QuantaBot·AI 学长]")
+    assert deps.reply_writer.written[0].content.startswith("[框框·AI 学长]")
     assert deps.reply_writer.written[0].reply_to_comment_id == 1
     entries = await deps.audit.fetch_entries()
     assert [entry.decision for entry in entries] == ["replied"]
@@ -282,7 +282,7 @@ async def test_reply_flows_to_writer_with_audit_and_trace(tmp_path) -> None:
 async def test_duplicate_comment_id_not_rewritten(tmp_path) -> None:
     """验收 2：重投同 comment_id → 写库不重复 + skipped_idempotent。"""
     deps = _m3_deps(FakeLLM(responses=[_DECISION_JSON, "重复投递测试回复"]), tmp_path=tmp_path)
-    event = _event("@QuantaBot 帮我选课", comment_id=1)
+    event = _event("@框框 帮我选课", comment_id=1)
     await run(event, deps)
     await run(event, deps)
     assert len(deps.reply_writer.written) == 1
@@ -293,7 +293,7 @@ async def test_duplicate_comment_id_not_rewritten(tmp_path) -> None:
 async def test_sensitive_content_blocked_zero_reply(tmp_path) -> None:
     """验收 3：违规文本 → 预检拦截、写库零调用、rejected_moderation。"""
     deps = _m3_deps(tmp_path=tmp_path)
-    result = await run(_event("@QuantaBot 这里有测试敏感词", comment_id=2), deps)
+    result = await run(_event("@框框 这里有测试敏感词", comment_id=2), deps)
     assert result == "rejected_moderation"
     assert deps.reply_writer.written == []
     entries = await deps.audit.fetch_entries()
@@ -314,7 +314,7 @@ async def test_structured_mention_flag_is_primary(tmp_path) -> None:
     """C-4 主判定：mentioned_bot=False 且文本无 @ → 不进链路；mentioned_bot=False 但文本兜底命中 → 进链路（降级路径）。"""
     deps = _m3_deps(FakeLLM(responses=[_DECISION_JSON, "文本兜底路径测试回复"]), tmp_path=tmp_path)
     # 兜底命中：结构化标记缺失（前端旧版本），文本含 @
-    result = await run(_event("@QuantaBot 文本兜底命中", comment_id=7, mentioned_bot=False), deps)
+    result = await run(_event("@框框 文本兜底命中", comment_id=7, mentioned_bot=False), deps)
     assert result == "replied"
     # 双未命中
     result = await run(_event("没有标记也没有艾特", comment_id=8, mentioned_bot=False), deps)
@@ -326,7 +326,7 @@ async def test_kill_switch_short_circuits_before_idempotency(tmp_path) -> None:
     deps = _m3_deps(tmp_path=tmp_path)
     await deps.kv.set(SWITCH_KILL_KEY, "true", ttl_seconds=60)
     await deps.control_plane.refresh()
-    result = await run(_event("@QuantaBot hi", comment_id=4), deps)
+    result = await run(_event("@框框 hi", comment_id=4), deps)
     assert result == "skipped_killswitch"
     assert deps.reply_writer.written == []
     assert await deps.kv.get("quantabot:idem:4") is None
@@ -337,7 +337,7 @@ async def test_kill_switch_short_circuits_before_idempotency(tmp_path) -> None:
 async def test_llm_failure_records_failed_zero_reply(tmp_path) -> None:
     """红线 §0.3：LLM 失败 → failed 静默不回（写库零调用，日志与 trace 留痕）。"""
     deps = _m3_deps(ExplodingLLM(), tmp_path=tmp_path)
-    result = await run(_event("@QuantaBot 帮我看看这道题", comment_id=5), deps)
+    result = await run(_event("@框框 帮我看看这道题", comment_id=5), deps)
     assert result == "failed"
     assert deps.reply_writer.written == []
     entries = await deps.audit.fetch_entries()
@@ -350,7 +350,7 @@ async def test_llm_failure_records_failed_zero_reply(tmp_path) -> None:
 async def test_failed_after_decision_records_mode(tmp_path) -> None:
     """决策成功后生成失败：failed 分支仍携带决策 mode（归因不因异常丢失——M2 口径保持）。"""
     deps = _m3_deps(DecisionThenExplodeLLM(), tmp_path=tmp_path)
-    result = await run(_event("@QuantaBot 期末求安慰", comment_id=11), deps)
+    result = await run(_event("@框框 期末求安慰", comment_id=11), deps)
     assert result == "failed"
     assert deps.reply_writer.written == []
     trace = captured_trace(deps)
@@ -370,7 +370,7 @@ async def test_reply_write_failure_records_failed(tmp_path) -> None:
         writer=ExplodingWriter(),
         tmp_path=tmp_path,
     )
-    result = await run(_event("@QuantaBot 帮我看看这道题", comment_id=6), deps)
+    result = await run(_event("@框框 帮我看看这道题", comment_id=6), deps)
     assert result == "failed"
     entries = await deps.audit.fetch_entries()
     assert entries[0].decision == "failed"
@@ -391,7 +391,7 @@ async def test_comment_fetch_failure_records_failed_with_trace(tmp_path) -> None
             raise AssertionError("fetch_context 已失败不应再拉楼层")
 
     deps = _m3_deps(FakeLLM(), tree=ExplodingFetcher(), tmp_path=tmp_path)
-    result = await run(_event("@QuantaBot 选课求指导", comment_id=7), deps)
+    result = await run(_event("@框框 选课求指导", comment_id=7), deps)
     assert result == "failed"
     trace = captured_trace(deps)  # 单出口契约：failed 也有 RunTrace（review I-1）
     assert trace.decision == "failed"
@@ -405,7 +405,7 @@ async def test_corrupted_dialogue_chain_degrades_to_empty(tmp_path) -> None:
     kv = InMemoryKV()
     await kv.set(dialogue.dialogue_key(10), "not-json-at-all", 3600)
     deps = _m3_deps(FakeLLM(responses=[_DECISION_JSON, "坏链兜底回复"]), kv=kv, tmp_path=tmp_path)
-    result = await run(_event("@QuantaBot 再帮我看看", comment_id=8), deps)
+    result = await run(_event("@框框 再帮我看看", comment_id=8), deps)
     assert result == "replied"  # 损坏链=丢弃不阻断（C-2③ 兜底数据源语义）
     assert deps.reply_writer.written
 
@@ -446,7 +446,7 @@ async def test_retrieval_fragments_injected_into_context(tmp_path) -> None:
     )
     deps = _m3_deps(FakeLLM(responses=[_decision_json_retrieval(), "政策回复"]), tmp_path=tmp_path)
     deps.retriever = retriever
-    result = await run(_event("@QuantaBot 奖助学金怎么申请", comment_id=21), deps)
+    result = await run(_event("@框框 奖助学金怎么申请", comment_id=21), deps)
     assert result == "replied"
     trace = captured_trace(deps)
     assert trace.retrieval_degraded is False
@@ -468,7 +468,7 @@ async def test_retrieval_fragments_over_reserved_budget_drop_tail(tmp_path) -> N
     )
     deps = _m3_deps(FakeLLM(responses=[_decision_json_retrieval(), "政策回复"]), tmp_path=tmp_path)
     deps.retriever = retriever
-    result = await run(_event("@QuantaBot 政策咨询", comment_id=22), deps)
+    result = await run(_event("@框框 政策咨询", comment_id=22), deps)
     assert result == "replied"
     trace = captured_trace(deps)
     context_text = trace.context_text or ""
@@ -484,7 +484,7 @@ async def test_retrieval_degraded_when_not_configured(tmp_path) -> None:
         tmp_path=tmp_path,
     )
     # 触发内容须过硬规则（有效内容 ≥4 字符）——「奖助学金政策怎么算」是合法政策咨询
-    decision = await run(_event("@QuantaBot 奖助学金政策怎么算", comment_id=23), deps)
+    decision = await run(_event("@框框 奖助学金政策怎么算", comment_id=23), deps)
     assert decision == "replied"
     assert captured_trace(deps).retrieval_degraded is True
 
@@ -494,7 +494,7 @@ async def test_no_retrieval_when_not_needed(tmp_path) -> None:
     retriever = _FakeRetriever(())
     deps = _m3_deps(FakeLLM(responses=[_DECISION_JSON, "玩梗回复"]), tmp_path=tmp_path)
     deps.retriever = retriever
-    result = await run(_event("@QuantaBot 今天天气不错", comment_id=24), deps)
+    result = await run(_event("@框框 今天天气不错", comment_id=24), deps)
     assert result == "replied"
     assert not retriever.queries  # 零调用
     assert captured_trace(deps).retrieval_degraded is False
@@ -511,7 +511,7 @@ async def test_retrieval_exception_degrades_not_blocks(tmp_path) -> None:
         FakeLLM(responses=[_decision_json_retrieval(), "检索故障兜底回复"]), tmp_path=tmp_path
     )
     deps.retriever = ExplodingRetriever()
-    result = await run(_event("@QuantaBot 奖助学金政策怎么算", comment_id=25), deps)
+    result = await run(_event("@框框 奖助学金政策怎么算", comment_id=25), deps)
     assert result == "replied"
     trace = captured_trace(deps)
     assert trace.retrieval_degraded is True
@@ -530,7 +530,7 @@ async def test_leak_scan_before_write(tmp_path) -> None:
         tmp_path=tmp_path,
     )
 
-    result = await run(_event("@QuantaBot 检查输出", comment_id=26), deps)
+    result = await run(_event("@框框 检查输出", comment_id=26), deps)
 
     assert result == "replied"
     written_content = deps.reply_writer.written[0].content

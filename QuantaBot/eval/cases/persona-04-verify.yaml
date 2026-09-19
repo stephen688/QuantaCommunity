@@ -7,12 +7,12 @@ tier: persona
 memories: []
 trigger:
   post: { postId: 10004, userId: 10, title: 挂科传言求证, content: 有人说只要挂一门就不能毕业，这是真的吗？我没有找到学校原文。 }
-  comment: { commentId: 9104, userId: 42, content: "@QuantaBot 求证一下，挂一门真的就不能毕业吗" }
+  comment: { commentId: 9104, userId: 42, content: "@框框 求证一下，挂一门真的就不能毕业吗" }
   floors: []
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_contains, expected: "不确定" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }

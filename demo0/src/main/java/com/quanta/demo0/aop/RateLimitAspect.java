@@ -1,6 +1,7 @@
 package com.quanta.demo0.aop;
 
 import com.quanta.demo0.annotation.RateLimit;
+import com.quanta.demo0.constant.RoleConstants;
 import com.quanta.demo0.exception.RateLimitExceededException;
 import com.quanta.demo0.security.AuthenticatedUser;
 import com.quanta.demo0.security.RateLimitDecision;
@@ -47,16 +48,26 @@ public class RateLimitAspect {
             );
         }
 
-        // ② 用用户ID做限流主体，执行原子限流
+        // ② BOT 角色且配置独立配额时切换到独立限流场景
+        String scene = rateLimit.scene();
+        int limit = rateLimit.limit();
+        if (rateLimit.botLimit() >= 0
+                && authenticatedUser.getRoles() != null
+                && authenticatedUser.getRoles().contains(RoleConstants.BOT)) {
+            scene = scene + "-bot";
+            limit = rateLimit.botLimit();
+        }
+
+        // ③ 用用户ID做限流主体，执行原子限流
         RateLimitDecision decision = rateLimitService.check(
-                rateLimit.scene(),
+                scene,
                 String.valueOf(authenticatedUser.getUserId()),
-                rateLimit.limit(),
+                limit,
                 rateLimit.windowSeconds(),
                 rateLimit.failClosed()
         );
 
-        // ③ 被限流就抛429异常，否则继续执行业务
+        // ④ 被限流就抛429异常，否则继续执行业务
         if (!decision.isAllowed()) {
             throw new RateLimitExceededException(
                     "操作过于频繁，请稍后再试",

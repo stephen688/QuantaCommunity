@@ -1,6 +1,8 @@
 package com.quanta.demo0.config;
 
+import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.properties.SecurityProperties;
+import com.quanta.demo0.security.AuthenticatedUser;
 import com.quanta.demo0.security.OptionalJwtAuthenticationFilter;
 import com.quanta.demo0.security.SecurityAccessDeniedHandler;
 import com.quanta.demo0.security.SecurityAuthenticationEntryPoint;
@@ -13,6 +15,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -20,6 +24,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Spring Security安全配置。
@@ -45,6 +50,14 @@ public class SecurityConfiguration {
     @Autowired
     private SecurityAccessDeniedHandler
             securityAccessDeniedHandler;
+
+    /**
+     * Bot HTTP 边界所使用的系统账号配置。
+     * 测试或迁移场景未注册该 Bean 时使用默认配置，避免放宽 bot 路径。
+     */
+    @Autowired(required = false)
+    private QuantabotProperties quantabotProperties =
+            new QuantabotProperties();
 
 
     /**
@@ -276,6 +289,24 @@ public class SecurityConfiguration {
                                 ).hasRole("SUPER_ADMIN");
 
                                 /*
+                                 * /bot/** 在 HTTP 层再次校验系统账号 userId，
+                                 * 防止仅凭数据库误授 BOT 角色越过 Controller 的
+                                 * @PreAuthorize。政策文档管理接口先只要求登录，
+                                 * 再由其方法级 OPERATIONS_ADMIN 授权处理。
+                                 */
+                                authorize.requestMatchers(
+                                        "/bot/knowledge/policy-docs/**"
+                                ).authenticated();
+                                authorize.requestMatchers("/bot/**")
+                                        .access((authentication, context) ->
+                                                new AuthorizationDecision(
+                                                        isBotHttpPrincipal(
+                                                                authentication.get()
+                                                        )
+                                                )
+                                        );
+
+                                /*
                                  * 除了上面的公开接口，
                                  * 其他接口暂时都要求登录。
                                  */
@@ -292,5 +323,28 @@ public class SecurityConfiguration {
                 );
 
         return http.build();
+    }
+
+    /**
+     * /bot/** 的第二授权边界：principal 必须是配置的 bot 系统账号，
+     * 并且已经由统一认证服务赋予 BOT 角色。
+     */
+    private boolean isBotHttpPrincipal(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+
+        if (!(authentication.getPrincipal() instanceof AuthenticatedUser user)) {
+            return false;
+        }
+
+        boolean configuredBotUser = Objects.equals(
+                quantabotProperties.getBotUserId(),
+                user.getUserId()
+        );
+        boolean hasBotRole = authentication.getAuthorities().stream()
+                .anyMatch(authority ->
+                        "ROLE_BOT".equals(authority.getAuthority()));
+        return configuredBotUser && hasBotRole;
     }
 }

@@ -64,7 +64,7 @@ def hard_low_value(content: str, nickname: str = AI_NICKNAME) -> str | None:
 
 
 # ---- 一车四用 system prompt（禁存三重门 + 四态规则 + 模式定义 + 输出 schema）----
-DECISION_SYSTEM_PROMPT = """你是校园社区 AI 学长 QuantaBot 的决策器。对一条 @ 触发做四项判定，只输出 JSON。
+DECISION_SYSTEM_PROMPT = """你是校园社区 AI 学长框框的决策器。对一条 @ 触发做四项判定，只输出 JSON。
 
 ## 判定一：该不该回（低价值过滤）
 - 明显无互动价值的触发（纯凑热闹、无实质内容）不值得回；真诚求助/互动/倾诉都值得回。

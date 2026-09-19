@@ -8,12 +8,12 @@ tier: persona
 memories: []
 trigger:
   post: { postId: 1005, userId: 1, title: 终于拿到奖学金了, content: 这学期终于拿到奖学金了，之前熬的夜都有回报，开心到睡不着 }
-  comment: { commentId: 9005, userId: 42, content: "@QuantaBot 我拿到奖学金啦，快来一起开心" }
+  comment: { commentId: 9005, userId: 42, content: "@框框 我拿到奖学金啦，快来一起开心" }
   floors: []
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 情绪陪伴 }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["不过要注意", "但是要提醒"] }

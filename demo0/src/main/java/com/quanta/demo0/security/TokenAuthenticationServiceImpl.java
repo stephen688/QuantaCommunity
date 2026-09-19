@@ -9,6 +9,7 @@ import com.quanta.demo0.enums.AuditStatus;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.properties.JwtProperties;
+import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.utils.JwtUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -44,6 +45,9 @@ public class TokenAuthenticationServiceImpl
     private JwtProperties jwtProperties;
 
     @Autowired
+    private QuantabotProperties quantabotProperties;
+
+    @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
     @Autowired
@@ -62,11 +66,24 @@ public class TokenAuthenticationServiceImpl
             );
         }
 
-        // 1. 校验 JWT 并取得用户 ID
-        Long userId = parseUserId(token);
+        // 1. 校验 JWT 并取得用户 ID 与令牌类型
+        Claims claims = parseClaims(token);
+        Long userId = extractUserId(claims);
 
-        // 2. 校验 Redis 中的当前有效 Token
-        validateCurrentSession(userId, token);
+        // 2. service token 仅限 bot 系统账号，跳过 Redis 会话校验。
+        boolean serviceToken = JwtClaimsConstant.SERVICE_TOKEN_TYPE
+                .equals(claims.get(JwtClaimsConstant.TOKEN_TYPE));
+        if (serviceToken) {
+            if (!quantabotProperties.getBotUserId().equals(userId)) {
+                throw authenticationFailed(
+                        TokenAuthenticationFailureReason.TOKEN_INVALID,
+                        "service token 仅限 bot 系统账号"
+                );
+            }
+        } else {
+            // 3. 普通用户 token 仍校验 Redis 中的当前有效会话
+            validateCurrentSession(userId, token);
+        }
 
         // 3. Redis 封禁标记优先判断
         String bannedKey = RedisConstants.USER_BANNED_KEY + userId;
@@ -98,7 +115,7 @@ public class TokenAuthenticationServiceImpl
         boolean verified = loadVerifiedStatus(userId);
 
         // 6. 加载用户的系统角色和数据库管理角色
-        Set<String> roles = loadRoles(userId, verified);
+        Set<String> roles = loadRoles(userId, verified, serviceToken);
 
 // 7. 根据角色计算用户拥有的具体权限
         Set<String> authorities =
@@ -122,21 +139,14 @@ public class TokenAuthenticationServiceImpl
     }
 
     /**
-     * 解析 JWT 中的用户 ID。
+     * 解析 JWT 全部声明。
      */
-    private Long parseUserId(String token) {
+    private Claims parseClaims(String token) {
         try {
-            Claims claims = JwtUtil.parseJWT(
+            return JwtUtil.parseJWT(
                     jwtProperties.getUserSecretKey(),
                     token
             );
-
-            Object userIdClaim = claims.get(JwtClaimsConstant.USER_ID);
-            if (userIdClaim == null) {
-                throw new IllegalArgumentException("JWT 缺少 userId");
-            }
-
-            return Long.valueOf(userIdClaim.toString());
         } catch (ExpiredJwtException exception) {
             throw authenticationFailed(
                     TokenAuthenticationFailureReason.TOKEN_EXPIRED,
@@ -146,6 +156,28 @@ public class TokenAuthenticationServiceImpl
             throw authenticationFailed(
                     TokenAuthenticationFailureReason.TOKEN_INVALID,
                     "登录凭证无效"
+            );
+        }
+    }
+
+    /**
+     * 从声明中提取用户 ID。
+     */
+    private Long extractUserId(Claims claims) {
+        Object userIdClaim = claims.get(JwtClaimsConstant.USER_ID);
+        if (userIdClaim == null) {
+            throw authenticationFailed(
+                    TokenAuthenticationFailureReason.TOKEN_INVALID,
+                    "JWT 缺少 userId"
+            );
+        }
+
+        try {
+            return Long.valueOf(userIdClaim.toString());
+        } catch (NumberFormatException exception) {
+            throw authenticationFailed(
+                    TokenAuthenticationFailureReason.TOKEN_INVALID,
+                    "JWT userId 非法"
             );
         }
     }
@@ -214,9 +246,21 @@ public class TokenAuthenticationServiceImpl
      */
     private Set<String> loadRoles(
             Long userId,
-            boolean verified
+            boolean verified,
+            boolean serviceToken
     ) {
         Set<String> roles = new HashSet<>();
+
+        /*
+         * BOT 不是可由 user_role 任意授予的普通管理角色。
+         * 只有配置的系统账号使用 service token 时，才建立 BOT 身份；
+         * 这样即使数据库误授 BOT，普通用户 JWT 也不会获得 ROLE_BOT。
+         */
+        boolean botServiceIdentity = serviceToken
+                && Objects.equals(quantabotProperties.getBotUserId(), userId);
+        if (botServiceIdentity) {
+            roles.add(RoleConstants.BOT);
+        }
 
         /*
          * Token认证成功的用户自动拥有USER角色。
@@ -238,6 +282,15 @@ public class TokenAuthenticationServiceImpl
 
         if (assignedRoles != null) {
             for (String assignedRole : assignedRoles) {
+
+                if (RoleConstants.BOT.equals(assignedRole)
+                        && !botServiceIdentity) {
+                    log.warn(
+                            "忽略未通过 service 身份校验的 BOT 角色，userId={}",
+                            userId
+                    );
+                    continue;
+                }
 
                 /*
                  * 只接受系统明确支持的管理角色，

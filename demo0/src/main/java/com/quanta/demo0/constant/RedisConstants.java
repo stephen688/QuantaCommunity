@@ -69,4 +69,26 @@ public class RedisConstants {
      */
     public static final String USER_FOLLOWER_RANK_KEY = "user:follower:rank";
 
+    /*
+     * ===== QuantaBot 控制面命名空间（C-7 契约）=====
+     *
+     * 这些键归 QuantaBot 所有（读写均在 bot 侧，Redis db2）：
+     *   - quantabot:switch:kill            kill switch，true=暂停消费
+     *   - quantabot:switch:graylist        灰度白名单（SET of userId）
+     *   - quantabot:switch:persona_version 人格版本（string）
+     *   - quantabot:cost:{yyyyMMdd}        日累计成本
+     *
+     * demo0 不实现 bot 控制面逻辑，仅在常量层固化命名契约，
+     * 保证未来 demo0 侧任何 Redis 使用不会侵入 quantabot: 命名空间。
+     * 键值必须与 QuantaBot crosscutting/killswitch.py、budget.py 逐字一致。
+     */
+    public static final String QUANTABOT_SWITCH_KILL_KEY =
+            "quantabot:switch:kill";
+    public static final String QUANTABOT_SWITCH_GRAYLIST_KEY =
+            "quantabot:switch:graylist";
+    public static final String QUANTABOT_SWITCH_PERSONA_VERSION_KEY =
+            "quantabot:switch:persona_version";
+    public static final String QUANTABOT_COST_KEY_PREFIX =
+            "quantabot:cost:";
+
 }

@@ -105,3 +105,12 @@ def test_settings_m3_memory_rag_defaults() -> None:
     assert s.dialogue_memory_ttl_hours == 48
     assert s.summary_cache_ttl_hours == 24
     assert s.rag_fragment_limit == 3
+
+
+def test_prod_real_mode_requires_admin_token() -> None:
+    """生产真模式必须配置摄取管理 token，避免部署暴露无认证写入口。"""
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="admin_token"):
+        Settings(_env_file=None, app_env="prod", fake_mode=False, admin_token="")

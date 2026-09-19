@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 import quanta_bot.server as server
 from quanta_bot.infra.content_sync import FakeContentSource
+from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.settings import Settings
 from quanta_bot.server import create_app
 
@@ -29,6 +30,10 @@ def test_health_fake_mode(tmp_path) -> None:
         assert all(v == "fake" for v in deps.values())
         assert body["switches"]["kill"] is False
 
+        live = client.get("/live")
+        assert live.status_code == 200
+        assert live.json()["status"] == "ok"
+
 
 def test_health_real_mode_unconfigured_shows_not_configured(tmp_path) -> None:
     """真模式全未配置：mq/llm/tracing/vector/main_service=not_configured，kv=降级标记。"""
@@ -39,7 +44,8 @@ def test_health_real_mode_unconfigured_shows_not_configured(tmp_path) -> None:
     )
     with TestClient(create_app(settings)) as client:
         resp = client.get("/health")
-        assert resp.status_code == 200
+        assert resp.status_code == 503
+        assert resp.json()["status"] == "not_ready"
         deps = resp.json()["dependencies"]
         assert deps["mq"] == "not_configured"
         assert deps["llm"] == "not_configured"
@@ -47,6 +53,43 @@ def test_health_real_mode_unconfigured_shows_not_configured(tmp_path) -> None:
         assert deps["vector"] == "not_configured"
         assert deps["kv"] == "degraded (in-memory)"
         assert deps["main_service"] == "not_configured"
+
+
+async def test_main_service_health_probe_uses_non_erroring_history_endpoint(
+    monkeypatch,
+) -> None:
+    """就绪探测不能拿不存在的 commentId 反复制造业务错误日志。"""
+    probes: list[tuple[str, dict[str, object] | None]] = []
+
+    async def fake_probe(url, headers=None, params=None):
+        probes.append((url, params))
+        return True
+
+    async def fake_mq_probe(url, timeout_seconds):
+        return True
+
+    monkeypatch.setattr(server, "_probe", fake_probe)
+    monkeypatch.setattr(server.infra_mq, "check_connection", fake_mq_probe)
+    settings = _settings(
+        fake_mode=False,
+        mq_url="amqp://mq",
+        redis_url="redis://redis",
+        deepseek_api_key="key",
+        langfuse_public_key="public",
+        langfuse_secret_key="secret",
+        qdrant_url="http://qdrant",
+        main_service_base_url="http://demo0",
+        main_service_token="token",
+        main_service_bot_user_id=10000,
+    )
+    runtime = SimpleNamespace(deps=SimpleNamespace(kv=InMemoryKV()))
+
+    await server._check_dependencies(settings, runtime)
+
+    assert probes[-1] == (
+        "http://demo0/bot/comment/history",
+        {"userId": 10000, "postId": 0, "pageNum": 1, "pageSize": 1},
+    )
 
 
 def test_lifespan_initializes_rag_content_collection(tmp_path, monkeypatch) -> None:
@@ -86,8 +129,10 @@ def test_lifespan_initializes_rag_content_collection(tmp_path, monkeypatch) -> N
     assert content.dims == [384]
 
 
-def test_admin_ingest_requires_token_and_returns_ingested_count(tmp_path, monkeypatch) -> None:
-    """管理端点校验可选 token，并调用真实摄取编排返回条数。"""
+def test_admin_ingest_requires_token_and_returns_upsert_delete_counts(
+    tmp_path, monkeypatch
+) -> None:
+    """管理端点校验可选 token，并分别返回写入与墓碑删除条数。"""
 
     class _IndexStub:
         def __init__(self) -> None:
@@ -111,9 +156,16 @@ def test_admin_ingest_requires_token_and_returns_ingested_count(tmp_path, monkey
     settings = _settings(admin_token="ingest-secret", audit_db_path=str(tmp_path / "d.db"))
 
     with TestClient(create_app(settings)) as client:
-        assert client.post("/admin/ingest", json={"token": "wrong"}).status_code == 403
-        response = client.post("/admin/ingest", json={"token": "ingest-secret"})
+        assert client.post("/admin/ingest").status_code == 403
+        assert (
+            client.post("/admin/ingest", headers={"Authorization": "Bearer wrong"}).status_code
+            == 403
+        )
+        response = client.post(
+            "/admin/ingest",
+            headers={"Authorization": "Bearer ingest-secret"},
+        )
 
     assert response.status_code == 200
-    assert response.json() == {"ingested": 8}
+    assert response.json() == {"ingested": 8, "deleted": 0}
     assert len(index.docs) == 8

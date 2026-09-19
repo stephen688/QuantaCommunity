@@ -8,7 +8,7 @@ from quanta_bot.pipeline.decision import DecisionResult, decide, hard_low_value,
 from quanta_bot.pipeline.trigger import TriggerEvent
 
 
-def _event(content: str = "@QuantaBot 选课求建议") -> TriggerEvent:
+def _event(content: str = "@框框 选课求建议") -> TriggerEvent:
     return TriggerEvent(
         eventId="e1",
         commentId=1,
@@ -21,18 +21,18 @@ def _event(content: str = "@QuantaBot 选课求建议") -> TriggerEvent:
 
 def test_hard_low_value_catches_trivial_triggers() -> None:
     """硬规则层：超短/纯符号/重复刷屏/纯链接零成本拦截（§5.6 ①）。"""
-    assert hard_low_value("@QuantaBot") is not None  # 仅 @
-    assert hard_low_value("@QuantaBot 哈") is not None  # 超短
-    assert hard_low_value("@QuantaBot ？？？!!!") is not None  # 纯符号
-    assert hard_low_value("@QuantaBot 哈哈哈哈哈") is not None  # 重复刷屏
-    assert hard_low_value("@QuantaBot https://x.com/a") is not None  # 纯链接
-    assert hard_low_value("@QuantaBot 求选课建议") is None  # 正常通过
+    assert hard_low_value("@框框") is not None  # 仅 @
+    assert hard_low_value("@框框 哈") is not None  # 超短
+    assert hard_low_value("@框框 ？？？!!!") is not None  # 纯符号
+    assert hard_low_value("@框框 哈哈哈哈哈") is not None  # 重复刷屏
+    assert hard_low_value("@框框 https://x.com/a") is not None  # 纯链接
+    assert hard_low_value("@框框 求选课建议") is None  # 正常通过
 
 
 def test_hard_low_value_blacklist_words() -> None:
     """黑词表：代写论文命中拦截；内推不在表内（场景 17 求职内推必须能接）。"""
-    assert hard_low_value("@QuantaBot 有代写论文的渠道吗") is not None
-    assert hard_low_value("@QuantaBot 学长有内推机会吗") is None
+    assert hard_low_value("@框框 有代写论文的渠道吗") is not None
+    assert hard_low_value("@框框 学长有内推机会吗") is None
 
 
 def test_parse_decision_json_full_contract() -> None:

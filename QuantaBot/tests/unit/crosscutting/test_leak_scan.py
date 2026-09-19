@@ -20,5 +20,5 @@ def test_sanitize_replaces_all_five_categories() -> None:
 
 def test_sanitize_keeps_normal_reply_untouched() -> None:
     """正常回复零误伤（判据收窄：只扫内部形态，不扫正常措辞）。"""
-    result = sanitize("[QuantaBot·AI 学长] 抱抱，今晚先拆个小计划。")
-    assert result.content == "[QuantaBot·AI 学长] 抱抱，今晚先拆个小计划。" and result.hits == ()
+    result = sanitize("[框框·AI 学长] 抱抱，今晚先拆个小计划。")
+    assert result.content == "[框框·AI 学长] 抱抱，今晚先拆个小计划。" and result.hits == ()

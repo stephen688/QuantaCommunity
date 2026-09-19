@@ -33,9 +33,11 @@ public class CommentController {
     @RateLimit(
             scene = "comment-send",
             limit = 10,
-            windowSeconds = 60
+            windowSeconds = 60,
+            botLimit = 6
     )
-    @PreAuthorize("hasRole('" + RoleConstants.VERIFIED_USER + "')")
+    @PreAuthorize("hasRole('" + RoleConstants.VERIFIED_USER + "') "
+            + "or hasRole('" + RoleConstants.BOT + "')")
     @PostMapping("/send")
     public Result sendComment(@RequestBody CommentAddDTO commentAddDTO) {
         log.info("发布评论: {}", commentAddDTO);

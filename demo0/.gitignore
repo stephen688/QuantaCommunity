@@ -41,6 +41,7 @@ build/
 
 ### API test local env ###
 docs/api-test/env.sh
+docs/api-test/cases/http-client.private.env.json
 
 ### Local secrets (do not commit) ###
 src/main/resources/application-*-secret.yml

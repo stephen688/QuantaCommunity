@@ -371,6 +371,69 @@ public class OutboxEventServiceImpl implements OutboxEventService {
         return eventId;
     }
 
+    /**
+     * 审核通过的评论命中 bot 时写入触发 Outbox，和审核副作用共用调用方事务。
+     */
+    @Override
+    @Transactional
+    public String createBotMentionEvent(
+            ContentComment comment,
+            List<String> imageUrls,
+            String botTriggerKind
+    ) {
+        validateBotTriggerKind(botTriggerKind);
+        List<String> safeImageUrls = imageUrls == null ? List.of() : List.copyOf(imageUrls);
+        validateImageUrls(safeImageUrls);
+
+        String eventId = UUID.randomUUID().toString();
+        LocalDateTime occurredAt = LocalDateTime.now();
+
+        BotMentionMessage message = BotMentionMessage.builder()
+                .eventId(eventId)
+                .eventType(OutboxEventType.BOT_MENTION_REQUESTED.getCode())
+                .occurredAt(occurredAt)
+                .retryCount(0)
+                .commentId(comment.getCommentId())
+                .postId(comment.getContentId())
+                .answerId(comment.getAnswerId())
+                .commenterUserId(comment.getUserId())
+                .commentContent(comment.getContent())
+                .commentImages(safeImageUrls)
+                .mentionedBot(true)
+                .botTriggerKind(botTriggerKind)
+                .parentId(comment.getParentId())
+                .replyCommentId(comment.getReplyCommentId())
+                .build();
+
+        String payload = serializePayload(message);
+        validatePayloadSize(payload);
+
+        OutboxEvent event = OutboxEvent.builder()
+                .eventId(eventId)
+                .eventType(OutboxEventType.BOT_MENTION_REQUESTED.getCode())
+                .aggregateType(ModerationTargetType.COMMENT.name())
+                .aggregateId(comment.getCommentId())
+                .payload(payload)
+                .status(OutboxEventStatus.PENDING.getCode())
+                .retryCount(0)
+                .nextRetryTime(occurredAt)
+                .replayCount(0)
+                .build();
+
+        // Outbox 写入失败必须抛异常，让审核状态与其它副作用一起回滚。
+        if (outboxEventMapper.insert(event) != 1) {
+            throw new CommentFailedException("创建 bot 触发事件失败");
+        }
+
+        return eventId;
+    }
+
+    private void validateBotTriggerKind(String botTriggerKind) {
+        if (!"mentioned".equals(botTriggerKind) && !"replied".equals(botTriggerKind)) {
+            throw new CommentFailedException("bot 触发类型非法");
+        }
+    }
+
 
     @Override
     @Transactional

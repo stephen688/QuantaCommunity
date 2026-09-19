@@ -174,7 +174,7 @@ trigger:
       选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖
       选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖
       选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖选课攻略帖
-  comment: { commentId: 9001, userId: 42, content: "@QuantaBot 总结一下这个帖子" }
+  comment: { commentId: 9001, userId: 42, content: "@框框 总结一下这个帖子" }
   floors:
     - commentId: 8998
       userId: 5
@@ -310,5 +310,5 @@ deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
   - { assert: truncation_channel_dropped, expected: B }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
 judge: null

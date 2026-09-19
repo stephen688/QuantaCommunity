@@ -8,6 +8,7 @@
 from pathlib import Path
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 项目根（QuantaBot/）：settings.py 位于 src/quanta_bot/infra/，向上三级
@@ -94,7 +95,7 @@ class Settings(BaseSettings):
     embedding_model: str = ""
     embedding_dim: int = 1024
     embedding_timeout_seconds: float = 10.0
-    admin_token: str = ""  # /admin/ingest 可选校验（空=不校验，默认 127.0.0.1 绑定已限内网）
+    admin_token: str = ""  # /admin/ingest Bearer token；生产真模式禁止留空
     # 记忆召回参数（粗召回 top-k 与精选上限——精选 ≤3 是蓝图钉死的值）
     memory_recall_top_k: int = 8
     memory_select_max: int = 3
@@ -104,3 +105,10 @@ class Settings(BaseSettings):
     summary_cache_ttl_hours: int = 24
     # RAG 检索片段数上限（计入 RESERVED_BUDGET 预留预算）
     rag_fragment_limit: int = 3
+
+    @model_validator(mode="after")
+    def require_admin_token_in_prod(self) -> "Settings":
+        """生产真模式必须保护会改写内容索引的管理端点。"""
+        if self.app_env == "prod" and not self.fake_mode and not self.admin_token:
+            raise ValueError("prod real mode requires admin_token")
+        return self

@@ -630,3 +630,39 @@ WHERE a.is_deleted = 0
           WHERE cm.answer_id = a.answer_id AND cm.is_deleted = 0
       )
   );
+
+-- -----------------------------------------------------------------------------
+-- 13. QuantaBot 系统账号（C-5 契约：固定 user_id=10000，昵称=框框，不走微信登录）
+--     auth_status=0（bot 不做实名认证，verified=false；评论入口由 BOT 角色放行）
+--     avatar_url 留空，小程序用默认头像兜底；联调时可手动 UPDATE 换正式头像
+-- -----------------------------------------------------------------------------
+INSERT INTO tb_user (
+    id, openid, nick_name, avatar_url, auth_status, account_status,
+    is_admin, is_deleted, create_time, update_time
+)
+SELECT
+    10000, NULL, '框框', NULL, 0, 0,
+    0, 0, NOW(), NOW()
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM tb_user WHERE id = 10000);
+
+INSERT INTO user_role (user_id, role_code, created_by)
+SELECT 10000, 'BOT', 1
+FROM DUAL
+WHERE NOT EXISTS (
+    SELECT 1 FROM user_role WHERE user_id = 10000 AND role_code = 'BOT'
+);
+
+-- -----------------------------------------------------------------------------
+-- 14. QuantaBot 政策文档表（C-3/D6：运营录入政策源）
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tb_bot_policy_doc (
+    id          BIGINT       AUTO_INCREMENT PRIMARY KEY,
+    doc_id      VARCHAR(64)  NOT NULL COMMENT '业务文档 ID（如 policy-scholarship）',
+    title       VARCHAR(200) NOT NULL,
+    content     TEXT         NOT NULL,
+    is_deleted  TINYINT      NOT NULL DEFAULT 0,
+    create_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_bot_policy_doc_id (doc_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT 'QuantaBot 政策文档';

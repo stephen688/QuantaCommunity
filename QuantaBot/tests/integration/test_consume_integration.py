@@ -90,11 +90,10 @@ async def _publish(s: Settings, messages: list[bytes]) -> None:
     connection = await aio_pika.connect(s.mq_url)
     async with connection:
         channel = await connection.channel()
-        exchange = await channel.declare_exchange(
-            _EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
-        )
-        queue = await channel.declare_queue(QUANTABOT_QUEUE, durable=True)
-        await queue.bind(exchange, routing_key=_ROUTING_KEY)
+        # 拓扑归 demo0 声明；integration 只被动取得现有资源，避免用缺少 DLX 参数的
+        # declare_queue 与生产队列属性冲突（PRECONDITION_FAILED）。
+        exchange = await channel.get_exchange(_EXCHANGE, ensure=True)
+        await channel.get_queue(QUANTABOT_QUEUE, ensure=True)
         for body in messages:
             await exchange.publish(
                 aio_pika.Message(body=body, delivery_mode=aio_pika.DeliveryMode.PERSISTENT),
@@ -139,8 +138,8 @@ async def test_consume_same_post_messages_serialized(tmp_path) -> None:
         await _publish(
             s,
             [
-                _mq_message(201, 77, "@QuantaBot 帮我看看第一条选课问题"),
-                _mq_message(202, 77, "@QuantaBot 再看看第二条保研政策"),
+                _mq_message(201, 77, "@框框 帮我看看第一条选课问题"),
+                _mq_message(202, 77, "@框框 再看看第二条保研政策"),
             ],
         )
         await _wait_until(lambda: len(writer.written) >= 2)
@@ -150,7 +149,7 @@ async def test_consume_same_post_messages_serialized(tmp_path) -> None:
         entries = await audit.fetch_entries()
         assert [e.decision for e in entries] == ["replied", "replied"]
         # 幂等（MQ 至少一次投递语义）：重发第一条 → 不重复写库 + 记 skipped_idempotent
-        await _publish(s, [_mq_message(201, 77, "@QuantaBot 帮我看看第一条选课问题")])
+        await _publish(s, [_mq_message(201, 77, "@框框 帮我看看第一条选课问题")])
         entries_after_dup: list[str] = []
         for _ in range(100):
             entries_after_dup = [e.decision for e in await audit.fetch_entries()]
@@ -192,7 +191,7 @@ async def test_consume_paused_while_kill_enabled(tmp_path) -> None:
     await cp.refresh()
     task = asyncio.create_task(consumer.run_forever())
     try:
-        await _publish(s, [_mq_message(301, 88, "@QuantaBot kill 期间的消息")])
+        await _publish(s, [_mq_message(301, 88, "@框框 kill 期间的消息")])
         await asyncio.sleep(2)
         assert writer.written == []  # kill 置位期间零新回复（消息持有未 ack）
         await kv.set(SWITCH_KILL_KEY, "false", ttl_seconds=60)

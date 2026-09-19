@@ -17,7 +17,7 @@ from quanta_bot.infra.main_service import MainServiceClient
 
 
 class SyncDoc(BaseModel):
-    """同步文档（C-3 契约形状；alias 兼容 demo0 驼峰字段——[D6 联调校准点]）。"""
+    """同步文档；软删以 status=deleted 且 docId 不变进入同步流。"""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -30,6 +30,7 @@ class SyncDoc(BaseModel):
     create_time: str = Field(default="", alias="createTime")
     update_time: str = Field(default="", alias="updateTime")
     updated_at: str = Field(default="", alias="updatedAt")
+    status: Literal["active", "deleted"] = "active"
 
     @model_validator(mode="before")
     @classmethod
@@ -155,22 +156,36 @@ class FakeContentSource:
 
 
 class ContentIndex(Protocol):
-    """内容索引端口（QdrantContentIndex 实现；摄取编排只依赖 upsert_docs）。"""
+    """内容索引端口（active upsert + 墓碑删除）。"""
 
     async def upsert_docs(self, docs: Sequence[SyncDoc]) -> int: ...
 
+    async def delete_docs(self, docs: Sequence[SyncDoc]) -> int: ...
 
-async def ingest_content(source: ContentSource, index: ContentIndex) -> int:
-    """摄取编排：源全量（分页循环至 has_more=False）→ index.upsert_docs，返回总条数。"""
-    all_docs: list[SyncDoc] = []
+
+async def ingest_content(source: ContentSource, index: ContentIndex) -> tuple[int, int]:
+    """摄取全量分页并分流 active 与墓碑，返回 (upserted, deleted)。"""
+    active_documents: list[SyncDoc] = []
+    tombstones_by_key: dict[tuple[str, str], SyncDoc] = {}
     since = "1970-01-01"  # 全量起点（增量水位线随 M5 定时摄取再引入）
     page_num = 1
     while True:
         docs, has_more = await source.fetch_sync(since, page_size=50, page_num=page_num)
-        all_docs.extend(docs)
+        for document in docs:
+            document_key = (document.doc_kind, document.doc_id)
+            if document.status == "deleted":
+                tombstones_by_key[document_key] = document
+            else:
+                active_documents.append(document)
         if not has_more or not docs:
             break
         page_num += 1
-    if not all_docs:
-        return 0
-    return await index.upsert_docs(all_docs)
+    active_keys = {(document.doc_kind, document.doc_id) for document in active_documents}
+    documents_to_delete = [
+        document
+        for document_key, document in tombstones_by_key.items()
+        if document_key not in active_keys
+    ]
+    deleted = await index.delete_docs(documents_to_delete) if documents_to_delete else 0
+    upserted = await index.upsert_docs(active_documents) if active_documents else 0
+    return upserted, deleted

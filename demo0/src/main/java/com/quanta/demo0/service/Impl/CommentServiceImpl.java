@@ -18,6 +18,7 @@ import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.policy.CommentZonePolicy;
 import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.service.CommentAuditService;
 import com.quanta.demo0.service.CommentService;
 import com.quanta.demo0.service.OutboxEventService;
@@ -72,6 +73,8 @@ public class CommentServiceImpl implements CommentService {
     private CommentZonePolicy commentZonePolicy;
     @Autowired
     private AliyunModerationProperties moderationProperties;
+    @Autowired
+    private QuantabotProperties quantabotProperties;
     @Autowired
     private CommentAuditService commentAuditService;
     @Autowired
@@ -163,6 +166,16 @@ public class CommentServiceImpl implements CommentService {
                 }
             }
         }
+
+        // C-4：前端 @ 卡片标记仅作观测留痕（事件侧判定见 CommentAuditServiceImpl）
+        if (Boolean.TRUE.equals(commentAddDTO.getMentionBot())) {
+            log.info(
+                    "评论携带 bot mention 标记，userId={}，contentId={}",
+                    userId,
+                    contentId
+            );
+        }
+
         //5.插入评论表（AI 云审核：入库为待审）
         ContentComment contentComment = ContentComment.builder()
                 .contentId(contentId)//评论的内容id
@@ -240,13 +253,23 @@ public class CommentServiceImpl implements CommentService {
 
     }
 
-    /** 全局开关 + 评论类型开关均开启时才走 AI 审核 */
-    private boolean shouldModerateComment() {
+    /** 全局开关 + 评论类型开关均开启时才走 AI 审核；bot 评论强制机审。 */
+    boolean shouldModerateComment() {
         if (!moderationProperties.isEnabled()) {
             return false;
         }
+        // C-6 契约：bot 来源评论不受 targets.comment.enabled=false 影响，强制进 AI 机审
+        if (isBotUser(BaseContext.getCurrentId())) {
+            return true;
+        }
         AliyunModerationProperties.TargetConfig commentConfig = getCommentTargetConfig();
         return commentConfig != null && commentConfig.isEnabled();
+    }
+
+    /** C-6：判定评论作者是否 bot 系统账号。 */
+    boolean isBotUser(Long userId) {
+        return userId != null
+                && userId.equals(quantabotProperties.getBotUserId());
     }
 
     /** 评论 AI 关闭时默认 policy=APPROVED，避免评论堆积人工审核 */
@@ -466,6 +489,8 @@ public class CommentServiceImpl implements CommentService {
             firstMap.put("likeCount", first.getLikeCount());
             firstMap.put("replyCount", replyCountsMap.getOrDefault(first.getCommentId(), 0L));
             firstMap.put("isLiked", likeCommentIds.contains(first.getCommentId()));
+            // C-4：AI 标识透出（前端渲染“AI”角标的依据）
+            firstMap.put("isBot", isBotUser(first.getUserId()));
             // 【新增】身份标识字段
             // 判断是否为题主（问题发布者）
             firstMap.put("isContentAuthor", contentAuthorId != null && first.getUserId().equals(contentAuthorId));
@@ -965,6 +990,8 @@ public class CommentServiceImpl implements CommentService {
             replyMap.put("createTime", DATE_TIME_FORMATTER.format(reply.getCreateTime()));
             replyMap.put("likeCount", reply.getLikeCount());
             replyMap.put("isLiked", likeCommentIds.contains(reply.getCommentId()));
+            // C-4：AI 标识透出（前端渲染“AI”角标的依据）
+            replyMap.put("isBot", isBotUser(reply.getUserId()));
             // 【新增】身份标识字段
             replyMap.put("isContentAuthor", contentAuthorId != null && reply.getUserId().equals(contentAuthorId));
             replyMap.put("isAnswerAuthor", answerAuthorId != null && reply.getUserId().equals(answerAuthorId));

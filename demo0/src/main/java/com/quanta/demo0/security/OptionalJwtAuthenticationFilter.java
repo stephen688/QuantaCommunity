@@ -79,6 +79,14 @@ public class OptionalJwtAuthenticationFilter
                     request.getHeader(headerName);
 
             /*
+             * 兼容 Bearer 方案（QuantaBot MainServiceClient 发
+             * "Authorization: Bearer <token>"；小程序发裸 token 不受影响）。
+             */
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring("Bearer ".length()).trim();
+            }
+
+            /*
              * 没有Token时不直接返回401，
              * 而是继续作为匿名用户访问。
              *

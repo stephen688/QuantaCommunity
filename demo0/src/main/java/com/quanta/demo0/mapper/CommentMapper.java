@@ -149,4 +149,31 @@ public interface CommentMapper {
      * 根据评论 ID 查询图片 URL 列表（图片审核兜底用）
      */
     List<String> selectImagesByCommentId(@Param("commentId") Long commentId);
+
+    @Select("select * from tb_content_comment where comment_id = #{commentId} and audit_status = 1 and is_deleted = 0")
+    ContentComment selectVisibleById(Long commentId);
+
+    @Select("select * from tb_content_comment where user_id = #{userId} and content_id = #{postId} and audit_status = 1 and is_deleted = 0 order by create_time asc, comment_id asc limit #{offset}, #{limit}")
+    List<ContentComment> selectBotHistory(@Param("userId") Long userId,
+                                          @Param("postId") Long postId,
+                                          @Param("offset") int offset,
+                                          @Param("limit") int limit);
+
+    @Select("select count(*) from tb_content_comment where user_id = #{userId} and content_id = #{postId} and audit_status = 1 and is_deleted = 0")
+    long countBotHistory(@Param("userId") Long userId, @Param("postId") Long postId);
+
+    @Select("select * from tb_content_comment where content_id = #{postId} and audit_status = 1 and is_deleted = 0 order by create_time asc, comment_id asc limit #{offset}, #{limit}")
+    List<ContentComment> selectBotFloorsAsc(@Param("postId") Long postId,
+                                            @Param("offset") int offset,
+                                            @Param("limit") int limit);
+
+    @Select("select * from tb_content_comment where content_id = #{postId} and audit_status = 1 and is_deleted = 0 order by create_time desc, comment_id desc limit #{offset}, #{limit}")
+    List<ContentComment> selectBotFloorsDesc(@Param("postId") Long postId,
+                                             @Param("offset") int offset,
+                                             @Param("limit") int limit);
+
+    @Select("select count(*) from tb_content_comment where content_id = #{postId} and audit_status = 1 and is_deleted = 0")
+    long countBotFloors(@Param("postId") Long postId);
+
+    List<CommentImage> selectImagesByCommentIds(@Param("commentIds") List<Long> commentIds);
 }

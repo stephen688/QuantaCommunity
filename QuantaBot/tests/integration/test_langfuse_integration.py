@@ -28,11 +28,11 @@ async def test_langfuse_tracer_roundtrip() -> None:
         RunTrace(
             comment_id=comment_id,
             post_id=99,
-            trigger_content="@QuantaBot 集成测试",
+            trigger_content="@框框 集成测试",
             decision="replied",
             mode="生活玩梗",
             reason="integration smoke",
-            generated_content="[QuantaBot·AI 学长] 集成测试回复",
+            generated_content="[框框·AI 学长] 集成测试回复",
             prompt_tokens=500,
             completion_tokens=100,
             cost_li=8,

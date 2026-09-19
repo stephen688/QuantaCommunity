@@ -249,4 +249,12 @@
         SELECT image_url FROM tb_comment_image
         WHERE comment_id = #{commentId}
     </select>
+
+    <select id="selectImagesByCommentIds" resultType="com.quanta.demo0.entity.CommentImage">
+        SELECT comment_id, image_url FROM tb_comment_image
+        WHERE comment_id IN
+        <foreach collection="commentIds" item="commentId" open="(" separator="," close=")">
+            #{commentId}
+        </foreach>
+    </select>
 </mapper>

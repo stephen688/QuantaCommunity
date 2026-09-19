@@ -203,3 +203,8 @@ quanta:
   wechat:
     appid: wx6af8baf31b0d42f4
     secret: ${WECHAT_SECRET}
+
+# QuantaBot 接入配置（C-5/C-6 契约；bot 系统账号见 dev-seed-incremental.sql）
+quantabot:
+  bot-user-id: 10000
+  bot-nickname: 框框

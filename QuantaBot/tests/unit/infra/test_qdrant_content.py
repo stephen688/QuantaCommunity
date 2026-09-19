@@ -17,7 +17,10 @@ class _QdrantStub:
         self.exists = False
         self.created = []
         self.upserted = []
+        self.deleted: list[str] = []
         self.query_kwargs = None
+        self.collection_size = 1024
+        self.collection_distance = "Cosine"
 
     async def collection_exists(self, collection: str) -> bool:
         return self.exists
@@ -26,8 +29,23 @@ class _QdrantStub:
         self.created.append(kwargs)
         self.exists = True
 
+    async def get_collection(self, collection: str):
+        return SimpleNamespace(
+            config=SimpleNamespace(
+                params=SimpleNamespace(
+                    vectors=SimpleNamespace(
+                        size=self.collection_size,
+                        distance=self.collection_distance,
+                    )
+                )
+            )
+        )
+
     async def upsert(self, **kwargs) -> None:
         self.upserted.extend(kwargs["points"])
+
+    async def delete(self, **kwargs) -> None:
+        self.deleted.extend(kwargs["points_selector"].points)
 
     async def query_points(self, **kwargs):
         self.query_kwargs = kwargs
@@ -84,6 +102,19 @@ async def test_qdrant_content_index_creates_collection_once() -> None:
     assert client.created[0]["vectors_config"].size == 1024
 
 
+async def test_qdrant_content_index_rejects_existing_wrong_vector_shape() -> None:
+    """已有 collection 维度不符时应在启动初始化阶段失败，不能拖到首次摄取。"""
+    import pytest
+
+    client = _QdrantStub()
+    client.exists = True
+    client.collection_size = 384
+    index = QdrantContentIndex(client, "qb_content", _EmbeddingStub())  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="expected size=1024"):
+        await index.ensure_collection(1024)
+
+
 async def test_qdrant_content_index_uses_stable_valid_point_ids() -> None:
     """外部内容 ID 不是 Qdrant ID 形状时，写入仍使用稳定合法的 point ID。"""
     client = _QdrantStub()
@@ -103,3 +134,21 @@ async def test_qdrant_content_index_uses_stable_valid_point_ids() -> None:
 
     UUID(first_id)
     assert first_id == second_id
+
+
+async def test_qdrant_content_index_deletes_by_stable_point_ids() -> None:
+    client = _QdrantStub()
+    index = QdrantContentIndex(client, "qb_content", _EmbeddingStub())  # type: ignore[arg-type]
+    document = SyncDoc(
+        doc_id="policy-1",
+        doc_kind="POLICY",
+        title="奖助学金",
+        content="奖助学金每年评审",
+        updated_at="2026-09-01",
+    )
+
+    await index.upsert_docs([document])
+    upserted_id = str(client.upserted[-1].id)
+    await index.delete_docs([document])
+
+    assert client.deleted == [upserted_id]

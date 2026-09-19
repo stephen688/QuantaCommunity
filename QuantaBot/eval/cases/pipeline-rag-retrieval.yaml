@@ -13,7 +13,7 @@ retrieval_fragments:
     doc_kind: POLICY
 trigger:
   post: { postId: 4001, userId: 1, title: 奖助学金政策咨询, content: 奖助学金什么时候评审，申请要准备什么 }
-  comment: { commentId: 9401, userId: 42, content: "@QuantaBot 奖助学金什么时候评审" }
+  comment: { commentId: 9401, userId: 42, content: "@框框 奖助学金什么时候评审" }
   floors: []
 llm_script:
   - '{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "政策咨询", "need_retrieval": true}'
@@ -24,5 +24,5 @@ deterministic:
   - { assert: retrieval_in_context, expected: true }
   - { assert: retrieval_degraded_is, expected: false }
   - { assert: reply_contains, expected: "奖助学金每年 9 月启动评审" }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
 judge: null

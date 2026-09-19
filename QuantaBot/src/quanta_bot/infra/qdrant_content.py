@@ -12,7 +12,7 @@ from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
 
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
+from qdrant_client.models import FieldCondition, Filter, MatchValue, PointIdsList, PointStruct
 
 from quanta_bot.infra.content_sync import SyncDoc
 from quanta_bot.memory.ports import EmbeddingClient
@@ -37,12 +37,23 @@ class QdrantContentIndex:
         self._embedding = embedding
 
     async def ensure_collection(self, dim: int) -> None:
-        if not await self._client.collection_exists(self._collection):
-            from qdrant_client.models import Distance, VectorParams
+        from qdrant_client.models import Distance, VectorParams
 
+        if not await self._client.collection_exists(self._collection):
             await self._client.create_collection(
                 collection_name=self._collection,
                 vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+            )
+            return
+
+        collection = await self._client.get_collection(self._collection)
+        vectors = collection.config.params.vectors
+        actual_size = getattr(vectors, "size", None)
+        actual_distance = str(getattr(vectors, "distance", "")).lower()
+        if actual_size != dim or "cosine" not in actual_distance:
+            raise ValueError(
+                f"Qdrant collection {self._collection} has size={actual_size}, "
+                f"distance={actual_distance}; expected size={dim}, distance=cosine"
             )
 
     async def upsert_docs(self, docs: Sequence[SyncDoc]) -> int:
@@ -67,6 +78,16 @@ class QdrantContentIndex:
         ]
         await self._client.upsert(collection_name=self._collection, points=points)
         return len(points)
+
+    async def delete_docs(self, docs: Sequence[SyncDoc]) -> int:
+        """按与 upsert 同源的稳定 UUID 删除墓碑文档。"""
+        if not docs:
+            return 0
+        await self._client.delete(
+            collection_name=self._collection,
+            points_selector=PointIdsList(points=[_point_id(document) for document in docs]),
+        )
+        return len(docs)
 
     async def retrieve(
         self,

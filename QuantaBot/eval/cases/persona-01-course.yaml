@@ -7,12 +7,12 @@ tier: persona
 memories: []
 trigger:
   post: { postId: 10001, userId: 7, title: 选课组合怎么排, content: 大二下想选数据结构、概率论和两门实验课，担心时间撞车，想先听听选课思路。 }
-  comment: { commentId: 9101, userId: 42, content: "@QuantaBot 这几门课怎么排比较稳，能不能给点选课思路" }
+  comment: { commentId: 9101, userId: 42, content: "@框框 这几门课怎么排比较稳，能不能给点选课思路" }
   floors: []
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["保证不冲突", "一定不会挂科"] }

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
@@ -93,7 +93,7 @@ class SwaggerAccessControlTests {
     /**
      * 生产语义配置：apiDocsEnabled 使用默认值 false。
      */
-    @Configuration
+    @TestConfiguration
     @EnableWebMvc
     @EnableWebSecurity
     @Import({
@@ -135,7 +135,7 @@ class SwaggerAccessControlTests {
     /**
      * 开发语义配置：apiDocsEnabled 显式开启。
      */
-    @Configuration
+    @TestConfiguration
     @EnableWebMvc
     @EnableWebSecurity
     @Import({

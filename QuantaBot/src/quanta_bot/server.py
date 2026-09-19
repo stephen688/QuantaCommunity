@@ -1,7 +1,7 @@
 """server —— FastAPI 入口（lifespan 托管 Runtime；/health 真连通探测）。
 
 职责：应用工厂 create_app()；启动装配 Runtime（真模式起控制面轮询），关闭统一收尾；
-      /health 供 compose 健康检查与运维探测（fake=fake 标记；真=逐项探测，缺配置=not_configured）。
+      /live 只判进程存活；/health 供 compose 就绪检查与运维探测（关键依赖失败返回 503）。
 边界：不写业务链路（pipeline 负责）；不建外部客户端（composition 负责）；
       健康探测统一 5s 探测档（与业务超时档分离——探测不应被 60s LLM 档拖死）。
 已知坑：模块级 app = create_app() 在 import 时只建 FastAPI 对象不建连接（Runtime 在 lifespan 才装配）
@@ -9,11 +9,11 @@
 """
 
 import logging
+import secrets
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, Header, HTTPException, Response, status
 
 from quanta_bot import __version__
 from quanta_bot.composition import Runtime, build_runtime
@@ -21,13 +21,6 @@ from quanta_bot.infra import mq as infra_mq
 from quanta_bot.infra.content_sync import ingest_content
 from quanta_bot.infra.kv import RedisKV
 from quanta_bot.infra.settings import Settings
-
-
-class IngestRequest(BaseModel):
-    """摄取请求体（token 与 Settings.admin_token 对账；未配置 admin_token 时不校验）。"""
-
-    token: str = ""
-
 
 logger = logging.getLogger(__name__)
 
@@ -107,14 +100,19 @@ async def _check_dependencies(settings: Settings, runtime: Runtime | None) -> di
     else:
         vector_status = "ok" if await _probe(f"{settings.qdrant_url}/readyz") else "error"
 
-    # 主服务（demo0）：C-2 chain 端点连通探测（URL 未配=not_configured；demo0 未上线时
-    # 如实报 error——compose healthcheck 只看 /health HTTP 200，A2 验收清单不含本项）
+    # 主服务（demo0）：用空历史分页做 C-2 连通探测；避免 commentId=0 的 chain 查询
+    # 持续制造“评论不存在”业务错误日志。URL 未配=not_configured。
     if not settings.main_service_base_url:
         main_service_status = "not_configured"
     else:
         ok = await _probe(
-            f"{settings.main_service_base_url}/bot/comment/chain",
-            params={"commentId": 0},
+            f"{settings.main_service_base_url}/bot/comment/history",
+            params={
+                "userId": settings.main_service_bot_user_id,
+                "postId": 0,
+                "pageNum": 1,
+                "pageSize": 1,
+            },
             headers=(
                 {"Authorization": f"Bearer {settings.main_service_token}"}
                 if settings.main_service_token
@@ -153,10 +151,8 @@ async def _lifespan(app: FastAPI):
         and content_index is not None
         and hasattr(content_index, "ensure_collection")
     ):
-        try:
-            await content_index.ensure_collection(settings.embedding_dim)
-        except Exception as exc:
-            logger.warning("Qdrant 内容 collection 初始化失败（检索将运行期降级）：%s", exc)
+        # 内容索引维度错配会令所有摄取/检索失败，必须在启动时显式阻断。
+        await content_index.ensure_collection(settings.embedding_dim)
     runtime.start()
     app.state.runtime = runtime
     yield
@@ -169,14 +165,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="QuantaBot", version=__version__, lifespan=_lifespan)
     app.state.settings = s
 
+    @app.get("/live")
+    async def live() -> dict:
+        """进程存活探针：只证明事件循环仍能响应，不代表依赖已就绪。"""
+        return {"status": "ok", "version": __version__}
+
     @app.get("/health")
-    async def health() -> dict:
-        """健康检查：状态 + 版本 + 配置摘要 + 逐依赖连通 + 控制面开关快照。"""
+    async def health(response: Response) -> dict:
+        """就绪探针：关键依赖不可用时返回 503，并展示可降级的 tracing 状态。"""
         runtime: Runtime | None = getattr(app.state, "runtime", None)
         dependencies = await _check_dependencies(s, runtime)
         switches = runtime.deps.control_plane.snapshot.model_dump() if runtime else {}
+        required_dependencies = {"mq", "kv", "main_service", "llm", "vector"}
+        ready_states = {"fake", "ok"}
+        is_ready = all(dependencies[name] in ready_states for name in required_dependencies)
+        if not is_ready:
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {
-            "status": "ok",
+            "status": "ok" if is_ready else "not_ready",
             "version": __version__,
             "app_env": s.app_env,
             "fake_mode": s.fake_mode,
@@ -185,22 +191,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
 
     @app.post("/admin/ingest")
-    async def ingest(payload: IngestRequest) -> dict:
+    async def ingest(authorization: str = Header(default="")) -> dict:
         """手动触发 RAG 摄取（运营/联调用；定时自动化归 M5）。
 
-        admin_token 配置时校验（不符 403）；RAG 摄取未配置 503（qdrant/embedding/main_service
+        admin_token 配置时校验 Bearer 凭据（不符 403）；RAG 摄取未配置 503（qdrant/embedding/main_service
         缺一；检索可能仍可使用已有索引）。
         """
         runtime: Runtime | None = getattr(app.state, "runtime", None)
-        if s.admin_token and payload.token != s.admin_token:
+        bearer_prefix = "Bearer "
+        supplied_token = (
+            authorization[len(bearer_prefix) :] if authorization.startswith(bearer_prefix) else ""
+        )
+        if s.admin_token and not secrets.compare_digest(supplied_token, s.admin_token):
             raise HTTPException(status_code=403, detail="admin_token 不符")
         if runtime is None or runtime.rag is None:
             raise HTTPException(
                 status_code=503,
                 detail="RAG 摄取未配置（需 qdrant/embedding/main_service）",
             )
-        count = await ingest_content(runtime.rag.source, runtime.rag.index)
-        return {"ingested": count}
+        upserted, deleted = await ingest_content(runtime.rag.source, runtime.rag.index)
+        return {"ingested": upserted, "deleted": deleted}
 
     return app
 

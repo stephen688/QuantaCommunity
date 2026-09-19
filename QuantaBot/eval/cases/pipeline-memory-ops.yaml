@@ -15,7 +15,7 @@ memories:
     created_at: "2026-06-01"
 trigger:
   post: { postId: 3001, userId: 1, title: 选课求助, content: 机械工程大三选课组合求建议，学分和实验课怎么排 }
-  comment: { commentId: 9101, userId: 42, content: "@QuantaBot 这学期选课组合帮我看看怎么排比较好" }
+  comment: { commentId: 9101, userId: 42, content: "@框框 这学期选课组合帮我看看怎么排比较好" }
   floors: []
 llm_script:
   - '{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "选课组合求助", "memory_selection": ["m1"], "memory_ops": [{"op": "UPDATE", "type": "project", "content": "用户主修机械工程，正在准备 2026 秋季学期选课", "why": "选课动态演进", "target_memory_id": "m1"}, {"op": "NOOP"}]}'
@@ -26,5 +26,5 @@ deterministic:
   - { assert: memory_op_is, expected: [UPDATE, NOOP] }
   - { assert: memory_selected_count, expected: 1 }
   - { assert: decay_warning_present, expected: true }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
 judge: null

@@ -130,22 +130,28 @@ async def test_fake_content_source_provides_synthetic_samples() -> None:
 
 
 class _FakeIndex:
-    """摄取编排测试用计数索引（只实现 upsert_docs 被消费的形状）。"""
+    """摄取编排测试用计数索引。"""
 
     def __init__(self) -> None:
         self.upserted: list[SyncDoc] = []
+        self.deleted: list[SyncDoc] = []
 
     async def upsert_docs(self, docs: list[SyncDoc]) -> int:
         self.upserted.extend(docs)
+        return len(docs)
+
+    async def delete_docs(self, docs: list[SyncDoc]) -> int:
+        self.deleted.extend(docs)
         return len(docs)
 
 
 async def test_ingest_content_upserts_all() -> None:
     """摄取编排：源全量 → index.upsert_docs（条数一致）。"""
     index = _FakeIndex()
-    count = await ingest_content(FakeContentSource(), index)  # type: ignore[arg-type]
+    upserted, deleted = await ingest_content(FakeContentSource(), index)  # type: ignore[arg-type]
     docs, _ = await FakeContentSource().fetch_sync(since="1970-01-01")
-    assert count == len(docs) == len(index.upserted)
+    assert upserted == len(docs) == len(index.upserted)
+    assert deleted == 0
 
 
 async def test_ingest_content_advances_page_num_until_complete() -> None:
@@ -177,9 +183,9 @@ async def test_ingest_content_advances_page_num_until_complete() -> None:
     stub = _MainServiceStub([first_page, second_page])
     index = _FakeIndex()
 
-    count = await ingest_content(ContentSyncClient(stub), index)  # type: ignore[arg-type]
+    upserted, deleted = await ingest_content(ContentSyncClient(stub), index)  # type: ignore[arg-type]
 
-    assert count == 2
+    assert (upserted, deleted) == (2, 0)
     assert [doc.doc_id for doc in index.upserted] == ["page-1", "page-2"]
     assert [call["params"]["pageNum"] for call in stub.calls] == [1, 2]  # type: ignore[index]
 
@@ -195,6 +201,86 @@ async def test_sync_doc_aliases_accept_demo0_field_names() -> None:
     }
     parsed = SyncDoc.model_validate(json.loads(json.dumps(raw)))
     assert parsed.doc_id == "x1" and parsed.doc_kind == "ANSWER"
+
+
+class _SplitIndex:
+    """墓碑分流测试用索引。"""
+
+    def __init__(self) -> None:
+        self.upserted: list[SyncDoc] = []
+        self.deleted: list[SyncDoc] = []
+
+    async def upsert_docs(self, docs: list[SyncDoc]) -> int:
+        self.upserted.extend(docs)
+        return len(docs)
+
+    async def delete_docs(self, docs: list[SyncDoc]) -> int:
+        self.deleted.extend(docs)
+        return len(docs)
+
+
+async def test_sync_doc_defaults_active_and_accepts_tombstone() -> None:
+    active = SyncDoc.model_validate(
+        {"docId": "content:1", "docKind": "POST", "updatedAt": "2026-09-01T00:00:00"}
+    )
+    tombstone = SyncDoc.model_validate(
+        {
+            "docId": "content:2",
+            "docKind": "POST",
+            "updatedAt": "2026-09-02T00:00:00",
+            "status": "deleted",
+        }
+    )
+
+    assert active.status == "active"
+    assert tombstone.status == "deleted"
+
+
+async def test_ingest_content_routes_tombstones_to_delete_docs() -> None:
+    docs = [
+        SyncDoc(doc_id="content:1", doc_kind="POST", updated_at="2026-09-01T00:00:00"),
+        SyncDoc(
+            doc_id="content:2",
+            doc_kind="POST",
+            updated_at="2026-09-02T00:00:00",
+            status="deleted",
+        ),
+        SyncDoc(doc_id="policy-1", doc_kind="POLICY", updated_at="2026-09-03T00:00:00"),
+    ]
+
+    class _Source:
+        async def fetch_sync(self, since: str, page_size: int = 50, page_num: int = 1):
+            return list(docs), False
+
+    index = _SplitIndex()
+    result = await ingest_content(_Source(), index)  # type: ignore[arg-type]
+
+    assert result == (2, 1)
+    assert [document.doc_id for document in index.upserted] == ["content:1", "policy-1"]
+    assert [document.doc_id for document in index.deleted] == ["content:2"]
+
+
+async def test_ingest_content_prefers_active_over_tombstone_for_same_doc() -> None:
+    docs = [
+        SyncDoc(
+            doc_id="content:9",
+            doc_kind="POST",
+            updated_at="2026-09-01T00:00:00",
+            status="deleted",
+        ),
+        SyncDoc(doc_id="content:9", doc_kind="POST", updated_at="2026-09-02T00:00:00"),
+    ]
+
+    class _Source:
+        async def fetch_sync(self, since: str, page_size: int = 50, page_num: int = 1):
+            return list(docs), False
+
+    index = _SplitIndex()
+    result = await ingest_content(_Source(), index)  # type: ignore[arg-type]
+
+    assert result == (1, 0)
+    assert [document.doc_id for document in index.upserted] == ["content:9"]
+    assert index.deleted == []
 
 
 def _unused_httpx_guard() -> None:  # pragma: no cover

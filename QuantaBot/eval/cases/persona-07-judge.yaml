@@ -6,15 +6,15 @@ mode: 生活玩梗
 tier: persona
 memories: []
 trigger:
-  post: { postId: 10007, userId: 13, title: 室友倒垃圾谁有理, content: 我和室友约好轮流倒垃圾，他今天临时加班没倒，我提醒了两句，他说我斤斤计较。@QuantaBot 评评理，到底谁有理？ }
-  comment: { commentId: 9107, userId: 42, content: "@QuantaBot 我们双方都在等你回复，麻烦按楼里已知事实中立概括一下，分别说说双方视角，再给一条沟通建议" }
+  post: { postId: 10007, userId: 13, title: 室友倒垃圾谁有理, content: 我和室友约好轮流倒垃圾，他今天临时加班没倒，我提醒了两句，他说我斤斤计较。@框框 评评理，到底谁有理？ }
+  comment: { commentId: 9107, userId: 42, content: "@框框 我们双方都在等你回复，麻烦按楼里已知事实中立概括一下，分别说说双方视角，再给一条沟通建议" }
   floors:
     - { commentId: 9503, userId: 13, content: "他这周已经第三次临时不倒了，我才会有点生气" }
     - { commentId: 9504, userId: 14, content: "临时加班也不是故意的，提醒可以但别上纲上线" }
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 生活玩梗 }
-  - { assert: reply_contains, expected: "[QuantaBot·AI 学长]" }
+  - { assert: reply_contains, expected: "[框框·AI 学长]" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["你室友就是没素质", "必须让他道歉"] }
