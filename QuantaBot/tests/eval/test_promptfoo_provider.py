@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+import yaml
 from tests.eval._runner import CaseResult
 
 PROVIDER_PATH = Path(__file__).resolve().parents[2] / "eval" / "promptfoo_provider.py"
@@ -11,6 +12,15 @@ PROVIDER_SPEC = importlib.util.spec_from_file_location("promptfoo_provider", PRO
 assert PROVIDER_SPEC is not None and PROVIDER_SPEC.loader is not None
 promptfoo_provider = importlib.util.module_from_spec(PROVIDER_SPEC)
 PROVIDER_SPEC.loader.exec_module(promptfoo_provider)
+
+
+def test_redteam_policy_plugin_has_explicit_policy_text() -> None:
+    """Promptfoo 0.123.1 的 policy 插件不能裸配，否则生成阶段会静默跳过该攻击类。"""
+    config_path = Path(__file__).resolve().parents[2] / "eval" / "redteam.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    policy = next(plugin for plugin in config["redteam"]["plugins"] if plugin["id"] == "policy")
+
+    assert policy["config"]["policy"].strip()
 
 
 @pytest.mark.asyncio
