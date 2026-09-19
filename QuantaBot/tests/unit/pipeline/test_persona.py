@@ -58,3 +58,13 @@ def test_banter_prompt_preserves_short_compound_catchphrases() -> None:
     assert "短复合梗" in prompt
     assert "第一句必须原样完整复用一次" in prompt
     assert "输出前检查" in prompt
+
+
+def test_emotion_prompt_has_an_executable_brevity_budget() -> None:
+    """“极短”必须转成模型可检查的硬预算，避免安慰回复扩成三段说教。"""
+    prompt = PersonaLibrary().system_prompt("情绪陪伴")
+
+    assert "不超过 3 句" in prompt
+    assert "正文不超过 65 个汉字" in prompt
+    assert "只给一个小动作" in prompt
+    assert "共情句与记忆句不得重复同义" in prompt
