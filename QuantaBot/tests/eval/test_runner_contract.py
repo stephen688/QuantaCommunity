@@ -279,6 +279,8 @@ async def test_numeric_judge_applies_normal_and_emotion_thresholds(
 
     assert len(judge_result.failures) == expected_failures
     assert judge_result.verdict is not None
+    assert judge_result.prompt_tokens == 10
+    assert judge_result.completion_tokens == 5
     assert llm.temperatures == [0.0]
 
 

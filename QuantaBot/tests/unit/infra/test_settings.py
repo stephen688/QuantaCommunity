@@ -44,7 +44,7 @@ def test_settings_m2_real_dep_defaults() -> None:
     assert s.qdrant_url == "http://127.0.0.1:6333"
     assert s.mq_url == "" and s.main_service_base_url == ""
     assert s.deepseek_base_url == "https://api.deepseek.com"
-    assert s.deepseek_api_key == "" and s.deepseek_model == "deepseek-chat"
+    assert s.deepseek_api_key == "" and s.deepseek_model == "deepseek-v4-flash"
     assert s.langfuse_host == "http://127.0.0.1:3000"
     assert s.langfuse_public_key == "" and s.langfuse_secret_key == ""
     assert s.llm_timeout_seconds == 60.0

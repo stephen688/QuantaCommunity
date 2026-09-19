@@ -93,6 +93,8 @@ class JudgeResult(BaseModel):
     verdict: JudgeVerdict | None = None
     failures: list[str] = Field(default_factory=list)
     failure_kind: Literal["NONE", "ASSERTION_FAILED", "INFRA_BLOCKED"] = "NONE"
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
 
     def __iter__(self) -> Iterator[str]:
         """让旧的 ``failures += await judge_case(...)`` 继续消费失败摘要。"""
@@ -465,6 +467,8 @@ async def judge_case(
             return JudgeResult(
                 failures=[f"Judge 输出无法解析（{type(exc).__name__}）：{raw.content[:80]!r}"],
                 failure_kind="INFRA_BLOCKED",
+                prompt_tokens=raw.prompt_tokens,
+                completion_tokens=raw.completion_tokens,
             )
 
         minimum_score = _judge_min_score(case)
@@ -477,6 +481,8 @@ async def judge_case(
             verdict=verdict,
             failures=failures,
             failure_kind="ASSERTION_FAILED" if failures else "NONE",
+            prompt_tokens=raw.prompt_tokens,
+            completion_tokens=raw.completion_tokens,
         )
     finally:
         if owns_client:

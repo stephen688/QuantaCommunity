@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     # DeepSeek（OpenAI 兼容端点；key 只进 .env，禁止入库/入日志）
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_api_key: str = ""
-    deepseek_model: str = "deepseek-chat"
+    deepseek_model: str = "deepseek-v4-flash"
     # Langfuse 自托管（本地 compose 容器网络内为 http://langfuse-web:3000）
     langfuse_host: str = "http://127.0.0.1:3000"
     langfuse_public_key: str = ""

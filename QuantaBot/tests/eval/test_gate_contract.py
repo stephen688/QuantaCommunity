@@ -1,11 +1,25 @@
-"""M4 gate 契约：冻结集合、阈值和内容指纹；不执行真实模型调用。"""
+"""M4 gate 契约：冻结集合、稳定性、失败分类和脱敏报告。"""
 
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 
-from tests.eval._gate import load_gate_manifest, sha256_files
+import httpx
+import pytest
+from tests.eval._gate import (
+    CaseRunRecord,
+    FailureKind,
+    GateReport,
+    classify_failure,
+    compare_runs,
+    load_gate_manifest,
+    sha256_files,
+    write_sanitized_report,
+)
 from tests.eval._runner import CASES_DIR, load_case
 
 from quanta_bot.pipeline.persona import PersonaLibrary
+from quanta_bot.pipeline.ports import LLMClientError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = PROJECT_ROOT / "eval" / "gate-manifest.yaml"
@@ -45,6 +59,8 @@ def test_gate_manifest_freezes_exactly_seventeen_persona_cases() -> None:
         "persona-12-fail",
         "persona-13-joy",
     )
+    assert manifest.fast_gate_ids == ("pipeline-waterline",)
+    assert "pipeline-waterline" not in manifest.case_ids
 
 
 def test_gate_manifest_references_existing_persona_cases_with_valid_thresholds() -> None:
@@ -100,3 +116,100 @@ def test_persona_version_changes_when_prompt_content_changes(tmp_path: Path) -> 
     kernel.write_text(kernel.read_text(encoding="utf-8") + "\n冻结指纹测试", encoding="utf-8")
 
     assert PersonaLibrary(tmp_path).persona_version != original_version
+
+
+def _run_record(
+    *,
+    case_id: str = "persona-01-course",
+    decision: str = "replied",
+    mode: str = "专业答疑",
+    p0_results: dict[str, bool] | None = None,
+    p1_score: int = 4,
+    p2_score: int = 4,
+) -> CaseRunRecord:
+    return CaseRunRecord(
+        case_id=case_id,
+        run_number=1,
+        decision=decision,
+        mode=mode,
+        p0_results=p0_results or {"decision_is": True, "mode_is": True},
+        p1_score=p1_score,
+        p2_score=p2_score,
+    )
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "expected_passed"),
+    [
+        (_run_record(), _run_record(), True),
+        (_run_record(decision="replied"), _run_record(decision="silent"), False),
+        (_run_record(mode="专业答疑"), _run_record(mode="治理"), False),
+        (
+            _run_record(p0_results={"decision_is": True}),
+            _run_record(p0_results={"decision_is": False}),
+            False,
+        ),
+        (_run_record(p1_score=3), _run_record(p1_score=5), False),
+        (_run_record(p1_score=3), _run_record(p1_score=4), True),
+        (
+            _run_record(case_id="persona-11-comfort", p1_score=4, p2_score=4),
+            _run_record(case_id="persona-11-comfort", p1_score=3, p2_score=5),
+            False,
+        ),
+    ],
+)
+def test_compare_runs_enforces_stability_and_thresholds(
+    first: CaseRunRecord, second: CaseRunRecord, expected_passed: bool
+) -> None:
+    manifest = load_gate_manifest(MANIFEST_PATH)
+
+    assert compare_runs(first, second, manifest).passed is expected_passed
+
+
+@pytest.mark.parametrize(
+    ("error", "assertion_failures", "safety_blocked", "expected"),
+    [
+        (LLMClientError("timeout"), (), False, FailureKind.INFRA_BLOCKED),
+        (httpx.TimeoutException("timeout"), (), False, FailureKind.INFRA_BLOCKED),
+        (None, ("persona-01: mode_is 未通过",), False, FailureKind.ASSERTION_FAILED),
+        (None, (), True, FailureKind.SAFETY_BLOCKED),
+    ],
+)
+def test_classify_failure(
+    error: BaseException | None,
+    assertion_failures: tuple[str, ...],
+    safety_blocked: bool,
+    expected: FailureKind,
+) -> None:
+    assert (
+        classify_failure(
+            error=error,
+            assertion_failures=assertion_failures,
+            safety_blocked=safety_blocked,
+        )
+        == expected
+    )
+
+
+def test_write_sanitized_report_never_persists_secret_or_raw_reply(tmp_path: Path) -> None:
+    report = GateReport(
+        git_sha="a" * 40,
+        manifest_version="m4-v1",
+        case_hash="b" * 64,
+        prompt_hash="c" * 64,
+        started_at=datetime(2026, 9, 19, tzinfo=UTC),
+        runs=(
+            _run_record().model_copy(update={"failure_reason": "Bearer test-secret-value-123456"}),
+        ),
+        total_prompt_tokens=10,
+        total_completion_tokens=5,
+        estimated_cost_fen=1,
+        passed=False,
+    )
+
+    json_path, markdown_path = write_sanitized_report(report, tmp_path)
+    serialized = json_path.read_text(encoding="utf-8") + markdown_path.read_text(encoding="utf-8")
+
+    assert "test-secret-value" not in serialized
+    assert "[已脱敏]" in serialized
+    assert json.loads(json_path.read_text(encoding="utf-8"))["schema_version"] == ("m4-report-v1")
