@@ -590,6 +590,8 @@ v4-flash 补跑（唯一文本 fixture，确认容器模型后执行）：S04-fl
 
 最终门禁判定：不能将 17 场景真链路从 `PARTIAL` 改为 `PASS`，也不能勾选 `M3-真联调回补`。原因是 S04/S14 的通过证据来自独立帖子新事件，而原单帖 run 仍分别暴露了写库敏感词失败与同帖异步上下文污染；当前 `main_service` tree/history 读取没有 trigger-time waterline，尚未完成产品级修复后的原 17 场景复验。另有 17 条 Langfuse trace id 未完整落盘、明确违规文本机审驳回且无 `BOT_MENTION_REQUESTED` 的独立 fixture 未补。结论应写成“隔离补跑 PASS、总门 PARTIAL”，Task 11 继续 `DEFERRED`。
 
+M4 Task 5（2026-09-19）已在 QuantaBot 侧补上 trigger-time waterline：pipeline 使用父链中触发节点的 `createTime` 与 `TriggerEvent.comment_id` 双重收口；时间缺失或不可解析时回退到 `comment_id <= trigger.comment_id`，未知后发楼层宁可丢弃。该改动不修改 demo0 契约；真实主服务原 17 场景仍需按下方轨道 A/B 重新复验，不能把本地单测 GREEN 写成真实联调 PASS。
+
 **原始17场景跑法与正式重跑方案**：首轮 S01~S17 共用 `contentId=12`，是为了降低 fixture 成本并快速验证同帖 tree/history/记忆上下文；它不是正式的独立场景验收。S14 已证明该跑法会暴露同帖异步上下文污染，根因是 tree/history 读取缺少 trigger-time waterline。正式重跑必须分轨：
 
 - **轨道 A（正式人格验收）**：准备 17 个独立、已审核的真实帖子/评论线程，固定主楼/父链/历史上下文；每条严格串行，等待上一条从 trigger 到 decision、回复/静默、触发与回复机审、Outbox/Inbox、普通用户可见性全部完成后再跑下一条，并保存每项证据。

@@ -15,6 +15,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from quanta_bot.crosscutting.ports import KeyValueStore, TruncationRecord
 from quanta_bot.pipeline.ports import (
@@ -33,6 +34,46 @@ CHANNEL_C_BUDGET = 2500  # C 摘要：远区楼层压缩
 CHANNEL_D_BUDGET = 1500  # D 记忆：精选+负面
 RESERVED_BUDGET = 1000  # 预留：触发评论+格式开销+检索片段
 NEAR_PARALLEL_FLOORS = 2  # 近区平行一级楼层数（分区=父链优先，非机械最近 N 楼）
+
+
+def _parse_comment_time(value: str) -> datetime | None:
+    """解析主服务时间；缺失或格式未知时返回 None，交给 comment_id 兼容回退。"""
+    normalized = value.strip()
+    if not normalized:
+        return None
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def filter_floors_at_waterline(
+    event: TriggerEvent,
+    thread: PostThread,
+    floors: Sequence[CommentNode],
+) -> tuple[CommentNode, ...]:
+    """只保留触发评论及其之前的楼层，阻止快照读取到后发评论。
+
+    TriggerEvent 当前没有 createTime，因此优先从父链中找到同 comment_id 的节点取时间；
+    时间齐全时以时间和 comment_id 双重收口，任何缺时间/坏时间节点回退到 comment_id
+    水位（<= 触发 ID）。回退口径宁可丢掉无法证明在水位前的楼层，也不把未知楼层送进模型。
+    """
+    trigger_node = next(
+        (node for node in thread.chain if node.comment_id == event.comment_id), None
+    )
+    trigger_time = _parse_comment_time(trigger_node.create_time) if trigger_node else None
+    filtered: list[CommentNode] = []
+    for floor in floors:
+        if floor.comment_id > event.comment_id:
+            continue
+        if trigger_time is None:
+            filtered.append(floor)
+            continue
+        floor_time = _parse_comment_time(floor.create_time)
+        if floor_time is None or floor_time <= trigger_time:
+            filtered.append(floor)
+    return tuple(filtered)
 
 
 def partition_floors(

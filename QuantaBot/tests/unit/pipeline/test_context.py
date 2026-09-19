@@ -36,6 +36,32 @@ def _floor(
     return CommentNode(commentId=comment_id, parentId=parent_id, userId=user_id, content=content)
 
 
+def test_waterline_falls_back_to_comment_id_when_time_is_missing() -> None:
+    """缺少 createTime 时按触发 comment_id 收口，未知后发楼层宁可丢弃。"""
+    event = TriggerEvent(
+        event_id="evt-100",
+        comment_id=100,
+        post_id=22,
+        commenter_user_id=5,
+        content="@框框 水位测试",
+        mentioned_bot=True,
+    )
+    trigger_node = _floor(100, content="@框框 水位测试")
+    thread = PostThread(
+        post=PostSummary(postId=22, userId=1, title="水位", content="讨论"),
+        chain=(trigger_node,),
+    )
+    floors = (
+        _floor(99, content="触发前"),
+        _floor(100, content="触发评论"),
+        _floor(101, content="触发后"),
+    )
+
+    filtered = context.filter_floors_at_waterline(event, thread, floors)
+
+    assert [node.comment_id for node in filtered] == [99, 100]
+
+
 def test_partition_by_parent_chain_not_recency() -> None:
     """分区依据是父链关系不是机械最近 N 楼：老楼在链上=近区，新楼不在链上=远区。"""
     floors = [
