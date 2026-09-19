@@ -246,8 +246,8 @@ def build_case_deps(
     return deps, writer, tracer, spy_store
 
 
-async def run_case(case: EvalCase) -> CaseResult:
-    """跑一条用例：fake 依赖自组（persona 档 llm=真 DeepSeekClient，Settings 读 .env）。"""
+async def run_case(case: EvalCase, *, force_real: bool = False) -> CaseResult:
+    """跑一条用例；Persona 默认受环境开关控制，红队 target 可显式强制真模型。"""
     settings = Settings()
     llm: LLMClient = (
         DeepSeekClient(
@@ -256,7 +256,7 @@ async def run_case(case: EvalCase) -> CaseResult:
             settings.deepseek_model,
             settings.llm_timeout_seconds,
         )
-        if case.tier == "persona" and EVAL_PERSONA_ENABLED
+        if case.tier == "persona" and (EVAL_PERSONA_ENABLED or force_real)
         else FakeLLM(responses=case.llm_script)
     )
     deps, writer, tracer, spy_store = build_case_deps(case, llm)

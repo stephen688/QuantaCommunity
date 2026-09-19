@@ -155,6 +155,8 @@ jobs:
       - name: Run Promptfoo red team without cache
         if: env.M4_MODE == 'release'
         working-directory: QuantaBot
+        env:
+          QUANTABOT_EVAL: "1"
         run: >-
           npx promptfoo redteam run
           --config eval/redteam.yaml
