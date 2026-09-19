@@ -56,8 +56,8 @@ def filter_floors_at_waterline(
     """只保留触发评论及其之前的楼层，阻止快照读取到后发评论。
 
     TriggerEvent 当前没有 createTime，因此优先从父链中找到同 comment_id 的节点取时间；
-    时间齐全时以时间和 comment_id 双重收口，任何缺时间/坏时间节点回退到 comment_id
-    水位（<= 触发 ID）。回退口径宁可丢掉无法证明在水位前的楼层，也不把未知楼层送进模型。
+    时间齐全时以时间收口；任一侧缺时间/坏时间时才回退到 comment_id 水位
+    （<= 触发 ID）。回退口径宁可丢掉无法证明在水位前的楼层，也不把未知楼层送进模型。
     """
     trigger_node = next(
         (node for node in thread.chain if node.comment_id == event.comment_id), None
@@ -65,13 +65,12 @@ def filter_floors_at_waterline(
     trigger_time = _parse_comment_time(trigger_node.create_time) if trigger_node else None
     filtered: list[CommentNode] = []
     for floor in floors:
-        if floor.comment_id > event.comment_id:
-            continue
-        if trigger_time is None:
-            filtered.append(floor)
-            continue
         floor_time = _parse_comment_time(floor.create_time)
-        if floor_time is None or floor_time <= trigger_time:
+        if trigger_time is not None and floor_time is not None:
+            if floor_time <= trigger_time:
+                filtered.append(floor)
+            continue
+        if floor.comment_id <= event.comment_id:
             filtered.append(floor)
     return tuple(filtered)
 

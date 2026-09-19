@@ -142,13 +142,18 @@ class _CaseCommentTreeFetcher:
     """
 
     def __init__(self, trigger: dict) -> None:
+        trigger_comment = {**trigger["comment"]}
+        trigger_comment.setdefault("createTime", "2026-09-19T10:00:00+00:00")
         self._thread = PostThread(
             post=PostSummary.model_validate(trigger["post"]),
-            chain=(CommentNode.model_validate(trigger["comment"]),),  # 触发评论即父链（无楼中楼）
+            chain=(CommentNode.model_validate(trigger_comment),),  # 触发评论即父链（无楼中楼）
         )
-        self._floors = tuple(
-            CommentNode.model_validate(floor) for floor in trigger.get("floors") or ()
-        )
+        floors: list[CommentNode] = []
+        for raw_floor in trigger.get("floors") or ():
+            floor = {**raw_floor}
+            floor.setdefault("createTime", "2026-09-19T09:59:00+00:00")
+            floors.append(CommentNode.model_validate(floor))
+        self._floors = tuple(floors)
 
     async def fetch_context(self, event: TriggerEvent) -> PostThread:
         """返回用例线程（event 仅对齐端口签名——fake 单帖数据）。"""

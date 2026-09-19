@@ -16,7 +16,12 @@ from tests.eval._gate import (
     sha256_files,
     write_sanitized_report,
 )
-from tests.eval._runner import CASES_DIR, load_case
+from tests.eval._runner import (
+    CASES_DIR,
+    _CaseCommentTreeFetcher,
+    load_case,
+    trigger_event_from,
+)
 
 from quanta_bot.pipeline.persona import PersonaLibrary
 from quanta_bot.pipeline.ports import LLMClientError
@@ -116,6 +121,20 @@ def test_persona_version_changes_when_prompt_content_changes(tmp_path: Path) -> 
     kernel.write_text(kernel.read_text(encoding="utf-8") + "\n冻结指纹测试", encoding="utf-8")
 
     assert PersonaLibrary(tmp_path).persona_version != original_version
+
+
+async def test_frozen_cases_get_a_deterministic_pre_trigger_waterline() -> None:
+    """旧 YAML 不伪造线上 ID 单调性；runner 用固定时间表达楼层均早于触发评论。"""
+    case = load_case(CASES_DIR / "persona-05-summarize.yaml")
+    fetcher = _CaseCommentTreeFetcher(case.trigger)
+    event = trigger_event_from(case)
+
+    thread = await fetcher.fetch_context(event)
+    floors = await fetcher.fetch_floors(event.post_id)
+
+    trigger_time = datetime.fromisoformat(thread.chain[0].create_time)
+    assert floors
+    assert all(datetime.fromisoformat(floor.create_time) < trigger_time for floor in floors)
 
 
 def _run_record(

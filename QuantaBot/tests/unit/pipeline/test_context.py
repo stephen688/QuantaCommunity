@@ -62,6 +62,49 @@ def test_waterline_falls_back_to_comment_id_when_time_is_missing() -> None:
     assert [node.comment_id for node in filtered] == [99, 100]
 
 
+def test_waterline_uses_timestamp_before_comment_id_when_both_are_known() -> None:
+    """时间齐全时以真实先后为准；ID 只用于缺时间兼容，不能误删旧楼或放入新楼。"""
+    event = TriggerEvent(
+        event_id="evt-100",
+        comment_id=100,
+        post_id=22,
+        commenter_user_id=5,
+        content="@框框 水位测试",
+        mentioned_bot=True,
+    )
+    trigger_node = CommentNode(
+        commentId=100,
+        parentId=None,
+        userId=5,
+        content="@框框 水位测试",
+        createTime="2026-09-19T10:00:00+00:00",
+    )
+    thread = PostThread(
+        post=PostSummary(postId=22, userId=1, title="水位", content="讨论"),
+        chain=(trigger_node,),
+    )
+    older_with_larger_id = CommentNode(
+        commentId=101,
+        parentId=None,
+        userId=7,
+        content="实际更早",
+        createTime="2026-09-19T09:59:00+00:00",
+    )
+    newer_with_smaller_id = CommentNode(
+        commentId=99,
+        parentId=None,
+        userId=7,
+        content="实际更晚",
+        createTime="2026-09-19T10:01:00+00:00",
+    )
+
+    filtered = context.filter_floors_at_waterline(
+        event, thread, (older_with_larger_id, newer_with_smaller_id)
+    )
+
+    assert [node.comment_id for node in filtered] == [101]
+
+
 def test_partition_by_parent_chain_not_recency() -> None:
     """分区依据是父链关系不是机械最近 N 楼：老楼在链上=近区，新楼不在链上=远区。"""
     floors = [
