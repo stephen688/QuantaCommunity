@@ -24,6 +24,14 @@ def test_redteam_policy_plugin_has_explicit_policy_text() -> None:
     assert policy["config"]["policy"].strip()
 
 
+def test_redteam_generation_and_grading_use_frozen_deepseek_model() -> None:
+    """Promptfoo 不得回退到默认 OpenAI grader；攻击生成与评分复用冻结 DeepSeek。"""
+    config_path = Path(__file__).resolve().parents[2] / "eval" / "redteam.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert config["redteam"]["provider"] == "openai:chat:deepseek-v4-flash"
+
+
 def test_provider_bootstraps_src_before_importing_pipeline() -> None:
     """Promptfoo 的系统 Python 不经过 uv，provider 必须自行把 src 加入 import path。"""
     source = PROVIDER_PATH.read_text(encoding="utf-8")

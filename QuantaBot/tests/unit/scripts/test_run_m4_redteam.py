@@ -12,6 +12,14 @@ def test_launcher_uses_uv_python_and_separate_raw_output(monkeypatch, tmp_path: 
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(run_m4_redteam.shutil, "which", lambda command: "C:/node/npx.cmd")
+    monkeypatch.setattr(
+        run_m4_redteam,
+        "Settings",
+        lambda: SimpleNamespace(
+            deepseek_api_key="test-deepseek-key",
+            deepseek_base_url="https://api.deepseek.example",
+        ),
+    )
 
     def fake_run(command, *, env, check):
         captured.update(command=command, env=env, check=check)
@@ -24,6 +32,8 @@ def test_launcher_uses_uv_python_and_separate_raw_output(monkeypatch, tmp_path: 
 
     assert exit_code == 0
     assert captured["env"]["PROMPTFOO_PYTHON"] == sys.executable
+    assert captured["env"]["OPENAI_API_KEY"] == "test-deepseek-key"
+    assert captured["env"]["OPENAI_API_BASE_URL"] == "https://api.deepseek.example"
     assert captured["command"][:4] == [
         "C:/node/npx.cmd",
         "promptfoo",
@@ -32,6 +42,7 @@ def test_launcher_uses_uv_python_and_separate_raw_output(monkeypatch, tmp_path: 
     ]
     assert "eval/redteam.yaml" in captured["command"]
     assert "eval/m4-v1-redteam-generated.yaml" in captured["command"]
+    assert "--remote" in captured["command"]
     assert captured["command"][-3:] == ["--strict", "--tag", "gate=m4-v1"]
     assert captured["check"] is False
 
