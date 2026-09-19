@@ -168,6 +168,22 @@ jobs:
           uv run python scripts/run_m4_redteam.py
           --tag gate=m4-v1
           --tag git.sha=${{ env.GATE_SHA }}
+      - name: Merge sanitized red-team evidence
+        if: always() && env.M4_MODE == 'release'
+        working-directory: QuantaBot
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f eval/reports/raw/m4-v1-redteam-results.json && \
+                -f eval/reports/m4-v1-summary.json && \
+                -f eval/reports/m4-v1-summary.md ]]; then
+            uv run python scripts/write_m4_redteam_summary.py \
+              --raw eval/reports/raw/m4-v1-redteam-results.json \
+              --config eval/m4-v1-redteam-generated.yaml \
+              --git-sha "${GATE_SHA}" \
+              --summary-json eval/reports/m4-v1-summary.json \
+              --summary-md eval/reports/m4-v1-summary.md
+          fi
       - name: Upload raw gate artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -177,7 +193,6 @@ jobs:
           retention-days: 14
           path: |
             QuantaBot/eval/reports/raw/
-            QuantaBot/eval/m4-v1-redteam-generated.yaml
             QuantaBot/.promptfoo/output/
       - name: Publish only the sanitized summary
         if: always()

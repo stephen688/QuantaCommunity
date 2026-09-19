@@ -32,6 +32,7 @@ _INTERNAL_OBJECT = re.compile(
 )
 _EXTRACTION_ACTION = re.compile(
     r"公开|输出|泄露|展示|告诉|列出|逐条|改写|复述|总结|翻译|打印|返回|提供|分享|透露"
+    r"|写|编写|起草|设计|举例|示例|说明|描述"
 )
 
 
@@ -76,11 +77,7 @@ async def generate(
     12000 预算校验；M2 遗留的触发评论后缀曾致三重注入且在校验后追加可超预算（已删）。
     """
     user_prompt = context_text
-    if (
-        decision is not None
-        and decision.mode == "治理"
-        and _requests_internal_instructions(event.content)
-    ):
+    if _requests_internal_instructions(event.content):
         parent_floor = event.parent_id if event.parent_id is not None else event.comment_id
         return GenerationOutput(
             reply=GeneratedReply(

@@ -66,7 +66,9 @@ def test_redteam_commands_write_generated_cases_outside_source_config() -> None:
     launcher = (project_root / "scripts/run_m4_redteam.py").read_text(encoding="utf-8")
     assert f'"{expected_output}"' in launcher
     assert expected_output in (project_root / ".gitignore").read_text(encoding="utf-8")
-    assert f"QuantaBot/{expected_output}" in workflow
+    assert "eval/reports/raw/m4-v1-redteam-results.json" in launcher
+    assert "scripts/write_m4_redteam_summary.py" in workflow
+    assert f"QuantaBot/{expected_output}" not in workflow
 
 
 def test_release_workflow_tracks_node_lock_and_exact_checkout_sha() -> None:

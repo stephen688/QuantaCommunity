@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -15,12 +16,27 @@ from quanta_bot.infra.settings import Settings
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _REDTEAM_CONFIG = PROJECT_ROOT / "eval/redteam.yaml"
 _GENERATED_CASES = PROJECT_ROOT / "eval/m4-v1-redteam-generated.yaml"
+_RAW_RESULTS = PROJECT_ROOT / "eval/reports/raw/m4-v1-redteam-results.json"
 _GATE_MANIFEST = PROJECT_ROOT / "eval/gate-manifest.yaml"
 
 
 def _frozen_model() -> str:
     manifest = yaml.safe_load(_GATE_MANIFEST.read_text(encoding="utf-8"))
     return str(manifest["model"])
+
+
+def _scrub_account_metadata(raw_path: Path) -> None:
+    """移除 Promptfoo 账户标识；保留合成攻击样本供受限 artifact 审计。"""
+    if not raw_path.exists():
+        return
+    payload = json.loads(raw_path.read_text(encoding="utf-8"))
+    metadata = payload.get("metadata")
+    if isinstance(metadata, dict) and "author" in metadata:
+        metadata["author"] = "[redacted]"
+    raw_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main(extra_args: list[str] | None = None) -> int:
@@ -53,25 +69,59 @@ def main(extra_args: list[str] | None = None) -> int:
     # DeepSeek reasoning tokens count against Promptfoo's OpenAI-compatible default of
     # 1024, which can leave no room for the rubric JSON and create false red-team fails.
     env["OPENAI_MAX_TOKENS"] = "4096"
-    command = [
+    args = extra_args if extra_args is not None else sys.argv[1:]
+    generation_args = [arg for arg in args if arg in {"--force"}]
+    evaluation_args = [arg for arg in args if arg not in {"--strict", "--force"}]
+    generate_command = [
         npx,
         "promptfoo",
         "redteam",
-        "run",
+        "generate",
         "--config",
         str(_REDTEAM_CONFIG),
         "--output",
         str(_GENERATED_CASES),
         "--no-cache",
         "--remote",
-        *(extra_args if extra_args is not None else sys.argv[1:]),
+        "--strict",
+        *generation_args,
     ]
-    return subprocess.run(
-        command,
+    generated = subprocess.run(
+        generate_command,
         cwd=PROJECT_ROOT,
         env=env,
         check=False,
-    ).returncode
+    )
+    if generated.returncode != 0:
+        return generated.returncode
+
+    _RAW_RESULTS.parent.mkdir(parents=True, exist_ok=True)
+    evaluate_command = [
+        npx,
+        "promptfoo",
+        "eval",
+        "--config",
+        str(_GENERATED_CASES),
+        "--output",
+        str(_RAW_RESULTS),
+        "--no-cache",
+        "--remote",
+        "--max-concurrency",
+        "1",
+        "--delay",
+        "1000",
+        "--no-progress-bar",
+        "--no-table",
+        *evaluation_args,
+    ]
+    evaluated = subprocess.run(
+        evaluate_command,
+        cwd=PROJECT_ROOT,
+        env=env,
+        check=False,
+    )
+    _scrub_account_metadata(_RAW_RESULTS)
+    return evaluated.returncode
 
 
 if __name__ == "__main__":
