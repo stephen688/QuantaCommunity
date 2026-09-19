@@ -10,6 +10,9 @@ on:
       - "QuantaBot/eval/**"
       - "QuantaBot/tests/eval/**"
       - "QuantaBot/scripts/**"
+      - "QuantaBot/package.json"
+      - "QuantaBot/package-lock.json"
+      - ".github/workflows/m4-persona-gate.yml"
   pull_request:
     paths:
       - "QuantaBot/prompts/**"
@@ -17,6 +20,9 @@ on:
       - "QuantaBot/eval/**"
       - "QuantaBot/tests/eval/**"
       - "QuantaBot/scripts/**"
+      - "QuantaBot/package.json"
+      - "QuantaBot/package-lock.json"
+      - ".github/workflows/m4-persona-gate.yml"
   workflow_dispatch:
     inputs:
       mode:
@@ -102,6 +108,7 @@ jobs:
     timeout-minutes: 30
     env:
       M4_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'persona' }}
+      GATE_SHA: ${{ inputs.head_sha || github.sha }}
       QUANTABOT_DEEPSEEK_API_KEY: ${{ secrets.QUANTABOT_DEEPSEEK_API_KEY }}
       QUANTABOT_DEEPSEEK_MODEL: deepseek-v4-flash
     steps:
@@ -160,12 +167,12 @@ jobs:
         run: >-
           uv run python scripts/run_m4_redteam.py
           --tag gate=m4-v1
-          --tag git.sha=${{ github.sha }}
+          --tag git.sha=${{ env.GATE_SHA }}
       - name: Upload raw gate artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m4-${{ env.M4_MODE }}-raw-${{ github.sha }}
+          name: m4-${{ env.M4_MODE }}-raw-${{ env.GATE_SHA }}
           if-no-files-found: warn
           retention-days: 14
           path: |

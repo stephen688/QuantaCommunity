@@ -39,6 +39,18 @@ def test_provider_bootstraps_src_before_importing_pipeline() -> None:
     assert source.index('PROJECT_ROOT / "src"') < source.index("from tests.eval._runner import")
 
 
+def test_resume_provider_shim_exposes_same_entrypoint() -> None:
+    """Promptfoo resume 丢失 config basePath 时，仓库根 shim 仍能加载正式 provider。"""
+    project_root = Path(__file__).resolve().parents[2]
+    shim_path = project_root / "promptfoo_provider.py"
+    spec = importlib.util.spec_from_file_location("promptfoo_resume_provider", shim_path)
+
+    assert spec is not None and spec.loader is not None
+    shim = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(shim)
+    assert callable(shim.call_api)
+
+
 def test_redteam_commands_write_generated_cases_outside_source_config() -> None:
     """0.123.1 默认覆盖输入配置；本地脚本与 CI 必须显式把生成物写进 raw。"""
     project_root = Path(__file__).resolve().parents[2]
@@ -55,6 +67,20 @@ def test_redteam_commands_write_generated_cases_outside_source_config() -> None:
     assert f'"{expected_output}"' in launcher
     assert expected_output in (project_root / ".gitignore").read_text(encoding="utf-8")
     assert f"QuantaBot/{expected_output}" in workflow
+
+
+def test_release_workflow_tracks_node_lock_and_exact_checkout_sha() -> None:
+    """Promptfoo 依赖变化必须触发付费门禁，手动 checkout 也必须报告同一 SHA。"""
+    project_root = Path(__file__).resolve().parents[2]
+    workflow = (project_root.parent / ".github/workflows/m4-persona-gate.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert '"QuantaBot/package.json"' in workflow
+    assert '"QuantaBot/package-lock.json"' in workflow
+    assert "GATE_SHA: ${{ inputs.head_sha || github.sha }}" in workflow
+    assert "--tag git.sha=${{ env.GATE_SHA }}" in workflow
+    assert "raw-${{ env.GATE_SHA }}" in workflow
 
 
 @pytest.mark.asyncio
