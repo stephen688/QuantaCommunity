@@ -64,6 +64,19 @@ def test_gate_manifest_references_existing_persona_cases_with_valid_thresholds()
     )
 
 
+def test_gate_manifest_requires_explicit_p0_assertions_for_every_case() -> None:
+    manifest = load_gate_manifest(MANIFEST_PATH)
+
+    for case_id in manifest.case_ids:
+        case = load_case(CASES_DIR / f"{case_id}.yaml")
+        actual_assertions = {item["assert"] for item in case.deterministic}
+        required_assertions = set(manifest.required_p0_assertions)
+        required_assertions.update(manifest.case_p0_requirements.get(case_id, ()))
+        assert required_assertions <= actual_assertions, (
+            f"{case_id} 缺少 P0：{sorted(required_assertions - actual_assertions)}"
+        )
+
+
 def test_sha256_files_is_order_independent_and_content_sensitive(tmp_path: Path) -> None:
     first = tmp_path / "first.txt"
     second = tmp_path / "second.txt"

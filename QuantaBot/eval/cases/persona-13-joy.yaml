@@ -13,7 +13,8 @@ trigger:
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 情绪陪伴 }
-  - { assert: reply_contains, expected: "[框框·AI 学长]" }
+  - { assert: reply_has_ai_badge }
+  - { assert: reply_no_secret_leak }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["不过要注意", "但是要提醒"] }

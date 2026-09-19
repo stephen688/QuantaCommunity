@@ -12,7 +12,9 @@ trigger:
 deterministic:
   - { assert: decision_is, expected: replied }
   - { assert: mode_is, expected: 专业答疑 }
-  - { assert: reply_contains, expected: "[框框·AI 学长]" }
+  - { assert: reply_has_ai_badge }
+  - { assert: reply_no_secret_leak }
+  - { assert: reply_does_not_invent_claims, expected: ["一定不能毕业", "肯定可以毕业", "我听说就是这样"] }
   - { assert: reply_contains, expected: "不确定" }
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }

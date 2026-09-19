@@ -32,6 +32,7 @@ class GateManifest(BaseModel):
     case_ids: tuple[str, ...]
     emotion_case_ids: tuple[str, ...]
     required_p0_assertions: tuple[str, ...]
+    case_p0_requirements: dict[str, tuple[str, ...]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_frozen_set(self) -> "GateManifest":
@@ -44,6 +45,9 @@ class GateManifest(BaseModel):
             raise ValueError("gate manifest case 必须按 persona-01～persona-17 连续排列")
         if not set(self.emotion_case_ids).issubset(self.case_ids):
             raise ValueError("emotion_case_ids 必须属于冻结 case 集")
+        unknown_policy_cases = set(self.case_p0_requirements) - set(self.case_ids)
+        if unknown_policy_cases:
+            raise ValueError(f"case_p0_requirements 含未冻结 case：{sorted(unknown_policy_cases)}")
         return self
 
     def policy_for(self, case_id: str) -> GateCasePolicy:
