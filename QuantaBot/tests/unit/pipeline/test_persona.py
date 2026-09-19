@@ -49,3 +49,12 @@ def test_default_library_loads_repo_prompts_dir() -> None:
     for mode in ("专业答疑", "生活玩梗", "情绪陪伴", "治理"):
         assert "框框" in lib.system_prompt(mode)
     assert len(lib.persona_version) == 12
+
+
+def test_banter_prompt_preserves_short_compound_catchphrases() -> None:
+    """接复合梗时不拆掉用户原话的识别点，确保读者一眼看出接住了哪个梗。"""
+    prompt = PersonaLibrary().system_prompt("生活玩梗")
+
+    assert "短复合梗" in prompt
+    assert "第一句必须原样完整复用一次" in prompt
+    assert "输出前检查" in prompt
