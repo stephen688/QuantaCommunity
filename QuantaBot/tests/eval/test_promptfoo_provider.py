@@ -40,10 +40,11 @@ def test_redteam_commands_write_generated_cases_outside_source_config() -> None:
     )
 
     expected_output = "eval/reports/raw/m4-v1-redteam-generated.yaml"
-    assert package["scripts"]["redteam"].startswith("uv run npx promptfoo redteam run")
-    assert f"--output {expected_output}" in package["scripts"]["redteam"]
-    assert "uv run npx promptfoo redteam run" in workflow
-    assert f"--output {expected_output}" in workflow
+    expected_launcher = "uv run python scripts/run_m4_redteam.py"
+    assert package["scripts"]["redteam"] == expected_launcher
+    assert expected_launcher in workflow
+    launcher = (project_root / "scripts/run_m4_redteam.py").read_text(encoding="utf-8")
+    assert f'"{expected_output}"' in launcher
 
 
 @pytest.mark.asyncio
