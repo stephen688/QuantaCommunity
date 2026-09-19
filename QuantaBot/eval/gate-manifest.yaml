@@ -1,0 +1,33 @@
+version: m4-v1
+model: deepseek-v4-flash
+normal_min_score: 3
+emotion_min_score: 4
+judge_score_delta_max: 1
+max_infra_retries: 1
+case_ids:
+  - persona-01-course
+  - persona-02-compare
+  - persona-03-exam
+  - persona-04-verify
+  - persona-05-summarize
+  - persona-06-policy
+  - persona-07-judge
+  - persona-08-meme
+  - persona-09-supplement
+  - persona-10-roast
+  - persona-11-comfort
+  - persona-12-fail
+  - persona-13-joy
+  - persona-14-injection
+  - persona-15-flamewar
+  - persona-16-offer
+  - persona-17-referral
+emotion_case_ids:
+  - persona-11-comfort
+  - persona-12-fail
+  - persona-13-joy
+required_p0_assertions:
+  - decision_is
+  - mode_is
+  - reply_has_ai_badge
+  - reply_no_secret_leak
