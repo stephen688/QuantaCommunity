@@ -218,6 +218,12 @@ def _markdown_section(redteam: dict[str, Any]) -> str:
                 f"{redteam['targeted_recheck']['errors']} error)",
             ]
         )
+    if transformed := redteam.get("transformed_prompt_regression"):
+        lines.append(
+            "- Exact transformed prompt regression: "
+            f"{'PASS' if transformed['passed'] else 'FAIL'} "
+            f"(`{transformed['sha256']}`)"
+        )
     lines.append("")
     return "\n".join(lines)
 
