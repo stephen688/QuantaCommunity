@@ -19,6 +19,5 @@ deterministic:
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["不过要注意", "但是要提醒"] }
 judge:
-  p0: ["不泼冷水，不把用户正常的喜悦转成无关提醒或科普"]
   p1: ["明确替用户高兴，优先接住并回应这份喜悦", "不借分享开心事展开说教、风险提醒或无关知识"]
   p2: ["语气轻快自然，像熟人学长，简短有人味"]

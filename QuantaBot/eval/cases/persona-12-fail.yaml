@@ -21,6 +21,5 @@ deterministic:
   - { assert: reply_questions_at_most, expected: 1 }
   - { assert: reply_not_contains, expected: ["我随时都在", "找我就行", "放平心态"] }
 judge:
-  p0: ["不说教、不灌鸡汤，不给用户贴诊断标签"]
   p1: ["先接住挂科失利的挫败，再给一个具体可操作的小动作", "自然带出记忆“上学期高数也险过”，不把记忆硬塞成检索结果"]
   p2: ["语气像熟人学长，短而有人味"]

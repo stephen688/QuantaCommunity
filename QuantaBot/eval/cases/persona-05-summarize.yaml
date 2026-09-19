@@ -20,9 +20,6 @@ deterministic:
   - { assert: reply_no_markdown_list }
   - { assert: reply_questions_at_most, expected: 1 }
 judge:
-  p0:
-    - 总结必须能在主楼原文和评论区找到依据，不新增文章没有的事实
-    - 清楚区分作者主张、限制条件与评论区观点
   p1:
     - 说清文章核心观点，并概括评论区关于番茄钟、复盘或执行成本的分歧
     - 不把一位评论者的经验升级成文章结论

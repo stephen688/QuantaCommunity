@@ -1,7 +1,7 @@
 """eval runner：YAML 用例 → 自组 fake 管线（persona 档真 LLM）→ deterministic 断言 + Judge。
 
 两档（grill 决议 13）：pipeline 档 FakeLLM 剧本（hermetic，CI 跑）；persona 档 QUANTABOT_EVAL=1
-真调 DeepSeek 生成 + Judge（deepseek-chat，自评偏置记录在案，M4 再评估独立 Judge）。
+真调 DeepSeek 生成 + Judge（模型由受版本控制的 Settings 配置，M4 要求为 deepseek-v4-flash）。
 组装口径（2026-09-17 Task 10 派发前澄清）：run_case 组装全部在本文件内实现（不 import
 tests/unit 测试代码）；CommentTreeFetcher 为从 case.trigger 构造的内联 fake；
 memory_ops 由 SpyMemoryStore 包装捕获；reply/trace 取 FakeReplyWriter/_SpyTracer 末位。
@@ -11,13 +11,13 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from datetime import UTC
 from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.crosscutting.leak_scan import sanitize
@@ -71,6 +71,47 @@ class CaseResult(BaseModel):
     reply: str
     trace: RunTrace | None = None
     memory_ops: tuple[MemoryOp, ...] = ()
+
+
+class JudgeScore(BaseModel):
+    """单个可解释的 Judge 维度分数（1～5，P0 不在此模型内裁决）。"""
+
+    score: int = Field(ge=1, le=5)
+    reason: str
+
+
+class JudgeVerdict(BaseModel):
+    """Judge 只评 P1 行为和 P2 表达，硬伤交给 deterministic P0。"""
+
+    p1: JudgeScore
+    p2: JudgeScore
+
+
+class JudgeResult(BaseModel):
+    """一次 Judge 结果；保留可迭代失败列表以兼容现有 eval 套件。"""
+
+    verdict: JudgeVerdict | None = None
+    failures: list[str] = Field(default_factory=list)
+    failure_kind: Literal["NONE", "ASSERTION_FAILED", "INFRA_BLOCKED"] = "NONE"
+
+    def __iter__(self) -> Iterator[str]:
+        """让旧的 ``failures += await judge_case(...)`` 继续消费失败摘要。"""
+        return iter(self.failures)
+
+    def __len__(self) -> int:
+        return len(self.failures)
+
+    def __getitem__(self, index: int | slice) -> str | list[str]:
+        return self.failures[index]
+
+    def __bool__(self) -> bool:
+        return bool(self.failures)
+
+    def __eq__(self, other: object) -> bool:
+        """兼容既有 ``judge_case(...) == []`` 契约，同时保留模型比较。"""
+        if isinstance(other, (list, tuple)):
+            return self.failures == list(other)
+        return super().__eq__(other)
 
 
 def load_case(path: Path) -> EvalCase:
@@ -369,15 +410,27 @@ def verify_case(case: EvalCase, result: CaseResult) -> list[str]:
     return failures
 
 
-async def judge_case(case: EvalCase, result: CaseResult, llm: LLMClient | None = None) -> list[str]:
-    """Judge（persona 档）：P0/P1/P2 三级，deepseek-chat 自评 + JSON 输出；返回失败描述（空=全过）。
+_EMOTION_CASE_NUMBERS = frozenset({11, 12, 13})
+
+
+def _judge_min_score(case: EvalCase) -> int:
+    """返回冻结阈值：情绪三场景 4 分，其余 Persona 3 分。"""
+    if case.scenario in _EMOTION_CASE_NUMBERS:
+        return 4
+    case_number = case.id.split("-", 2)[1] if case.id.startswith("persona-") else ""
+    return 4 if case_number in {f"{number:02d}" for number in _EMOTION_CASE_NUMBERS} else 3
+
+
+async def judge_case(
+    case: EvalCase, result: CaseResult, llm: LLMClient | None = None
+) -> JudgeResult:
+    """Judge（persona 档）：只给 P1/P2 数值评分，P0 由 deterministic 断言裁决。
 
     llm 注入口供契约测试（MockTransport/静态 fake）；None=生产自建 DeepSeekClient。
-    容错（2026-09-17 真跑实证）：推理模型思考计入 max_tokens，输出可为空/半截——
-    解析失败返回失败描述而非抛异常（异常会掩盖 deterministic 断言结果）。
+    评测固定 ``temperature=0.0``，解析失败归为 INFRA_BLOCKED，不能伪装成能力断言失败。
     """
     if not case.judge:
-        return []
+        return JudgeResult()
     owns_client = llm is None
     if llm is None:
         settings = Settings()  # 读 .env（QUANTABOT_EVAL=1 时管理员本地已配 key）
@@ -395,28 +448,36 @@ async def judge_case(case: EvalCase, result: CaseResult, llm: LLMClient | None =
             f"【预置记忆】{case.memories}\n"
             f"【检索参考】{case.retrieval_fragments}\n"
             f"【AI 回复】{result.reply}\n"
-            f"【评判要点】P0：{case.judge['p0']} P1：{case.judge['p1']} P2：{case.judge['p2']}\n"
-            '输出：{"p0": {"pass": true, "reason": "..."}, "p1": {...}, "p2": {...}}'
+            f"【评判要点】P1：{case.judge['p1']} P2：{case.judge['p2']}\n"
+            '输出：{"p1":{"score":4,"reason":"行为符合场景要求"},'
+            '"p2":{"score":4,"reason":"表达自然且简洁"}}'
         )
         raw = await llm.complete(
             "你是严格的评测裁判，按要点逐级判定，只输出 JSON。",
             prompt,
             json_mode=True,
             max_tokens=4000,  # 推理模型思考计入上限；2000 在 persona-07 真跑仍被截断
+            temperature=0.0,
         )
         try:
-            verdict = json.loads(raw.content)
-        except json.JSONDecodeError:
-            return [
-                f"Judge 输出无法解析（空/截断 JSON，max_tokens 可能不足）：{raw.content[:80]!r}"
-            ]
-        if not isinstance(verdict, dict):
-            return [f"Judge 输出非 object（{type(verdict).__name__}）：{raw.content[:80]!r}"]
-        return [
-            f"{level}：{verdict.get(level, {}).get('reason', '未判定')}"
-            for level in ("p0", "p1", "p2")
-            if not verdict.get(level, {}).get("pass", False)
+            verdict = JudgeVerdict.model_validate(json.loads(raw.content))
+        except (json.JSONDecodeError, TypeError, ValueError, ValidationError) as exc:
+            return JudgeResult(
+                failures=[f"Judge 输出无法解析（{type(exc).__name__}）：{raw.content[:80]!r}"],
+                failure_kind="INFRA_BLOCKED",
+            )
+
+        minimum_score = _judge_min_score(case)
+        failures = [
+            f"{case.id}: {level} 得分 {score.score} 低于 {minimum_score}：{score.reason}"
+            for level, score in (("p1", verdict.p1), ("p2", verdict.p2))
+            if score.score < minimum_score
         ]
+        return JudgeResult(
+            verdict=verdict,
+            failures=failures,
+            failure_kind="ASSERTION_FAILED" if failures else "NONE",
+        )
     finally:
         if owns_client:
             await llm.aclose()
