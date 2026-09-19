@@ -31,7 +31,7 @@ def test_launcher_uses_uv_python_and_separate_raw_output(monkeypatch, tmp_path: 
         "run",
     ]
     assert "eval/redteam.yaml" in captured["command"]
-    assert "eval/reports/raw/m4-v1-redteam-generated.yaml" in captured["command"]
+    assert "eval/m4-v1-redteam-generated.yaml" in captured["command"]
     assert captured["command"][-3:] == ["--strict", "--tag", "gate=m4-v1"]
     assert captured["check"] is False
 

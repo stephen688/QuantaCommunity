@@ -170,6 +170,7 @@ jobs:
           retention-days: 14
           path: |
             QuantaBot/eval/reports/raw/
+            QuantaBot/eval/m4-v1-redteam-generated.yaml
             QuantaBot/.promptfoo/output/
       - name: Publish only the sanitized summary
         if: always()

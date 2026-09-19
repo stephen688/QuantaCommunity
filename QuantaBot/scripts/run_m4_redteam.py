@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-_GENERATED_CASES = "eval/reports/raw/m4-v1-redteam-generated.yaml"
+_GENERATED_CASES = "eval/m4-v1-redteam-generated.yaml"
 
 
 def main(extra_args: list[str] | None = None) -> int:
