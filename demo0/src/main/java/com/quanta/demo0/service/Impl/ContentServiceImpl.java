@@ -10,6 +10,7 @@ import com.quanta.demo0.dto.RecommendQueryDTO;
 import com.quanta.demo0.dto.SearchDTO;
 import com.quanta.demo0.entity.*;
 import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.enums.ContentDetailState;
 import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.enums.AuditStatus;
 import com.quanta.demo0.exception.ContentFailedException;
@@ -22,11 +23,16 @@ import com.quanta.demo0.result.ScrollResult;
 import com.quanta.demo0.mq.producer.ModerationProducer;
 import com.quanta.demo0.properties.AliyunModerationProperties;
 import com.quanta.demo0.service.ContentAuditService;
+import com.quanta.demo0.service.AuthorProfileCache;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
+import com.quanta.demo0.service.ContentDetailCacheService;
 import com.quanta.demo0.service.ContentService;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.vo.CollectResultVO;
 import com.quanta.demo0.vo.ContentVO;
+import com.quanta.demo0.vo.ContentDetailCacheEntry;
+import com.quanta.demo0.vo.ContentDetailSnapshot;
 import com.quanta.demo0.vo.LikeResultVO;
 import com.quanta.demo0.vo.PageVO;
 import lombok.extern.slf4j.Slf4j;
@@ -94,6 +100,14 @@ public class ContentServiceImpl implements ContentService {
     private ContentAuditService contentAuditService;
     @Autowired
     private TrendingCacheInvalidator trendingCacheInvalidator;
+    @Autowired
+    private ContentDetailCacheService contentDetailCacheService;
+    @Autowired
+    private ContentDetailDataLoader contentDetailDataLoader;
+    @Autowired
+    private AuthorProfileCache authorProfileCache;
+    @Autowired
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     /**
      * 发布内容（帖子/回答）
@@ -220,6 +234,7 @@ public class ContentServiceImpl implements ContentService {
                 .isCollected(false)
                 .build();
 
+        contentDetailCacheInvalidator.evictAfterCommit(content.getContentId(), "content-publish");
         return contentVO;
 
     }
@@ -449,34 +464,67 @@ public class ContentServiceImpl implements ContentService {
         if (contentId == null) {
             throw new ContentFailedException("contentId不能为空");
         }
-        //2.查询内容详情
-        Content content = contentMapper.selectById(contentId);
-        if (content == null) {
+        ContentDetailCacheEntry cacheEntry = contentDetailCacheService.getOrLoad(
+                contentId,
+                () -> contentDetailDataLoader.load(contentId)
+        );
+        if (cacheEntry == null || cacheEntry.state() == null) {
             throw new ContentFailedException("内容不存在");
         }
-        if (content.getIsDeleted() != null && content.getIsDeleted() == 1) {
+        if (cacheEntry.state() == ContentDetailState.NOT_FOUND) {
+            throw new ContentFailedException("内容不存在");
+        }
+        if (cacheEntry.state() == ContentDetailState.DELETED) {
             throw new ContentFailedException("内容已被删除");
         }
-        if (content.getAuditStatus() != null && content.getAuditStatus() != AuditStatus.APPROVED.getCode()) {
+        if (cacheEntry.state() == ContentDetailState.NOT_APPROVED) {
             throw new ContentFailedException("内容未通过审核");
         }
-        //3.获取发布用户id,并查询发布用户的信息
-        Long publishUserId = content.getPublishUserId();
-        if (publishUserId == null) {
+        if (cacheEntry.state() == ContentDetailState.INVALID_AUTHOR
+                || cacheEntry.snapshot() == null) {
             throw new ContentFailedException("发布用户信息异常");
         }
-        UserAuthInfo userInfo = userMapper.selectUserAuthInfoById(publishUserId);
-        userInfo = userInfo == null ? new UserAuthInfo() : userInfo;
 
-        //4.查询点赞高亮与收藏状态
-        isContentLiked(content);
-        isContentCollected(content);
+        ContentDetailSnapshot snapshot = cacheEntry.snapshot();
+        UserAuthInfo userInfo = authorProfileCache.get(snapshot.publishUserId());
+        if (userInfo == null) {
+            userInfo = new UserAuthInfo();
+        }
 
-        //5.加入浏览历史
+        Content viewerState = Content.builder()
+                .contentId(snapshot.contentId())
+                .build();
+        isContentLiked(viewerState);
+        isContentCollected(viewerState);
         recordBrowseHistory(contentId);
 
-        //6.封装VO并返回(封装vo的方法里会查询图片列表，所以不需要在这里单独查询了)
-        return convertContentToVO(content, userInfo);
+        return convertDetailSnapshotToVO(snapshot, userInfo, viewerState);
+    }
+
+    private ContentVO convertDetailSnapshotToVO(
+            ContentDetailSnapshot snapshot,
+            UserAuthInfo userInfo,
+            Content viewerState
+    ) {
+        return ContentVO.builder()
+                .contentId(snapshot.contentId())
+                .contentType(snapshot.contentType())
+                .title(snapshot.title())
+                .content(snapshot.content())
+                .liked(snapshot.liked())
+                .commentCount(snapshot.commentCount())
+                .collectCount(snapshot.collectCount())
+                .publishUserId(snapshot.publishUserId())
+                .avatarUrl(userInfo.getAvatarUrl())
+                .nickName(userInfo.getNickName())
+                .quantaDepartment(userInfo.getQuantaDepartment())
+                .quantaBatch(userInfo.getQuantaBatch())
+                .auditStatus(snapshot.auditStatus())
+                .createTime(snapshot.createTime())
+                .images(snapshot.images())
+                .isLiked(BooleanUtil.isTrue(viewerState.getIsLiked()))
+                .isCollected(BooleanUtil.isTrue(viewerState.getIsCollected()))
+                .build();
     }
 
 
@@ -549,6 +597,7 @@ public class ContentServiceImpl implements ContentService {
 
         // 帖子删除事务成功后，提交时失效热榜聚合缓存。
         trendingCacheInvalidator.evictAfterCommit("content-delete");
+        contentDetailCacheInvalidator.evictAfterCommit(contentId, "content-delete");
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -693,6 +742,7 @@ public class ContentServiceImpl implements ContentService {
 
             // ES 中保存了 liked 字段，因此同一事务登记搜索索引校准事件。
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
+            contentDetailCacheInvalidator.evictAfterCommit(contentId, triggerType);
         }
 
         String key = CONTENT_LIKED_KEY + contentId;
@@ -798,6 +848,7 @@ public class ContentServiceImpl implements ContentService {
 
             // ES 中保存了 collectCount 字段，因此可靠登记搜索索引校准事件。
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
+            contentDetailCacheInvalidator.evictAfterCommit(contentId, triggerType);
         }
 
         //6.事务后操作redis缓存

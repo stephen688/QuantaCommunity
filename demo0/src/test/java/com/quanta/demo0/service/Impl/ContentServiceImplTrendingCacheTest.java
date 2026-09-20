@@ -7,6 +7,7 @@ import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,6 +95,7 @@ class ContentServiceImplTrendingCacheTest {
         ContentVectorSyncService contentVectorSyncService = mock(ContentVectorSyncService.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
         TrendingCacheInvalidator invalidator = mock(TrendingCacheInvalidator.class);
+        ContentDetailCacheInvalidator contentDetailCacheInvalidator = mock(ContentDetailCacheInvalidator.class);
 
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
         ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
@@ -101,6 +103,7 @@ class ContentServiceImplTrendingCacheTest {
         ReflectionTestUtils.setField(service, "contentVectorSyncService", contentVectorSyncService);
         ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
         ReflectionTestUtils.setField(service, "trendingCacheInvalidator", invalidator);
+        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", contentDetailCacheInvalidator);
         return new Fixture(service, contentMapper, questionMapper, redisTemplate,
                 contentVectorSyncService, outboxEventService, invalidator);
     }
