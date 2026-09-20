@@ -21,6 +21,7 @@ import com.quanta.demo0.properties.AliyunModerationProperties;
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.service.CommentAuditService;
 import com.quanta.demo0.service.CommentService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.vo.CommentPageVO;
@@ -79,6 +80,8 @@ public class CommentServiceImpl implements CommentService {
     private CommentAuditService commentAuditService;
     @Autowired
     private OutboxEventService outboxEventService;
+    @Autowired
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     /**
      * 发送评论
@@ -886,6 +889,7 @@ public class CommentServiceImpl implements CommentService {
         commentMapper.deleteCommentLikes(comment.getCommentId());
         //更新内容表评论数
         commentMapper.updateCommentCount(comment.getContentId(), -1);
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-reply-delete");
         //更新回答表评论数（仅专业区评论需要）
         if (comment.getAnswerId() != null) {
             int updateCount = questionMapper.updateAnswerCommentCount(comment.getAnswerId(), -1);
@@ -917,6 +921,7 @@ public class CommentServiceImpl implements CommentService {
         //更新内容表评论数
         int totalDeleteCount = 1 + replyCommentIds.size();
         commentMapper.updateCommentCount(comment.getContentId(), -totalDeleteCount);
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-delete");
 
         // 6. 更新回答表评论数（仅专业区评论需要）
         if (comment.getAnswerId() != null) {

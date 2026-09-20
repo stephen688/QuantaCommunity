@@ -22,6 +22,7 @@ import com.quanta.demo0.result.PageResult;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminContentService;
 import com.quanta.demo0.service.ContentExposureService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,6 +67,8 @@ public class AdminContentServiceImpl  implements AdminContentService {
     private ContentExposureService contentExposureService;
     @Autowired
     private TrendingCacheInvalidator trendingCacheInvalidator;
+    @Autowired
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
@@ -135,6 +138,12 @@ public class AdminContentServiceImpl  implements AdminContentService {
         if (visibilityChanged) {
             // 先登记提交后失效；后续异常导致事务回滚时不会真正驱逐缓存。
             trendingCacheInvalidator.evictAfterCommit("admin-content-audit");
+        }
+        if (!oldAuditStatus.equals(auditDTO.getAuditResult())) {
+            contentDetailCacheInvalidator.evictAfterCommit(
+                    auditDTO.getContentId(),
+                    "admin-content-audit"
+            );
         }
 
         if (!oldAuditStatus.equals(auditDTO.getAuditResult())) {
@@ -252,6 +261,7 @@ public class AdminContentServiceImpl  implements AdminContentService {
         }
 
         trendingCacheInvalidator.evictAfterCommit("admin-content-delete:" + contentId);
+        contentDetailCacheInvalidator.evictAfterCommit(contentId, "admin-content-delete");
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

@@ -4,6 +4,7 @@ import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.enums.AuditStatus;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.service.ContentExposureService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -30,6 +31,8 @@ class ContentAuditServiceImplTrendingCacheTest {
     private OutboxEventService outboxEventService;
     @Mock
     private TrendingCacheInvalidator trendingCacheInvalidator;
+    @Mock
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
     @InjectMocks
     private ContentAuditServiceImpl service;
 
@@ -42,6 +45,7 @@ class ContentAuditServiceImplTrendingCacheTest {
         service.approveContent(42L);
 
         verify(trendingCacheInvalidator).evictAfterCommit("content-audit-approved");
+        verify(contentDetailCacheInvalidator).evictAfterCommit(42L, "content-audit-approved");
         verify(contentExposureService).exposeApprovedContent(any(Content.class));
     }
 
@@ -55,6 +59,7 @@ class ContentAuditServiceImplTrendingCacheTest {
 
         verify(contentExposureService, never()).exposeApprovedContent(any(Content.class));
         verify(trendingCacheInvalidator, never()).evictAfterCommit(anyString());
+        verify(contentDetailCacheInvalidator, never()).evictAfterCommit(any(), anyString());
     }
 
     @Test

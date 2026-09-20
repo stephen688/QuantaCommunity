@@ -7,6 +7,7 @@ import com.quanta.demo0.enums.NotificationType;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.service.ContentAuditService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.ContentExposureService;
 import com.quanta.demo0.service.OutboxEventService;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,8 @@ public class ContentAuditServiceImpl implements ContentAuditService {
     private final OutboxEventService outboxEventService;
 
     private final TrendingCacheInvalidator trendingCacheInvalidator;
+
+    private final ContentDetailCacheInvalidator contentDetailCacheInvalidator;
     // ==================== 审核通过 ====================
 
     /**
@@ -80,6 +83,7 @@ public class ContentAuditServiceImpl implements ContentAuditService {
 
         // 数据库状态已经真实变化；后续异常导致事务回滚时，提交回调不会执行。
         trendingCacheInvalidator.evictAfterCommit("content-audit-approved");
+        contentDetailCacheInvalidator.evictAfterCommit(contentId, "content-audit-approved");
 
         // 3. 审核状态已经真正发生变化
         content.setAuditStatus(AuditStatus.APPROVED.getCode());

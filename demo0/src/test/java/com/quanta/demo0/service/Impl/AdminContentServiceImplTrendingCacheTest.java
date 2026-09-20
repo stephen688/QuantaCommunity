@@ -7,6 +7,7 @@ import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.ContentExposureService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,6 +45,8 @@ class AdminContentServiceImplTrendingCacheTest {
     private AdminAuditRecorder adminAuditRecorder;
     @Mock
     private TrendingCacheInvalidator trendingCacheInvalidator;
+    @Mock
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     @InjectMocks
     private AdminContentServiceImpl service;

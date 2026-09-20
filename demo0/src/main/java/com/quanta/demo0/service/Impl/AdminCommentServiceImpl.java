@@ -21,6 +21,7 @@ import com.quanta.demo0.result.PageResult;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminCommentService;
 import com.quanta.demo0.service.CommentAuditService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +56,8 @@ public class AdminCommentServiceImpl implements AdminCommentService {
     private OutboxEventService outboxEventService;
     @Autowired
     private CommentAuditService commentAuditService;
+    @Autowired
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
@@ -195,6 +198,7 @@ public class AdminCommentServiceImpl implements AdminCommentService {
             int replyCount = replyIds != null ? replyIds.size() : 0;
             commentMapper.updateCommentCount(comment.getContentId(), -(1 + replyCount));
         }
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "admin-comment-delete");
 
         // 管理员删除评论和热度 Outbox 在同一个事务中提交。
         outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");

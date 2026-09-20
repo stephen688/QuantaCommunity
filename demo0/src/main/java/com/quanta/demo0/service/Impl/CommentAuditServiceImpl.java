@@ -14,6 +14,7 @@ import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.service.bot.BotMentionDetector;
 import com.quanta.demo0.service.CommentAuditService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
     private final ContentMapper contentMapper;
     private final QuestionMapper questionMapper;
     private final OutboxEventService outboxEventService;
+    private final ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     /** bot 账号与昵称配置；审核服务只消费配置，不持有 HTTP 上下文。 */
     @Autowired
@@ -74,6 +76,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         }
 
         incrementCommentCounts(comment);
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-approved");
 
         // 评论可见后产生的通知先写 Outbox，与状态和计数一起提交。
         createCommentNotificationEvents(comment);
@@ -126,6 +129,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         }
 
         incrementCommentCounts(comment);
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-approved");
         createCommentNotificationEvents(comment);
 
         // 驳回评论重新通过后，评论数和热度 Outbox 一起提交。
@@ -151,6 +155,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         }
 
         decrementCommentCounts(comment);
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-reverted");
 
         // 评论数减少和热度 Outbox 必须在同一个事务中提交。
         outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
