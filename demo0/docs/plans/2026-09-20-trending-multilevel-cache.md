@@ -10,6 +10,15 @@
 
 **Spec:** `docs/后续demo0优化总方案.md` §1，以及本计划第 2 节已确认的业务与一致性边界。
 
+## 执行结果（2026-09-20）
+
+- 代码实现、专项测试、真实 Redis 竞态、候选 JAR 运行和全量回归已完成；专项 53 tests、全量 168 tests 均为 0 failures / 0 errors，全量有 1 skipped。
+- `GET /search/trending` 实测 HTTP 200、业务码 200；L1、损坏 JSON 修复、墓碑回填和 240～360 秒 TTL 已取得运行证据。
+- 三轮候选压测已按协议执行并完整记录，但吞吐中位数较基线下降 44.11%；按用户决定，本轮跳过性能优化与复测，验收状态保留为 `PARTIAL`，不得宣称性能提升。
+- 共享 Redis 停机写失效和真实治理写 API 的破坏性运行验证未执行；对应降级边界与自动化测试证据已在 `docs/api-test/RESULTS.md` 明确标注。
+- 独立复核提出的 DB 补齐、审核失效登记、真实 Redis 反向竞态/损坏 JSON 覆盖和固定墓碑 TTL 问题均已修复；复核修复后最终全量仍为 168 tests、0 failures、0 errors、1 skipped。
+- 下方 checkbox 保留原始执行模板，不作为最终状态来源；最终证据以本节和 `docs/api-test/RESULTS.md` 为准。
+
 ## Global Constraints
 
 - 默认工作目录为 `demo0/`，只有 Git 命令回到仓库根目录执行。
