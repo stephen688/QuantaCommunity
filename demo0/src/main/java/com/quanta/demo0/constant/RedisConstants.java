@@ -63,6 +63,11 @@ public class RedisConstants {
     public static final String SEARCH_TRENDING_ALL_KEY = "search:trending:all";
 
     /**
+     * 帖子详情共享快照缓存 Key 前缀，格式：content:detail:{contentId}。
+     */
+    public static final String CONTENT_DETAIL_KEY = "content:detail:";
+
+    /**
      * 用户粉丝排行 ZSET Key
      * member：userId（String）
      * score：粉丝数
