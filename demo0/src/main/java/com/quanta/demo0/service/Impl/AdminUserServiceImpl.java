@@ -45,6 +45,8 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
+    @Autowired
+    private TrendingCacheInvalidator trendingCacheInvalidator;
 
     /**
      * 分页查询用户列表
@@ -149,6 +151,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 从粉丝排行 ZSET 中移除
         stringRedisTemplate.opsForZSet().remove(RedisConstants.USER_FOLLOWER_RANK_KEY, userId.toString());
 
+        trendingCacheInvalidator.evictAfterCommit("account-ban");
+
         log.info("封禁用户成功，userId={}", userId);
     }
 
@@ -192,6 +196,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 "accountStatus=" + user.getAccountStatus(),
                 "accountStatus=0"
         );
+
+        trendingCacheInvalidator.evictAfterCommit("account-unban");
 
     }
 
