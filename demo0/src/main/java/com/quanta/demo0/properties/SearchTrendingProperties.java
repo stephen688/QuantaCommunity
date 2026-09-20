@@ -29,11 +29,6 @@ public class SearchTrendingProperties {
      */
     private Integer alumniLimit = 10;
 
-    /**
-     * 旧搜索实现的过渡字段；SearchServiceImpl 接入 TrendingCacheService 后删除。
-     */
-    private Long cacheTtl = 1800L;
-
     private Long l1TtlSeconds = 10L;
 
     private Long l1MaximumSize = 1L;
