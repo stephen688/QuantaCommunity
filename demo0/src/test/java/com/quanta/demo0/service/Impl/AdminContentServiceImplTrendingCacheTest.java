@@ -58,7 +58,11 @@ class AdminContentServiceImplTrendingCacheTest {
                 .auditResult(newStatus)
                 .build());
 
-        verify(trendingCacheInvalidator).evictAfterCommit(contains("content-audit"));
+        if (newStatus == 1) {
+            verify(contentExposureService).exposeApprovedContent(any(Content.class));
+        } else {
+            verify(contentExposureService).hideRejectedContent(7L);
+        }
     }
 
     @Test

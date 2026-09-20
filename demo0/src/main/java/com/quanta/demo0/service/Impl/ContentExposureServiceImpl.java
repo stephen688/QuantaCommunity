@@ -43,6 +43,8 @@ public class ContentExposureServiceImpl implements ContentExposureService {
     private final ContentVectorSyncService contentVectorSyncService;
     /** 内容 Mapper，查询数据库内容 */
     private final ContentMapper contentMapper;
+    /** 热榜缓存失效器，确保事务内只登记、提交后再清理缓存 */
+    private final TrendingCacheInvalidator trendingCacheInvalidator;
 
     /**
      * 审核通过的内容曝光（写入推荐池 + 推送 Feed 流 + 同步 ES/向量库）
@@ -74,6 +76,7 @@ public class ContentExposureServiceImpl implements ContentExposureService {
             // 5. 同步到向量数据库（RAG 检索用）
             contentVectorSyncService.upsertByContentId(content.getContentId());
 
+            trendingCacheInvalidator.evictAfterCommit("content-exposed");
             log.info("内容曝光完成 contentId={}", content.getContentId());
         } catch (Exception e) {
             log.error("内容曝光失败 contentId={}", content.getContentId(), e);
@@ -120,6 +123,7 @@ public class ContentExposureServiceImpl implements ContentExposureService {
             // 4. 从向量数据库删除（RAG 检索不再返回）
             contentVectorSyncService.deleteByContentId(contentId);
 
+            trendingCacheInvalidator.evictAfterCommit("content-hidden");
             log.info("内容曝光清理完成 contentId={}", contentId);
         } catch (Exception e) {
             log.error("内容曝光清理失败 contentId={}", contentId, e);
