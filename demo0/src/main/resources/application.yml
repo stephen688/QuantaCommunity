@@ -131,8 +131,10 @@ quanta:
       question-limit: 10
         # 热门校友数量
       alumni-limit: 10
-        # 缓存过期时间（秒），默认 30 分钟
-      cache-ttl: 1800
+      l1-ttl-seconds: 10
+      l1-maximum-size: 1
+      redis-ttl-seconds: 300
+      redis-ttl-jitter-seconds: 60
         # 是否在启动时重建粉丝排行（默认关闭，首次部署手动开启一次）
       rebuild-follower-rank-on-startup: false
   recommend:
