@@ -64,6 +64,8 @@ public class AdminContentServiceImpl  implements AdminContentService {
     private OutboxEventService outboxEventService;
     @Autowired
     private ContentExposureService contentExposureService;
+    @Autowired
+    private TrendingCacheInvalidator trendingCacheInvalidator;
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
@@ -183,6 +185,12 @@ public class AdminContentServiceImpl  implements AdminContentService {
             // 帖子审核状态和审核结果通知 Outbox 在同一个事务中提交。
             outboxEventService.createNotificationEvent(auditNotification, ModerationTargetType.CONTENT.name(), auditDTO.getContentId());
         }
+
+        if ((oldAuditStatus == 0 && auditDTO.getAuditResult() == 1)
+                || (oldAuditStatus == 1 && auditDTO.getAuditResult() == 2)
+                || (oldAuditStatus == 2 && auditDTO.getAuditResult() == 1)) {
+            trendingCacheInvalidator.evictAfterCommit("admin-content-audit:" + auditDTO.getContentId());
+        }
     }
 
     //TODO: 后续可以抽取一个公共方法，专门处理内容删除的业务逻辑，deleteContent 和 deleteContentByAdmin 都调用这个公共方法，避免代码重复
@@ -239,6 +247,8 @@ public class AdminContentServiceImpl  implements AdminContentService {
         for (QuestionAnswer answer : answers) {
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_DELETE");
         }
+
+        trendingCacheInvalidator.evictAfterCommit("admin-content-delete:" + contentId);
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
