@@ -1298,6 +1298,7 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 - 按用户 2026-09-20 决策，本轮不继续处理性能问题，不删除已实现的一致性能力；性能验收保留为 `PARTIAL`，后续若恢复该项，应先关闭逐请求 INFO 日志，再在相同应用启动时长和系统负载下同时重跑基线与候选。
 - 原始文件位于 `perf/results/candidate-r1.jtl`～`candidate-r3.jtl` 及对应报告目录，均由 `.gitignore` 排除；上表保留全部哈希用于核对。
 - 独立代码复核曾提出 4 个 Important：DB 兜底因重复项补不满、审核外围副作用失败时可能漏登记失效、真实 Redis 竞态顺序覆盖不足、审核测试只验证 mock 曝光调用。均已修复：兜底按完整上限查询；审核事务拥有者在数据库状态变化后立即登记 `afterCommit`；新增反向顺序和损坏 JSON 真实 Redis 测试；审核测试直接验证失效登记。另将墓碑 TTL 改为固定 360 秒。
+- 同一独立复核者对修复提交 `30b9595` 二次只读确认：4 个 Important 与 1 个 Minor 均为 `Resolved`，结论 `Ready to merge: Yes`。
 - 复核修复后定向测试 40 tests，0 failures，0 errors；最终全量测试 168 tests，0 failures，0 errors，1 skipped，`BUILD SUCCESS`，总耗时 01:57。
 
 ## 用户端 /follow、/rag、/common
