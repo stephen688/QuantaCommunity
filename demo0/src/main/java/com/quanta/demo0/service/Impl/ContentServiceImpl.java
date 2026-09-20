@@ -92,6 +92,8 @@ public class ContentServiceImpl implements ContentService {
     private AliyunModerationProperties moderationProperties;
     @Autowired
     private ContentAuditService contentAuditService;
+    @Autowired
+    private TrendingCacheInvalidator trendingCacheInvalidator;
 
     /**
      * 发布内容（帖子/回答）
@@ -544,6 +546,9 @@ public class ContentServiceImpl implements ContentService {
         for (QuestionAnswer answer : answers) {
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_DELETE");
         }
+
+        // 帖子删除事务成功后，提交时失效热榜聚合缓存。
+        trendingCacheInvalidator.evictAfterCommit("content-delete");
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
