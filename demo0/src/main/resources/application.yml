@@ -105,6 +105,21 @@ logging:
          service: info
          controller: info
 quanta:
+  cache:
+    read-path:
+      authentication:
+        maximum-size: 10000
+        ttl-seconds: 45
+      author:
+        maximum-size: 10000
+        ttl-seconds: 180
+      content-detail:
+        l1-maximum-size: 10000
+        l1-ttl-seconds: 30
+        redis-ttl-seconds: 300
+        redis-ttl-jitter-seconds: 60
+        negative-ttl-seconds: 60
+        tombstone-ttl-seconds: 360
   security:
     # 是否开放API接口文档，生产环境默认关闭（不设置或设为false）。
     # 本地开发需要调试接口文档时执行：API_DOCS_ENABLED=true
