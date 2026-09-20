@@ -83,6 +83,27 @@ class TrendingCacheServiceImplTest {
     }
 
     @Test
+    void jsonNullFallsBackToSourceAndIsConditionallyReplaced() {
+        when(valueOperations.get("search:trending:all")).thenReturn("null");
+        when(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
+                .thenReturn(1L);
+        TrendingCacheServiceImpl cache = new TrendingCacheServiceImpl(redisTemplate, properties);
+        SearchTrendingVO expected = trending("database");
+
+        SearchTrendingVO actual = cache.getOrLoad(() -> expected);
+
+        assertThat(actual).isSameAs(expected);
+        verify(redisTemplate).execute(
+                any(RedisScript.class),
+                eq(List.of("search:trending:all")),
+                eq("MATCH"),
+                eq("null"),
+                any(String.class),
+                any(String.class)
+        );
+    }
+
+    @Test
     void skipsL2WriteWhenRedisReadIsUnavailable() {
         when(valueOperations.get("search:trending:all"))
                 .thenThrow(new RedisConnectionFailureException("unavailable"));

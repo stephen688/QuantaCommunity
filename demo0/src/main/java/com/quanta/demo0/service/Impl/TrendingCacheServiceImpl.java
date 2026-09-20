@@ -96,7 +96,17 @@ public class TrendingCacheServiceImpl implements TrendingCacheService {
 
         if (observedRaw != null && !observedRaw.startsWith(TOMBSTONE_PREFIX)) {
             try {
-                return JSON.parseObject(observedRaw, SearchTrendingVO.class);
+                SearchTrendingVO cached = JSON.parseObject(
+                        observedRaw,
+                        SearchTrendingVO.class
+                );
+                if (cached != null) {
+                    return cached;
+                }
+                log.warn(
+                        "热榜 L2 JSON 为空，回退事实源，key={}, stage=deserialize",
+                        RedisConstants.SEARCH_TRENDING_ALL_KEY
+                );
             } catch (Exception exception) {
                 log.warn(
                         "热榜 L2 JSON 损坏，回退事实源，key={}, stage=deserialize",
