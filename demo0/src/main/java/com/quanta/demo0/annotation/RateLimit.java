@@ -8,8 +8,8 @@ import java.lang.annotation.Target;
 /**
  * 当前登录用户维度的接口限流。
  */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)// 方法级注解
+@Retention(RetentionPolicy.RUNTIME)// 运行时注解
 public @interface RateLimit {
 
     String scene();

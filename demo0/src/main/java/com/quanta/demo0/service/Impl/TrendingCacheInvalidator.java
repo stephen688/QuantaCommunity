@@ -2,10 +2,11 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.service.TrendingCacheService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
+// 热榜缓存失效器，用于在事务提交后失效热榜缓存
 @Component
 @Slf4j
 public class TrendingCacheInvalidator {
@@ -15,7 +16,7 @@ public class TrendingCacheInvalidator {
     public TrendingCacheInvalidator(TrendingCacheService trendingCacheService) {
         this.trendingCacheService = trendingCacheService;
     }
-
+    // 事务提交后失效热榜缓存
     public void evictAfterCommit(String reason) {
         if (TransactionSynchronizationManager.isActualTransactionActive()
                 && TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -32,7 +33,7 @@ public class TrendingCacheInvalidator {
 
         evict(reason);
     }
-
+    // 失效热榜缓存
     private void evict(String reason) {
         trendingCacheService.evict();
         log.info("热榜缓存失效完成，reason={}", reason);

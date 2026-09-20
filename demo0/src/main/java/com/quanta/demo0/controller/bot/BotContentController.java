@@ -25,6 +25,7 @@ public class BotContentController {
 
     private final BotContentSyncService botContentSyncService;
 
+
     @GetMapping("/content/sync")
     @PreAuthorize("hasRole('BOT')")
     @RateLimit(scene = "bot-read", limit = 120, windowSeconds = 60, failClosed = false)
