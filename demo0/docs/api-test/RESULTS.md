@@ -1207,6 +1207,41 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 
 —
 
+#### 2026-09-20 热榜双层缓存改造：改造前基线
+
+| 项 | 内容 |
+|----|------|
+| **性能验收状态** | `PARTIAL`（三轮改造前基线已完成；候选版本尚未实现） |
+| 执行时间 | 2026-09-20 09:10:54～09:15:47（Asia/Shanghai） |
+| 场景 | 热缓存稳态；先预热 30 秒，保留同一个 `search:trending:all`，正式轮次之间等待 15 秒 |
+| 固定负载 | 20 线程，10 秒 ramp-up，每轮配置 60 秒，HTTP keep-alive |
+| 断言 | HTTP 200；响应体 `code=200` |
+| 代码标识 | branch=`feat/m4-eval-gates`；HEAD=`c6f9b8d8d360cb31ae548eea20fa0490e1914ffd`；工作树非干净（存在本任务外的 Bot/小程序改动，基线 JAR 从当前工作树重新构建） |
+| 构建 | `mvn -DskipTests package`，Java 编译目标 release 17，BUILD SUCCESS |
+| 主机 | Windows 11 家庭版中文版 10.0.26200；Intel Core Ultra 5 225H，14 核/14 逻辑处理器；31.43 GB 内存 |
+| 运行时 | Oracle JDK 21.0.8；Spring Boot 3.5.11；Apache JMeter 5.6.3；Docker Desktop Engine 29.6.1 |
+| 依赖 | 应用 `127.0.0.1:9191`；MySQL 8.0.43 `127.0.0.1:3306`；Redis 7 `127.0.0.1:6379` DB 1；RabbitMQ 3.13 `127.0.0.1:5674` |
+| 数据规模 | `tb_content` 111（可见 65）；`tb_user` 35（未删除且未封禁 31）；`tb_user_search_history` 35；Redis DB 1 共 20 个 Key |
+| 基线实现 | 仅 Redis 单层聚合缓存，Key=`search:trending:all`，配置 TTL=1800 秒，无 Caffeine L1 |
+| API 实测 | HTTP 200、body.code=200；关键词 8、问题 10、校友 7 |
+| 改造前全量测试 | 115 tests，0 failures，0 errors，1 skipped，`BUILD SUCCESS`，总耗时 02:05 |
+
+##### 三轮明细
+
+| 轮次 | 样本数 | 错误数 | 错误率 | 实际持续(s) | 吞吐(req/s) | Min(ms) | Max(ms) | Mean(ms) | Median(ms) | P90(ms) | P95(ms) | P99(ms) | Received(KB/s) | Sent(KB/s) | JTL SHA-256 |
+|------:|-------:|-------:|-------:|------------:|------------:|--------:|--------:|---------:|-----------:|--------:|--------:|--------:|---------------:|-----------:|:-------------|
+| 1 | 236195 | 0 | 0.00% | 59.914 | 3942.234 | 0 | 184 | 4.635 | 5 | 6 | 6 | 9 | 8372.285 | 504.329 | `713FA3D580DFDEF9069C630504C51D38616767991BED9FD959023347101AD68A` |
+| 2 | 245909 | 0 | 0.00% | 59.917 | 4104.161 | 0 | 125 | 4.452 | 4 | 6 | 6 | 11 | 8716.175 | 525.044 | `716431A0CBD32B2469CEE1D02245BDBB2C04A527FB4D69024FE1E38AA854E451` |
+| 3 | 250525 | 0 | 0.00% | 59.915 | 4181.340 | 0 | 114 | 4.369 | 5 | 7 | 7 | 11 | 8880.085 | 534.918 | `36AB70BF249690F2EC6070B5C3C0363BDE6A52BABEB728A9DDCCCB6930D46DBA` |
+| **三轮中位数** | **245909** | **0** | **0.00%** | **59.915** | **4104.161** | **0** | **125** | **4.452** | **5** | **6** | **6** | **11** | **8716.175** | **525.044** | n/a |
+
+##### 原始证据与当前结论
+
+- 本地原始文件：`perf/results/baseline-r1.jtl`～`baseline-r3.jtl` 及对应 `baseline-rN-report/statistics.json`；目录被 `.gitignore` 排除，不提交仓库。
+- 汇总工具：`perf/summarize-trending-results.ps1`；指标来自每轮 JMeter HTML 报告 `statistics.json` 的 `Total` 节点，持续时间由 JTL 首末样本时间戳计算，哈希由 `Get-FileHash -Algorithm SHA256` 计算。
+- 三轮错误率均为 0；基线吞吐中位数为 4104.161 req/s，P95 中位数为 6 ms，P99 中位数为 11 ms。
+- 当前只能确认改造前基线稳定，不能提前宣称双层缓存带来提升。完成候选版本三轮同协议测试后，再补绝对差值、百分比变化和最终状态。
+
 ## 用户端 /follow、/rag、/common
 
 ### F-01 POST /follow/{id} {#f-01-post-followid}
