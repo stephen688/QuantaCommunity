@@ -22,6 +22,7 @@ import com.quanta.demo0.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.properties.WeChatProperties;
 import com.quanta.demo0.service.UserService;
+import com.quanta.demo0.service.UserReadCacheInvalidator;
 import com.quanta.demo0.utils.HttpClientUtil;
 import com.quanta.demo0.utils.JwtUtil;
 import com.quanta.demo0.utils.SensitiveWordChecker;
@@ -75,6 +76,8 @@ public class UserServiceImpl implements UserService {
     private FollowMapper followMapper;
     @Autowired
     private ContentMapper contentMapper;
+    @Autowired
+    private UserReadCacheInvalidator userReadCacheInvalidator;
 
 
     // 获取或创建测试用户
@@ -186,6 +189,7 @@ public class UserServiceImpl implements UserService {
 
         if (changed) {
             userMapper.updateById(update);
+            userReadCacheInvalidator.evictAuthorAfterCommit(user.getId());
         }
     }
 
@@ -422,6 +426,7 @@ public class UserServiceImpl implements UserService {
        if(rows == 0){
            throw new UserInfoFailedException("更新用户信息失败");
        }
+       userReadCacheInvalidator.evictAuthorAfterCommit(user.getId());
     }
 
 
@@ -609,4 +614,3 @@ public class UserServiceImpl implements UserService {
         return UserAuthDisplayStatus.NONE;
     }
 }
-

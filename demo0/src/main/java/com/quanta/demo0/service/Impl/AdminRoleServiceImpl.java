@@ -9,6 +9,7 @@ import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.security.AuthenticatedUser;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminRoleService;
+import com.quanta.demo0.service.UserReadCacheInvalidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -52,6 +53,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
+    @Autowired
+    private UserReadCacheInvalidator userReadCacheInvalidator;
+
     @Override
     @Transactional
     public void grantRole(Long userId, String roleCode) {
@@ -82,6 +86,7 @@ public class AdminRoleServiceImpl implements AdminRoleService {
 
         // 6. 事务提交后删除Redis登录态，强制旧Token立即失效
         evictLoginStateAfterCommit(userId);
+        userReadCacheInvalidator.evictAuthenticationAfterCommit(userId);
 
         log.info("授予角色成功，userId={}, roleCode={}, rows={}", userId, roleCode, rows);
     }
@@ -126,6 +131,7 @@ public class AdminRoleServiceImpl implements AdminRoleService {
 
         // 7. 事务提交后删除Redis登录态，强制旧Token立即失效
         evictLoginStateAfterCommit(userId);
+        userReadCacheInvalidator.evictAuthenticationAfterCommit(userId);
 
         log.info("撤销角色成功，userId={}, roleCode={}, rows={}", userId, roleCode, rows);
     }

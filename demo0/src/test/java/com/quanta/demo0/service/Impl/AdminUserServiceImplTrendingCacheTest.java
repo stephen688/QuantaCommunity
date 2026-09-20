@@ -4,6 +4,7 @@ import com.quanta.demo0.entity.User;
 import com.quanta.demo0.exception.NoFoundException;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.service.AdminAuditRecorder;
+import com.quanta.demo0.service.UserReadCacheInvalidator;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Answers;
@@ -82,10 +83,12 @@ class AdminUserServiceImplTrendingCacheTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS);
         AdminAuditRecorder auditRecorder = mock(AdminAuditRecorder.class);
         TrendingCacheInvalidator invalidator = mock(TrendingCacheInvalidator.class);
+        UserReadCacheInvalidator userReadCacheInvalidator = mock(UserReadCacheInvalidator.class);
         ReflectionTestUtils.setField(service, "userMapper", userMapper);
         ReflectionTestUtils.setField(service, "stringRedisTemplate", redisTemplate);
         ReflectionTestUtils.setField(service, "adminAuditRecorder", auditRecorder);
         ReflectionTestUtils.setField(service, "trendingCacheInvalidator", invalidator);
+        ReflectionTestUtils.setField(service, "userReadCacheInvalidator", userReadCacheInvalidator);
         return new Fixture(service, userMapper, invalidator);
     }
 
