@@ -112,8 +112,8 @@ public class TrendingDataLoader {
             }
         }
 
-        int remaining = limit - questions.size();
-        List<Content> fallbackContents = contentMapper.selectTopLikedContents(remaining);
+        // 查询完整 limit，避免 DB TopN 前几项与排行结果重复时补不满。
+        List<Content> fallbackContents = contentMapper.selectTopLikedContents(limit);
         if (fallbackContents == null) {
             return questions;
         }
@@ -155,8 +155,8 @@ public class TrendingDataLoader {
             }
         }
 
-        int remaining = limit - alumni.size();
-        List<UserAuthInfo> fallbackUsers = userMapper.selectTopFollowedUsers(remaining);
+        // 查询完整 limit，避免 DB TopN 前几项与排行结果重复时补不满。
+        List<UserAuthInfo> fallbackUsers = userMapper.selectTopFollowedUsers(limit);
         if (fallbackUsers == null) {
             return alumni;
         }

@@ -129,7 +129,7 @@ class TrendingDataLoaderTest {
                 .thenReturn(orderedSet("1"));
         when(contentMapper.selectBatchIds(List.of(1L)))
                 .thenReturn(List.of(content(1L, 0, 1)));
-        when(contentMapper.selectTopLikedContents(1))
+        when(contentMapper.selectTopLikedContents(2))
                 .thenReturn(List.of(content(1L, 0, 1), content(2L, 0, 1), content(3L, 0, 1)));
 
         SearchTrendingVO result = load();
@@ -147,7 +147,7 @@ class TrendingDataLoaderTest {
                 .thenReturn(orderedSet("1"));
         when(contentMapper.selectBatchIds(List.of(1L)))
                 .thenReturn(List.of(content(1L, 0, 1)));
-        when(contentMapper.selectTopLikedContents(2))
+        when(contentMapper.selectTopLikedContents(3))
                 .thenReturn(List.of(content(1L, 0, 1), content(2L, 0, 1), content(2L, 0, 1)));
 
         SearchTrendingVO result = load();
@@ -155,6 +155,23 @@ class TrendingDataLoaderTest {
         assertThat(result.getHotQuestions())
                 .extracting(question -> question.getContentId())
                 .containsExactly(1L, 2L);
+    }
+
+    @Test
+    void questionFallbackRequestsFullLimitSoRankedDuplicatesDoNotStarveResults() {
+        properties.setQuestionLimit(3);
+        when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 5L))
+                .thenReturn(orderedSet("1"));
+        when(contentMapper.selectBatchIds(List.of(1L)))
+                .thenReturn(List.of(content(1L, 0, 1)));
+        when(contentMapper.selectTopLikedContents(3))
+                .thenReturn(List.of(content(1L, 0, 1), content(2L, 0, 1), content(3L, 0, 1)));
+
+        SearchTrendingVO result = load();
+
+        assertThat(result.getHotQuestions())
+                .extracting(question -> question.getContentId())
+                .containsExactly(1L, 2L, 3L);
     }
 
     @Test
@@ -184,7 +201,7 @@ class TrendingDataLoaderTest {
                 .thenReturn(orderedSet("7"));
         when(userMapper.selectUserAuthInfoByIds(List.of(7L)))
                 .thenReturn(List.of(alumni(7L, 0)));
-        when(userMapper.selectTopFollowedUsers(2))
+        when(userMapper.selectTopFollowedUsers(3))
                 .thenReturn(List.of(alumni(7L, 0), alumni(8L, 0), alumni(8L, 0)));
 
         SearchTrendingVO result = load();
@@ -192,6 +209,23 @@ class TrendingDataLoaderTest {
         assertThat(result.getHotAlumni())
                 .extracting(alumni -> alumni.getUserId())
                 .containsExactly(7L, 8L);
+    }
+
+    @Test
+    void alumniFallbackRequestsFullLimitSoRankedDuplicatesDoNotStarveResults() {
+        properties.setAlumniLimit(3);
+        when(zSetOperations.reverseRange(USER_FOLLOWER_RANK_KEY, 0L, 5L))
+                .thenReturn(orderedSet("7"));
+        when(userMapper.selectUserAuthInfoByIds(List.of(7L)))
+                .thenReturn(List.of(alumni(7L, 0)));
+        when(userMapper.selectTopFollowedUsers(3))
+                .thenReturn(List.of(alumni(7L, 0), alumni(8L, 0), alumni(9L, 0)));
+
+        SearchTrendingVO result = load();
+
+        assertThat(result.getHotAlumni())
+                .extracting(alumni -> alumni.getUserId())
+                .containsExactly(7L, 8L, 9L);
     }
 
     @Test

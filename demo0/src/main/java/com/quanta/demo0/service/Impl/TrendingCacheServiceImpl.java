@@ -26,6 +26,7 @@ public class TrendingCacheServiceImpl implements TrendingCacheService {
 
     private static final String LOCAL_CACHE_KEY = "trending";
     private static final String TOMBSTONE_PREFIX = "__INVALIDATED__:";
+    private static final long TOMBSTONE_TTL_SECONDS = 360L;
     private static final DefaultRedisScript<Long> COMPARE_AND_SET_SCRIPT;
 
     static {
@@ -61,13 +62,11 @@ public class TrendingCacheServiceImpl implements TrendingCacheService {
     public void evict() {
         localCache.invalidate(LOCAL_CACHE_KEY);
         String tombstone = TOMBSTONE_PREFIX + UUID.randomUUID();
-        long tombstoneTtl = properties.getRedisTtlSeconds()
-                + properties.getRedisTtlJitterSeconds();
         try {
             stringRedisTemplate.opsForValue().set(
                     RedisConstants.SEARCH_TRENDING_ALL_KEY,
                     tombstone,
-                    tombstoneTtl,
+                    TOMBSTONE_TTL_SECONDS,
                     TimeUnit.SECONDS
             );
             log.info("热榜缓存已失效，key={}", RedisConstants.SEARCH_TRENDING_ALL_KEY);

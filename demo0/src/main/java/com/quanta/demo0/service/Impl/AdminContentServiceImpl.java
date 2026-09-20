@@ -129,6 +129,14 @@ public class AdminContentServiceImpl  implements AdminContentService {
         updateContent.setUpdateTime(LocalDateTime.now());
         contentMapper.update(updateContent);
 
+        boolean visibilityChanged = (oldAuditStatus == 0 && auditDTO.getAuditResult() == 1)
+                || (oldAuditStatus == 1 && auditDTO.getAuditResult() == 2)
+                || (oldAuditStatus == 2 && auditDTO.getAuditResult() == 1);
+        if (visibilityChanged) {
+            // 先登记提交后失效；后续异常导致事务回滚时不会真正驱逐缓存。
+            trendingCacheInvalidator.evictAfterCommit("admin-content-audit");
+        }
+
         if (!oldAuditStatus.equals(auditDTO.getAuditResult())) {
             String triggerType = auditDTO.getAuditResult() == 1 ? "AUDIT_APPROVED" : "AUDIT_REJECTED";
 

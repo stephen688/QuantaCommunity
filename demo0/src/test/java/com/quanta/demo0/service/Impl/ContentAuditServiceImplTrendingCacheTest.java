@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -27,6 +28,8 @@ class ContentAuditServiceImplTrendingCacheTest {
     private ContentExposureService contentExposureService;
     @Mock
     private OutboxEventService outboxEventService;
+    @Mock
+    private TrendingCacheInvalidator trendingCacheInvalidator;
     @InjectMocks
     private ContentAuditServiceImpl service;
 
@@ -38,6 +41,7 @@ class ContentAuditServiceImplTrendingCacheTest {
 
         service.approveContent(42L);
 
+        verify(trendingCacheInvalidator).evictAfterCommit("content-audit-approved");
         verify(contentExposureService).exposeApprovedContent(any(Content.class));
     }
 
@@ -50,6 +54,7 @@ class ContentAuditServiceImplTrendingCacheTest {
         service.approveContent(42L);
 
         verify(contentExposureService, never()).exposeApprovedContent(any(Content.class));
+        verify(trendingCacheInvalidator, never()).evictAfterCommit(anyString());
     }
 
     @Test
@@ -63,6 +68,7 @@ class ContentAuditServiceImplTrendingCacheTest {
         assertThatThrownBy(() -> service.approveContent(42L))
                 .isInstanceOf(IllegalStateException.class);
 
+        verify(trendingCacheInvalidator).evictAfterCommit("content-audit-approved");
     }
 
     private Content pendingContent() {

@@ -63,6 +63,7 @@ class AdminContentServiceImplTrendingCacheTest {
         } else {
             verify(contentExposureService).hideRejectedContent(7L);
         }
+        verify(trendingCacheInvalidator).evictAfterCommit("admin-content-audit");
     }
 
     @Test

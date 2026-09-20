@@ -104,6 +104,35 @@ class TrendingCacheRedisIntegrationTests {
     }
 
     @Test
+    void completedRefillFollowedByEvictionLeavesTombstone() {
+        SearchTrendingVO filled = trending("filled-before-eviction");
+        newCache().getOrLoad(() -> filled);
+        assertThat(JSON.parseObject(
+                redisTemplate.opsForValue().get(CACHE_KEY),
+                SearchTrendingVO.class
+        )).isEqualTo(filled);
+
+        newCache().evict();
+
+        assertThat(redisTemplate.opsForValue().get(CACHE_KEY))
+                .startsWith(TOMBSTONE_PREFIX);
+    }
+
+    @Test
+    void unchangedCorruptedJsonIsReplacedByLoadedValue() {
+        redisTemplate.opsForValue().set(CACHE_KEY, "{broken-json", 360, TimeUnit.SECONDS);
+        SearchTrendingVO expected = trending("repaired-corrupted-json");
+
+        SearchTrendingVO actual = newCache().getOrLoad(() -> expected);
+
+        assertThat(actual).isEqualTo(expected);
+        assertThat(JSON.parseObject(
+                redisTemplate.opsForValue().get(CACHE_KEY),
+                SearchTrendingVO.class
+        )).isEqualTo(expected);
+    }
+
+    @Test
     void staleLoaderCannotOverwriteTombstoneAndNewCacheInstanceCanReplaceIt() throws Exception {
         TrendingCacheServiceImpl cache = newCache();
         TrendingCacheServiceImpl invalidatingCacheInstance = newCache();
