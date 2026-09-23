@@ -71,6 +71,13 @@ public interface OutboxEventService {
      */
     String createHotScoreRecalculateEvent(Long contentId, String triggerType);
 
+    /**
+     * 用户行为事件（画像更新信号）。与业务写同事务调用。
+     * behaviorType 仅允许 LIKE / COLLECT / COMMENT / VIEW。
+     * 返回 eventId，与其它 create* 事件入口同构，便于调用方记录与排查。
+     */
+    String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType);
+
 
     /**
      * 在业务事务中创建 ES 校准事件。

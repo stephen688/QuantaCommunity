@@ -42,7 +42,12 @@ public enum OutboxEventType {
     /**
      * 审核通过的评论命中 bot（@ 或直接回复），请求 QuantaBot 触发处理（C-1）。
      */
-    BOT_MENTION_REQUESTED("BOT_MENTION_REQUESTED");
+    BOT_MENTION_REQUESTED("BOT_MENTION_REQUESTED"),
+
+    /**
+     * 用户对帖子发生一次行为（赞/藏/评/浏览），请求画像消费者累加画像（D2）。
+     */
+    USER_BEHAVIOR_REQUESTED("USER_BEHAVIOR_REQUESTED");
 
 
 

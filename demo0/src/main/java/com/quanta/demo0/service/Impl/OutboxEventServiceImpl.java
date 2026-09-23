@@ -324,6 +324,69 @@ public class OutboxEventServiceImpl implements OutboxEventService {
 
         return eventId;
     }
+
+    /**
+     * 创建用户行为事件（画像更新信号，D2）。
+     *
+     * 与 createHotScoreRecalculateEvent 同构：eventId 用 UUID 族，
+     * 调用方已有事务时加入同一事务，插入失败抛异常让业务写一起回滚。
+     * 聚合主体是用户（画像按 userId 组织），aggregateId 记 userId。
+     */
+    @Override
+    @Transactional
+    public String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType) {
+        // 参数校验：任一必填字段为空即拒绝，不写入毒丸事件。
+        if (userId == null || contentId == null) {
+            throw new ContentFailedException("用户行为事件缺少用户 ID 或帖子 ID");
+        }
+        validateBehaviorType(behaviorType);
+
+        String eventId = UUID.randomUUID().toString();
+        LocalDateTime occurredAt = LocalDateTime.now();
+
+        // 消息不携带权重，权重换算由画像消费侧承担。
+        UserBehaviorMessage message = UserBehaviorMessage.builder()
+                .eventId(eventId)
+                .eventType(OutboxEventType.USER_BEHAVIOR_REQUESTED.getCode())
+                .occurredAt(occurredAt)
+                .userId(userId)
+                .contentId(contentId)
+                .behaviorType(behaviorType)
+                .retryCount(0)
+                .build();
+
+        String payload = serializePayload(message);
+        validatePayloadSize(payload);
+
+        OutboxEvent event = OutboxEvent.builder()
+                .eventId(eventId)
+                .eventType(OutboxEventType.USER_BEHAVIOR_REQUESTED.getCode())
+                .aggregateType("USER")
+                .aggregateId(userId)
+                .payload(payload)
+                .status(OutboxEventStatus.PENDING.getCode())
+                .retryCount(0)
+                .nextRetryTime(occurredAt)
+                .replayCount(0)
+                .build();
+
+        // 插入失败必须抛异常，让业务写（赞/藏/评）和行为 Outbox 一起回滚。
+        if (outboxEventMapper.insert(event) != 1) {
+            throw new ContentFailedException("创建用户行为事件失败");
+        }
+
+        return eventId;
+    }
+
+    /**
+     * 行为类型白名单校验：只允许 D2 定义的四种行为。
+     */
+    private void validateBehaviorType(String behaviorType) {
+        if (behaviorType == null || !List.of("LIKE", "COLLECT", "COMMENT", "VIEW").contains(behaviorType)) {
+            throw new ContentFailedException("用户行为类型非法：" + behaviorType);
+        }
+    }
+
     @Override
     @Transactional
     public String createCommentModerationEvent(ContentComment comment, List<String> imageUrls) {

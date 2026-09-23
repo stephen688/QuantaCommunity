@@ -74,6 +74,26 @@ public class RedisConstants {
      */
     public static final String USER_FOLLOWER_RANK_KEY = "user:follower:rank";
 
+    /**
+     * 用户行为画像 Hash Key 前缀，格式：user:profile:{userId}。
+     * field = 帖子标签名（第一版只有 life / professional，LLM 标签上线后自动扩展）；
+     * value = 权重分（HINCRBYFLOAT 累加）。画像为派生快照，事实源在 MySQL 行为数据。
+     */
+    public static final String USER_PROFILE_KEY = "user:profile:";
+
+    /**
+     * 画像累计行为权重 field（α 动态调整的数据源）。以 "__" 前缀与标签名区隔。
+     */
+    public static final String USER_PROFILE_TOTAL_FIELD = "__total";
+
+    /*
+     * 画像域辅助 key：连字符前缀刻意与 user:profile:{userId} 画像 Hash 隔离，
+     * 防止衰减任务 SCAN "user:profile:*" 把 String 类型辅助 key 当 Hash 处理（WRONGTYPE）。
+     */
+    public static final String USER_PROFILE_SYNC_WATERMARK_KEY = "user:profile-sync:watermark";
+    public static final String USER_PROFILE_SYNC_LOCK_KEY = "user:profile-sync:lock";
+    public static final String USER_PROFILE_DECAY_LOCK_KEY = "user:profile-decay:lock";
+
     /*
      * ===== QuantaBot 控制面命名空间（C-7 契约）=====
      *
