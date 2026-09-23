@@ -243,6 +243,10 @@ public class CommentServiceImpl implements CommentService {
             throw new CommentFailedException("评论发布失败");
         }
 
+        // 用户新增评论成功：画像行为事件与评论写入同一个事务提交（D2）。
+        // 管理员删除/审核驳回路径不经过此处，不重复发事件。
+        outboxEventService.createUserBehaviorEvent(userId, contentId, "COMMENT");
+
         // 7. 审核开启时，评论、图片和审核 Outbox 在同一个事务中提交。
         if (shouldModerateComment()) {
             outboxEventService.createCommentModerationEvent(contentComment, imageUrls);

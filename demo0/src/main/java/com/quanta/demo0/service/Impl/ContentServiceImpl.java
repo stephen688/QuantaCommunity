@@ -731,6 +731,9 @@ public class ContentServiceImpl implements ContentService {
 
             // 点赞明细、点赞数和通知 Outbox 加入同一个事务。
             outboxEventService.createNotificationEvent(likeNotification, ModerationTargetType.CONTENT.name(), contentId);
+
+            // 画像行为事件与通知同条件挂载：只有真正新增点赞且非自赞才算兴趣信号（D2/D9）。
+            outboxEventService.createUserBehaviorEvent(userId, contentId, "LIKE");
         }
 
         // 如果
@@ -841,6 +844,11 @@ public class ContentServiceImpl implements ContentService {
         }
 
         if (changed) {
+            // 只有本次真正新增收藏才发画像行为事件（D9：取消收藏不回滚画像）。
+            if (isCollected) {
+                outboxEventService.createUserBehaviorEvent(userId, contentId, "COLLECT");
+            }
+
             String triggerType = isCollected ? "COLLECT" : "UNCOLLECT";
 
             // 收藏明细、收藏数和热度 Outbox 在同一个事务中提交。
