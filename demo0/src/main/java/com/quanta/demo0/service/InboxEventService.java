@@ -42,6 +42,11 @@ public interface InboxEventService {
      */
     InboxAcquireResult acquire(String consumerName, String instanceId, SearchReconcileMessage message);
 
+    /**
+     * 尝试登记并抢占用户行为（画像更新）消息。
+     */
+    InboxAcquireResult acquire(String consumerName, String instanceId, UserBehaviorMessage message);
+
 
 
     /**

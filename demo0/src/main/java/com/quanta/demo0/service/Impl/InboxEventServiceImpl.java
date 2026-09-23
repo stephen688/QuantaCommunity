@@ -88,6 +88,25 @@ public class InboxEventServiceImpl implements InboxEventService {
     }
 
     /**
+     * 尝试登记并抢占用户行为（画像更新）消息；
+     * aggregate 兜底值与 Outbox 侧 createUserBehaviorEvent 保持一致（USER / userId）。
+     */
+    @Override
+    @Transactional
+    public InboxAcquireResult acquire(String consumerName, String instanceId, UserBehaviorMessage message) {
+        Integer retryCount = message.getRetryCount() == null ? 0 : message.getRetryCount();
+        return acquireEvent(
+                consumerName,
+                instanceId,
+                message.getEventId(),
+                message.getEventType(),
+                "USER",
+                message.getUserId(),
+                retryCount
+        );
+    }
+
+    /**
      * 尝试登记并抢占事件。
      */
     private InboxAcquireResult acquireEvent(String consumerName, String instanceId, String eventId, String eventType, String aggregateType, Long aggregateId, Integer retryCount) {
