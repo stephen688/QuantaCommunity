@@ -211,7 +211,7 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 | 5. 画像流：两画像用户序不同；匿名=hot（α=1）；曝光去重；池耗尽 hasMore=false | 匿名 recommend 序与 hot 完全一致（α=1）PASS；曝光去重 PASS（两页零交集 + SCARD 15→25）；**"两个画像不同的用户同刻对比"未构造第二画像用户执行，由单测 RecommendRerankServiceImplTest 画像分支（匹配分/饱和/新用户 α 序）覆盖**；**"池子耗尽 hasMore=false"未构造真实耗尽场景（P4-01b 仅断言 hasMore 为 boolean），由单测 hasMore 边界断言覆盖** | PARTIAL |
 | 6. hot 流：不写曝光 set、"滤光降级重拉"已删、序与删除前一致 | P4-01c/d 两次拉取完全可重复（行为差异断言）+ 曝光 set SCARD 前后对照不写曝光；"滤光降级重拉"代码删除经独立审查"曝光迁移无 hot 残留"面确认 | PASS |
 | 7. P4-01 等回归用例按新语义更新并通过 | P4-01、P4-01a~P4-01f 共 7 条全部真实执行通过（含 P4-01f 非法 scene → body.code=400） | PASS |
-| 8. 独立审查无未解决 Critical/Important | fresh 审查者结论"可以合并"，Critical/Important 为零，Minor 7 条见上表处置 | PASS |
+| 8. 独立审查无未解决 Critical/Important | fresh 审查者结论"可以合并"，Critical/Important 为零，Minor 8 条见上表处置（M8 为 2026-09-24 管理员复核补记的审查漏检项，已修复，不影响本门禁结论） | PASS |
 
 ---
 
