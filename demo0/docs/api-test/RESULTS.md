@@ -122,6 +122,64 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 
 ---
 
+## 推荐流个性化（S-PF，2026-09-24 真实执行记录）
+
+本章记录推荐流个性化改造（scene 语义收敛 + 用户画像流）的真栈验收。证据来源为本地真实起栈（MySQL/Redis/RabbitMQ）+ HTTP 调用 + Redis/MySQL 直查，不写 token、密钥或完整请求 payload。用例改造落在 `cases/03-read.http` 的 P4-01 系列（P4-01、P4-01a~P4-01f 共 7 条），全部真实执行通过。
+
+### 总体判定
+
+| 验收项 | 证据 | 状态 |
+|---|---|---|
+| scene=latest/recommend 画像流契约（minScore=null、offset=0、hasMore 透传、游标入参忽略、list 装配完整） | P4-01、P4-01a、P4-01b | PASS |
+| scene=hot 热度序连续两次拉取可重复、不写曝光 | P4-01c、P4-01d + 曝光 set SCARD 前后对照 | PASS |
+| 匿名 recommend 与 hot 序一致 | P4-01e | PASS |
+| 非法 scene → HTTP 200 + body.code=400「场景参数异常」 | P4-01f | PASS |
+| 画像构建（赞/评 → 画像 Hash 累加） | 行为→画像映射链（见下） | PASS |
+| 浏览对账 + 幂等（D11 首看 + Inbox） | browse:435 事件链（见下） | PASS |
+| 画像流排序与曝光去重（24h TTL、超量淘汰语义保留） | 两页拉取零交集 + SCARD 15→25 | PASS |
+| 每日衰减 ×0.95 与阈值删除、锁防重释放 | 30s cron 加速复跑轨迹（见下） | PASS |
+
+### 画像构建与浏览对账（uid=1）
+
+行为→画像映射全部可复核（权重唯一真源 `quanta.recommend.profile`：赞 2.0/评 4.0/看 1.0）：
+
+| 时刻 | 行为（MySQL 记录） | 画像结果（HGETALL user:profile:1） |
+|---|---|---|
+| 16:20:15 | 评论专业区帖 4（tb_content_comment=390） | professional=4.0（COMMENT 权重 4.0） |
+| 16:21:13 | 点赞生活区帖 50、69（tb_content_like=597/598） | life=4.0（LIKE 权重 2.0×2） |
+| — | 汇总 | __total=8.0；field=life/professional + __total，与 D4 权重一致 |
+| 16:36 前后 | 浏览生活区帖 40（tb_browse_history=435） | 同步任务（fixed-delay 15s）后 life 4→5、__total 8→9（VIEW 权重 1.0）；watermark 434→435 |
+
+- 对账幂等：Inbox `user.behavior.browse:435` = `SUCCESS`（retry_count=0）；等待 20 秒无新浏览后画像保持 life=5/__total=9 不变（D11 同对只记首看 + Inbox 幂等）。
+- 行为目标帖均为 APPROVED 且未删除（applyBehavior 可见性校验前置成立）。
+
+### 画像流排序与曝光去重（uid=1，画像 life=5/professional=4/__total=9）
+
+- 画像流（scene=latest）连续两次拉取 pageSize=5：第一页 `74,12,82,75,64`，第二页 `77,68,84,93,79`，两页零交集（曝光过滤生效，游标入参忽略后翻页语义由曝光集承接）。
+- 曝光 set `recommend:exposed:1` 从 15 → 25（每页 +5），TTL=86400（24h）。
+- 同一时刻 hot 序为 `96,69,90,99,87`；画像序因 α 混合重排与已曝光过滤与 hot 序不同。
+- 匿名（无 token）scene=recommend 序与 hot 完全一致：`96,69,90,99,87`（空画像 α=1 纯热度，不读写曝光集）。
+
+### 热度池与现算分同步（互动校准链路，附带验证）
+
+16:21:13 对 69 点赞触发 `HOT_SCORE_RECALCULATE_REQUESTED`（Inbox=SUCCESS），消费者按 MySQL 当前计数覆盖式重算热度池：69 分数从 5.60e-4 校准为 5.79e-4，hot 序从 `96,90,99,69,87` 变为 `96,69,90,99,87`。按公式 `(liked×3+comment×2+collect×5)/(hours+2)^1.5` 手工核算 69/90/96 三条得 5.789e-4/5.613e-4/6.239e-4，与 ZSET 实际值 5.7919e-4/5.6137e-4/6.2429e-4 吻合（差异为小时数流逝）。校准后匿名序与 hot 序保持一致。
+
+### 每日衰减（30s cron 加速复跑）
+
+以启动参数覆盖 `quanta.recommend.profile.decay-cron=0/30 * * * * ?` 复跑 ProfileDecayTask：
+
+- 注入 `test-fld=0.52`，一轮衰减后 0.52×0.95=0.494 < 0.5 阈值被删除，Hash 仅剩 professional/__total/life。
+- 衰减轨迹逐轮精确 ×0.95：life 4.5125 → 4.286875 → 4.07253125；professional 3.61 → 3.4295 → 3.258025；__total 与标签分数轨迹一致（同步衰减语义）。
+- 日志每 30 秒一条 `画像衰减完成，衰减用户数=11`；衰减锁 `user:profile-decay:lock` 每轮结束后释放（EXISTS=0）。
+- SCAN 命名空间隔离（D12）：watermark/锁等辅助 key（`user:profile-*` 连字符前缀）未被误当画像 Hash 处理。
+
+### 偏差记录
+
+- 计划命令 `run-phase.ps1 -Phase 4` 不被脚本支持（ValidateSet 仅允许 0-1/2-3/all）；本轮以 curl 等价方式执行 P4-01 系列全部断言并逐一核验，断言语义与用例文件一致。脚本未改动（不在本 Task 文件授权范围）。
+- 本地真栈 rabbitmq 以启动参数覆盖为 localhost:5674（application.yml 默认指向 192.168.100.128 旧虚拟机）；计划提到的 `run_full.ps1` 不存在，仓库内为 `docs/api-test/run_full.py`。
+
+---
+
 ## 总览索引（64 接口一览）
 
 | ID | 方法 | 路径 | 接口状态 | 最后执行 | 跳转 |
@@ -570,6 +628,25 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 #### 请求/响应摘录
 
 —
+
+#### 2026-09-24 复执行记录（推荐流个性化 S-PF）
+
+| 项 | 内容 |
+|----|------|
+| **接口状态** | `PASS` |
+| 最后执行 | 2026-09-24（真栈：MySQL/Redis/RabbitMQ 本地实例） |
+| body.code | 200（scene=latest/recommend/hot）；400（scene=bogus，HTTP 200） |
+| **结论** | D8 scene 语义收敛验收通过；详细证据见「推荐流个性化（S-PF）」章节 |
+
+| 用例ID | 类型 | 状态 | 预期 | 实际 | 备注 |
+|--------|------|------|------|------|------|
+| P4-01 | 正向 | PASS | 画像流契约：minScore=null、offset=0、hasMore 布尔、list 装配完整 | 全部满足 | scene=latest&pageSize=5 |
+| P4-01a | 边界 | PASS | 游标入参被忽略，出参仍 minScore=null/offset=0 | 全部满足 | lastScore=123456.0&offset=99 |
+| P4-01b | 正向 | PASS | scene=recommend 登录画像流契约同 P4-01 | 全部满足 | 画像重排生效 |
+| P4-01c | 正向 | PASS | scene=hot 热度序 + 记录首拉 ID 序 | 序=[96,69,90,99,87] | 快照一致性 |
+| P4-01d | 幂等 | PASS | hot 二拉与首拉序完全一致（不写曝光） | 序一致 | 可重复性 |
+| P4-01e | 一致性 | PASS | 匿名 recommend 序与 hot 序一致 | 序一致 | α=1 纯热度 |
+| P4-01f | 异常 | PASS | body.code=400 且 msg=场景参数异常 | 满足 | scene=bogus，HTTP 200 |
 
 ### C-03 GET /content/detail/{contentId} {#c-03-get-contentdetailcontentid}
 | 项 | 内容 |

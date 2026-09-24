@@ -8,6 +8,12 @@
 # ES：/search/content、/rag/search 未配置 ES 时可能 BLOCKED（记 RESULTS，不计 FAIL）
 #
 # contentType：1=生活求助，2=专业问答
+#
+# scene 语义（推荐流个性化 D8，2026-09-24 契约同步）：
+#   latest / recommend / 缺省 → 画像流（登录用户画像重排；匿名=α=1 纯热度兜底；
+#     游标入参 lastScore/offset 忽略，出参固定 minScore=null、offset=0，曝光 set 为隐式游标）
+#   hot → 既有 ZSET 热度序（曝光去重已取消，连续拉取结果可重复）
+#   非法 scene → 业务异常 body.code=400（"场景参数异常"，语义不变）
 
 @baseUrl = {{baseUrl}}
 @userToken = {{userToken}}
@@ -20,15 +26,136 @@
 # Content — 推荐 / 详情（Phase 4 读）
 ###############################################################################
 
-### P4-01 推荐流 → body.code=200
+### P4-01 推荐流 scene=latest（画像流语义，D8）→ body.code=200
+# 登录新用户（无画像）= 热度兜底序；出参游标固定 minScore=null、offset=0
 GET {{baseUrl}}/content/recommend?scene=latest&pageSize=5&offset=0
 authorization: {{userToken}}
 
 > {%
-  client.test("P4-01 recommend", function () {
+  client.test("P4-01 recommend latest profile flow", function () {
     client.assert(response.status === 200);
     client.assert(response.body.code === 200);
-    client.assert(response.body.data != null);
+    var data = response.body.data;
+    client.assert(data != null);
+    // D8 契约：画像流出参游标固定，minScore 恒为 null、offset 恒为 0
+    client.assert(data.minScore === null);
+    client.assert(data.offset === 0);
+    client.assert(typeof data.hasMore === "boolean");
+    client.assert(Array.isArray(data.list));
+    // list 装配完整：每条记录必须携带 contentId
+    data.list.forEach(function (item) {
+      client.assert(item != null && item.contentId != null);
+    });
+  });
+%}
+
+### P4-01a scene=latest 游标入参忽略 → body.code=200 且出参仍 minScore=null、offset=0
+# 画像流以曝光 set 为隐式游标（D8）：显式传 lastScore/offset 不影响出参游标
+GET {{baseUrl}}/content/recommend?scene=latest&pageSize=5&lastScore=123456.0&offset=99
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-01a latest ignores cursor params", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    var data = response.body.data;
+    client.assert(data != null);
+    client.assert(data.minScore === null);
+    client.assert(data.offset === 0);
+    client.assert(Array.isArray(data.list));
+  });
+%}
+
+### P4-01b scene=recommend 登录用户（画像流）→ body.code=200
+# 与 latest 同路径：出参契约一致，list 装配完整
+GET {{baseUrl}}/content/recommend?scene=recommend&pageSize=5&offset=0
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-01b recommend explicit profile flow", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    var data = response.body.data;
+    client.assert(data != null);
+    client.assert(data.minScore === null);
+    client.assert(data.offset === 0);
+    client.assert(typeof data.hasMore === "boolean");
+    client.assert(Array.isArray(data.list));
+    data.list.forEach(function (item) {
+      client.assert(item != null && item.contentId != null);
+    });
+  });
+%}
+
+### P4-01c scene=hot 热度序（第一次拉取，D8）→ body.code=200
+# hot 流已取消曝光去重：拉取不写曝光 set；记录首页 contentId 序列供 P4-01d/P4-01e 对比
+GET {{baseUrl}}/content/recommend?scene=hot&pageSize=5&offset=0
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-01c hot first fetch", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    var data = response.body.data;
+    client.assert(data != null);
+    client.assert(Array.isArray(data.list));
+    data.list.forEach(function (item) {
+      client.assert(item != null && item.contentId != null);
+    });
+    var ids = data.list.map(function (item) { return String(item.contentId); });
+    client.global.set("hotFirstPageIds", ids.join(","));
+  });
+%}
+
+### P4-01d scene=hot 连续第二次同参数拉取 → 结果可重复（D8：无曝光过滤/降级重拉）
+# 行为差异断言：改造前 hot 首拉写曝光、次拉滤光；改造后 hot 零曝光读写，两次结果一致
+GET {{baseUrl}}/content/recommend?scene=hot&pageSize=5&offset=0
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-01d hot second fetch repeatable", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    var data = response.body.data;
+    client.assert(data != null);
+    client.assert(Array.isArray(data.list));
+    var ids = data.list.map(function (item) { return String(item.contentId); });
+    var firstIds = String(client.global.get("hotFirstPageIds") || "");
+    // 两次同参数拉取必须完全可重复（不再因曝光被滤掉）
+    client.assert(ids.join(",") === firstIds);
+  });
+%}
+
+### P4-01e scene=recommend 匿名访问 → 热度兜底序与 hot 一致（D8：α=1）
+# 匿名无画像、不读写曝光：min-max 归一化是单调变换，排序与 hot 热度序一致
+GET {{baseUrl}}/content/recommend?scene=recommend&pageSize=5&offset=0
+
+> {%
+  client.test("P4-01e recommend anonymous matches hot order", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 200);
+    var data = response.body.data;
+    client.assert(data != null);
+    client.assert(data.minScore === null);
+    client.assert(data.offset === 0);
+    client.assert(Array.isArray(data.list));
+    var ids = data.list.map(function (item) { return String(item.contentId); });
+    var hotIds = String(client.global.get("hotFirstPageIds") || "");
+    client.log("recommend(anon)=" + ids.join(",") + " hot=" + hotIds);
+    // 匿名画像流 = 纯热度兜底，首页序列与 hot 一致
+    client.assert(ids.join(",") === hotIds);
+  });
+%}
+
+### P4-01f 非法 scene → body.code=400（语义不变）
+GET {{baseUrl}}/content/recommend?scene=bogus&pageSize=5&offset=0
+authorization: {{userToken}}
+
+> {%
+  client.test("P4-01f invalid scene rejected", function () {
+    client.assert(response.status === 200);
+    client.assert(response.body.code === 400);
+    client.assert(response.body.msg === "场景参数异常");
   });
 %}
 
