@@ -187,7 +187,7 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 - **结论**：可以合并，无未解决 Critical/Important 问题。
 - **六重点面全部通过**：画像累加原子性与脏画像防御（删帖跳过）；watermark-Inbox 幂等闭环；曝光迁移无 hot 残留；latest 兼容语义与 P4-01 一致；热度公式单真源（HotScoreCalculator）；D12 key 隔离与 Outbox 铁律等顺带项。
 - **人工变异抽查 3 例**（临时副本改断言值验证会变红，完成后恢复、工作区零残留）：RecommendRerankServiceImplTest 匹配分排序、UserBehaviorConsumerTest COMMENT 权重 4.0、BrowseBehaviorSyncTaskTest watermark 推进——全部按预期变红后恢复原断言。
-- **Minor 清单 7 条**（Critical/Important 为零）：
+- **Minor 清单 8 条（含 2026-09-24 管理员复核补记 M8）**（Critical/Important 为零）：
 
 | # | 内容 | 处置 |
 |---|---|---|
@@ -198,6 +198,7 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 | M5 | 池名 key 解析规则在 RecommendRerankServiceImpl 与 ContentServiceImpl 双写 | 记录；计划允许的折中 |
 | M6 | Task 4.2 收尾提交未落地 | **由本提交闭环** |
 | M7 | P4-01e 匿名序=hot 序断言理论上可因两次拉取间热度漂移偶发 flaky | 记录；回归环境可控，知悉即可 |
+| M8 | ProfileDecayTask 读-改-写非原子衰减，并发 HINCRBYFLOAT 会被旧值×0.95 覆盖（丢更新窗口，HDEL 分支可整 field 丢失）；独立审查漏检，2026-09-24 管理员复核发现 | **已修复（整画像 Lua 原子化）+ 漏检如实补记** |
 
 ### 总览 §5 验收门禁 1-8 逐条对照
 
