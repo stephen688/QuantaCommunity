@@ -70,6 +70,40 @@ class OutboxEventServiceUserBehaviorTest {
     }
 
     @Test
+    void 指定稳定eventId_原样透传到消息与Outbox() {
+        when(outboxEventMapper.insert(any(OutboxEvent.class))).thenReturn(1);
+
+        // 浏览对账任务的稳定 ID：同一 browse_history 行重复转发必须映射同一 eventId
+        String stableEventId = "user.behavior.browse:123";
+        String returnedEventId = service.createUserBehaviorEvent(3L, 10L, "VIEW", stableEventId);
+
+        assertEquals(stableEventId, returnedEventId);
+        ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventMapper).insert(captor.capture());
+        OutboxEvent event = captor.getValue();
+
+        assertEquals(stableEventId, event.getEventId());
+        assertTrue(event.getPayload().contains("\"eventId\":\"" + stableEventId + "\""));
+    }
+
+    @Test
+    void eventId为null_内部生成UUID并返回非空() {
+        when(outboxEventMapper.insert(any(OutboxEvent.class))).thenReturn(1);
+
+        // 赞/藏/评路径走三参版本（内部等价于 eventId=null）：必须生成非空 UUID 并写入消息与 Outbox
+        String returnedEventId = service.createUserBehaviorEvent(3L, 10L, "LIKE", null);
+
+        assertNotNull(returnedEventId);
+        ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventMapper).insert(captor.capture());
+        OutboxEvent event = captor.getValue();
+
+        // 返回值、Outbox 行与 payload 三处的 eventId 必须一致，缺 eventId 的消息会被消费者死信
+        assertEquals(returnedEventId, event.getEventId());
+        assertTrue(event.getPayload().contains("\"eventId\":\"" + returnedEventId + "\""));
+    }
+
+    @Test
     void 插入失败抛异常_由调用方事务回滚() {
         when(outboxEventMapper.insert(any(OutboxEvent.class))).thenReturn(0);
 

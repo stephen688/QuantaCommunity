@@ -24,4 +24,28 @@
         ORDER BY create_time DESC
     </select>
 
+    <!-- 浏览对账增量查询（D11）：NOT EXISTS 过滤同一 (user_id, content_id) 的更早行，
+         只保留首看行，封死"刷详情页刷画像"；按 id 升序分批，配合 watermark 增量消费 -->
+    <select id="selectIncrementalFirstViews" resultType="com.quanta.demo0.entity.BrowseHistory">
+        SELECT bh.id,
+               bh.user_id,
+               bh.content_id,
+               bh.browse_date,
+               bh.create_time,
+               bh.update_time,
+               bh.is_deleted
+        FROM tb_browse_history bh
+        WHERE bh.id &gt; #{watermarkId}
+          AND bh.is_deleted = 0
+          AND NOT EXISTS (
+              SELECT 1
+              FROM tb_browse_history earlier
+              WHERE earlier.user_id = bh.user_id
+                AND earlier.content_id = bh.content_id
+                AND earlier.id &lt; bh.id
+          )
+        ORDER BY bh.id
+        LIMIT #{batchSize}
+    </select>
+
 </mapper>

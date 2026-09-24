@@ -335,18 +335,32 @@ public class OutboxEventServiceImpl implements OutboxEventService {
     @Override
     @Transactional
     public String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType) {
+        // 赞/藏/评路径：事件每次真正新增才创建，UUID 族 eventId 即可满足 Inbox 幂等
+        return createUserBehaviorEvent(userId, contentId, behaviorType, null);
+    }
+
+    /**
+     * 创建用户行为事件（画像更新信号，D2），支持外部指定稳定 eventId。
+     *
+     * 浏览对账任务传 user.behavior.browse:{browseHistoryId} 固定格式，
+     * watermark 未推进导致的同一行重复转发被 Inbox 幂等挡住；
+     * eventId 为 null 时内部生成 UUID（与三参版本行为一致）。
+     */
+    @Override
+    @Transactional
+    public String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType, String eventId) {
         // 参数校验：任一必填字段为空即拒绝，不写入毒丸事件。
         if (userId == null || contentId == null) {
             throw new ContentFailedException("用户行为事件缺少用户 ID 或帖子 ID");
         }
         validateBehaviorType(behaviorType);
 
-        String eventId = UUID.randomUUID().toString();
+        String finalEventId = eventId != null ? eventId : UUID.randomUUID().toString();
         LocalDateTime occurredAt = LocalDateTime.now();
 
         // 消息不携带权重，权重换算由画像消费侧承担。
         UserBehaviorMessage message = UserBehaviorMessage.builder()
-                .eventId(eventId)
+                .eventId(finalEventId)
                 .eventType(OutboxEventType.USER_BEHAVIOR_REQUESTED.getCode())
                 .occurredAt(occurredAt)
                 .userId(userId)
@@ -359,7 +373,7 @@ public class OutboxEventServiceImpl implements OutboxEventService {
         validatePayloadSize(payload);
 
         OutboxEvent event = OutboxEvent.builder()
-                .eventId(eventId)
+                .eventId(finalEventId)
                 .eventType(OutboxEventType.USER_BEHAVIOR_REQUESTED.getCode())
                 .aggregateType("USER")
                 .aggregateId(userId)
@@ -375,7 +389,7 @@ public class OutboxEventServiceImpl implements OutboxEventService {
             throw new ContentFailedException("创建用户行为事件失败");
         }
 
-        return eventId;
+        return finalEventId;
     }
 
     /**
