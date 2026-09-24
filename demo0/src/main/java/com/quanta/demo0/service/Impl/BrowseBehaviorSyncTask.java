@@ -26,7 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BrowseBehaviorSyncTask {
 
-    /** 每批扫描行数（03 Task 3.1 收口进配置前的默认值；测试可注入小值覆盖） */
+    /** 每批扫描行数（单轮批量上限，收口增量扫描的网络/DB 压力；测试经 ReflectionTestUtils 注入小值覆盖） */
     private int batchSize = 500;
 
     /** 单轮最大批次数：防首跑巨量时长时间占锁，剩余增量下轮继续 */

@@ -244,16 +244,17 @@ class RecommendRerankServiceImplTest {
         stubTagResolution();
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3")), new LinkedHashSet<>());
         when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
-                content(1L, 1, 10, 0, 0),        // life 中热帖：baseScore=30 → normHot=30/50=0.6
-                content(2L, 2, 0, 0, 10),        // professional 最热帖：baseScore=50 → normHot=1.0
-                zeroContent(3L, 1)               // life 零互动帖：baseScore=0 → normHot=0（候选集最低）
+                content(1L, 1, 10, 0, 0),        // life 中热帖：hotScore=30/3^1.5≈5.77，normHot=(5.77-3.85)/(9.62-3.85)≈0.33
+                content(2L, 2, 0, 0, 10),        // professional 最热帖：hotScore=50/3^1.5≈9.62 → normHot=1.0
+                zeroContent(3L, 1)               // life 零互动帖：保底分 20/3^1.5≈3.85（候选集最低）→ normHot=0
         ));
         stubEmptyExposure();
 
         RecommendRerankService.RerankResult result = service.rerank(USER_ID, null, 5);
 
-        // finalScore(life中热)=0.4×0.6+0.6×0.8=0.72；finalScore(prof最热)=0.4×1+0.6×0.2=0.52；
-        // finalScore(life零热)=0.4×0+0.6×0.8=0.48 → 0.8 匹配分把 life 中热帖顶到 professional 最热帖前
+        // 零互动帖保底分≈3.85 是归一化下限，参与 min-max：normHot(life中热)=(30-20)/(50-20)=1/3
+        // finalScore(life中热)=0.4×(1/3)+0.6×0.8≈0.61；finalScore(prof最热)=0.4×1+0.6×0.2=0.52；
+        // finalScore(life零热)=0.4×0+0.6×0.8=0.48 → 匹配分 0.8 把 life 中热帖顶到 professional 最热帖前
         assertEquals(List.of(1L, 2L, 3L), resultIds(result));
     }
 

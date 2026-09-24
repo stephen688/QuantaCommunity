@@ -178,6 +178,40 @@ S14 复核：trigger=370 约在 08:52:28 进入，同帖 S16/S17 的 trigger=373
 - 计划命令 `run-phase.ps1 -Phase 4` 不被脚本支持（ValidateSet 仅允许 0-1/2-3/all）；本轮以 curl 等价方式执行 P4-01 系列全部断言并逐一核验，断言语义与用例文件一致。脚本未改动（不在本 Task 文件授权范围）。
 - 本地真栈 rabbitmq 以启动参数覆盖为 localhost:5674（application.yml 默认指向 192.168.100.128 旧虚拟机）；计划提到的 `run_full.ps1` 不存在，仓库内为 `docs/api-test/run_full.py`。
 
+### 全量回归（Task 4.2，2026-09-24）
+
+`mvn test`（真实执行）：**Tests run: 318, Failures: 0, Errors: 0, Skipped: 1, BUILD SUCCESS, Total time: 02:04 min**。唯一 Skip 为 `BotServiceTokenGeneratorTest` 的 `@EnabledIfSystemProperty` 条件跳过（devtools 令牌生成器需系统属性才启用，与本计划无关的既有设计），无无关既有失败混入。
+
+### 独立审查（Task 4.2，fresh 审查者，区间 8e9bac0..HEAD demo0 全部改动）
+
+- **结论**：可以合并，无未解决 Critical/Important 问题。
+- **六重点面全部通过**：画像累加原子性与脏画像防御（删帖跳过）；watermark-Inbox 幂等闭环；曝光迁移无 hot 残留；latest 兼容语义与 P4-01 一致；热度公式单真源（HotScoreCalculator）；D12 key 隔离与 Outbox 铁律等顺带项。
+- **人工变异抽查 3 例**（临时副本改断言值验证会变红，完成后恢复、工作区零残留）：RecommendRerankServiceImplTest 匹配分排序、UserBehaviorConsumerTest COMMENT 权重 4.0、BrowseBehaviorSyncTaskTest watermark 推进——全部按预期变红后恢复原断言。
+- **Minor 清单 7 条**（Critical/Important 为零）：
+
+| # | 内容 | 处置 |
+|---|---|---|
+| M1 | 画像累加两次 HINCRBYFLOAT 组合非原子微窗口（计划既定设计） | 记录；LLM 多标签上线前建议 Lua 化 |
+| M2 | RedisTaskLockAdapter.unlock 无 owner 校验无条件 DEL（类注释已明示接受） | 记录；后续可改 compare-and-delete |
+| M3 | BrowseBehaviorSyncTask batchSize 注释失实（称"收口进配置前"，实际无此配置项） | **已由本提交修正** |
+| M4 | RecommendRerankServiceImplTest 中间分值注释忽略零互动帖保底分 20/(1+2)^1.5≈3.85 参与 min-max 归一化（断言与排序结论本身正确） | **已由本提交修正** |
+| M5 | 池名 key 解析规则在 RecommendRerankServiceImpl 与 ContentServiceImpl 双写 | 记录；计划允许的折中 |
+| M6 | Task 4.2 收尾提交未落地 | **由本提交闭环** |
+| M7 | P4-01e 匿名序=hot 序断言理论上可因两次拉取间热度漂移偶发 flaky | 记录；回归环境可控，知悉即可 |
+
+### 总览 §5 验收门禁 1-8 逐条对照
+
+| 门禁 | 证据与口径 | 状态 |
+|---|---|---|
+| 1. mvn test 全绿 | Tests run: 318, Failures: 0, Errors: 0, Skipped: 1（Skip 归因见上节，与本计划无关的既有条件跳过） | PASS |
+| 2. 行为链路：赞/藏/评按 2/3/4 权重累加；取消不回滚（D9） | 赞/评真实链路 PASS（life=4.0=2×2、professional=4.0、__total=8.0，见画像构建表）；**收藏（COLLECT×3.0）真实链路未单独执行，由单测 UserBehaviorConsumerTest「COLLECT消息_按权重3_0累加画像」覆盖**；**取消赞/取消收藏不回滚的真实链路取消冒烟未单独执行，由单测 ContentServiceImplBehaviorEventTest「取消点赞/取消收藏_不发行为事件_D9取消不回滚」+ 代码审查证据覆盖** | PARTIAL |
+| 3. 浏览对账：权重 1.0 累加 + 重复不累加（Inbox 幂等） | browse_history=435 → life 4→5、__total 8→9（VIEW×1.0）；watermark 434→435；Inbox `user.behavior.browse:435`=SUCCESS；等待复跑画像不变（D11 首看 + Inbox 幂等），见浏览对账小节 | PASS |
+| 4. 衰减：field ×0.95、低于 0.5 删除；多实例并发只跑一次（锁生效） | 真实链路 PASS：test-fld 0.52×0.95=0.494<0.5 被删除、×0.95 轨迹逐轮精确、锁 key 每轮释放（EXISTS=0）、D12 隔离；**"多实例并发只跑一次"未做真实双实例并发冒烟，由单测 ProfileDecayTaskTest「抢锁失败_直接跳过_零扫描零画像操作」「锁参数_衰减锁key与1800秒TTL」覆盖** | PARTIAL |
+| 5. 画像流：两画像用户序不同；匿名=hot（α=1）；曝光去重；池耗尽 hasMore=false | 匿名 recommend 序与 hot 完全一致（α=1）PASS；曝光去重 PASS（两页零交集 + SCARD 15→25）；**"两个画像不同的用户同刻对比"未构造第二画像用户执行，由单测 RecommendRerankServiceImplTest 画像分支（匹配分/饱和/新用户 α 序）覆盖**；**"池子耗尽 hasMore=false"未构造真实耗尽场景（P4-01b 仅断言 hasMore 为 boolean），由单测 hasMore 边界断言覆盖** | PARTIAL |
+| 6. hot 流：不写曝光 set、"滤光降级重拉"已删、序与删除前一致 | P4-01c/d 两次拉取完全可重复（行为差异断言）+ 曝光 set SCARD 前后对照不写曝光；"滤光降级重拉"代码删除经独立审查"曝光迁移无 hot 残留"面确认 | PASS |
+| 7. P4-01 等回归用例按新语义更新并通过 | P4-01、P4-01a~P4-01f 共 7 条全部真实执行通过（含 P4-01f 非法 scene → body.code=400） | PASS |
+| 8. 独立审查无未解决 Critical/Important | fresh 审查者结论"可以合并"，Critical/Important 为零，Minor 7 条见上表处置 | PASS |
+
 ---
 
 ## 总览索引（64 接口一览）
