@@ -1,5 +1,8 @@
 package com.quanta.demo0.service;
 
+import com.quanta.demo0.entity.Content;
+
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -21,4 +24,12 @@ public interface UserProfileService {
      * 返回 Map 含 __total（供 α 计算与画像量评估）。
      */
     Map<String, Double> getProfile(Long userId);
+
+    /**
+     * 帖子标签解析（D5 唯一标签扩展点：LLM 主题标签上线后只改实现这一处）。
+     * 画像累加（applyBehavior）与画像流重排（匹配分计算）共用本方法，保证标签口径一致。
+     *
+     * @return 帖子标签列表（第一版：contentType 1→life / 2→professional；其它返回空列表）
+     */
+    List<String> resolveContentTags(Content content);
 }

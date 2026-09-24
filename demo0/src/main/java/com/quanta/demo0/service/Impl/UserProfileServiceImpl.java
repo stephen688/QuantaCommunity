@@ -97,12 +97,14 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     /**
-     * 帖子标签解析（D5：第一版只用 contentType 维度）。
+     * 帖子标签解析（D5：第一版只用 contentType 维度，唯一标签扩展点）。
      * contentType：1-生活求助 → life；2-专业问答 → professional；
      * 其它值返回空列表（由调用方跳过，不抛异常）。
-     * LLM 主题标签上线后只需扩展此方法，画像 field 自动生长。
+     * LLM 主题标签上线后只需扩展此方法，画像 field 与重排匹配分自动同步生长
+     * （画像累加与 03 Task 3.2 重排共用本方法，禁止另写标签口径）。
      */
-    private List<String> resolveContentTags(Content content) {
+    @Override
+    public List<String> resolveContentTags(Content content) {
         if (content.getContentType() == null) {
             return List.of();
         }

@@ -28,6 +28,7 @@ import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.ContentDetailCacheService;
 import com.quanta.demo0.service.ContentService;
 import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.utils.HotScoreCalculator;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.vo.CollectResultVO;
 import com.quanta.demo0.vo.ContentVO;
@@ -1498,8 +1499,8 @@ public class ContentServiceImpl implements ContentService {
      *
      */
     private void publishToHotRedis(Content content) {
-        //计算热度分
-        double hotScore = calculateHotScore(content);
+        //计算热度分（公式唯一真源 HotScoreCalculator，禁止复制公式）
+        double hotScore = HotScoreCalculator.calculate(content);
         //混合池
         stringRedisTemplate.opsForZSet().add(RECOMMEND_HOT_ALL_KEY, content.getContentId().toString(), hotScore);
         //专业池或生活池
@@ -1624,8 +1625,8 @@ public class ContentServiceImpl implements ContentService {
             return;
         }
 
-        // 消息只负责提醒，最终分数始终根据 MySQL 当前计数重新计算。
-        double hotScore = calculateHotScore(content);
+        // 消息只负责提醒，最终分数始终根据 MySQL 当前计数重新计算（公式唯一真源 HotScoreCalculator）
+        double hotScore = HotScoreCalculator.calculate(content);
         stringRedisTemplate.opsForZSet().add(RECOMMEND_HOT_ALL_KEY, contentId.toString(), hotScore);
         stringRedisTemplate.opsForZSet().add(resolveRecommendHotKey(content.getContentType()), contentId.toString(), hotScore);
         log.info("帖子热度校准完成，contentId={}, hotScore={}", contentId, hotScore);
@@ -1639,7 +1640,7 @@ public class ContentServiceImpl implements ContentService {
     }
 
     /**
-     * 计算内容热度分
+     * 计算内容热度分（公式唯一真源已提取至 HotScoreCalculator，本方法保留为接口兼容委托）。
      * 公式：热度分 = (点赞数×3 + 评论数×2 + 收藏数×5) / (时间衰减系数)
      * 时间衰减系数 = (当前时间 - 发布时间的小时数 + 2) ^ 1.5
      *
@@ -1648,34 +1649,7 @@ public class ContentServiceImpl implements ContentService {
      */
     @Override
     public double calculateHotScore(Content content) {
-        //1.获取点赞数、评论数、收藏数
-        int liked = content.getLiked() == null ? 0 : content.getLiked();
-        int commentCount = content.getCommentCount() == null ? 0 : content.getCommentCount();
-        int collectCount = content.getCollectCount() == null ? 0 : content.getCollectCount();
-        //2.获取基础分
-        double baseScore = liked * 3 + commentCount * 2 + collectCount * 5;
-        // 3. 计算时间衰减系数
-        LocalDateTime createTime = content.getCreateTime();
-        if (createTime == null) {
-            createTime = LocalDateTime.now();
-        }
-
-        // 计算发布至今的小时数
-        long hours = Duration.between(createTime, LocalDateTime.now()).toHours();
-
-        // 时间衰减系数 = (hours + 2) ^ 1.5
-        double timeDecay = Math.pow(hours + 2, 1.5);
-
-        //4.计算热度分
-        double hotScore = baseScore / timeDecay;
-
-        //5.冷处理基础热度发（刚发布的内容至少有一个基础热度分，避免被时间衰减过快）
-        if (baseScore == 0) {
-            hotScore = 20.0 / timeDecay;
-        }
-
-        //6.返回热度分
-        return hotScore;
+        return HotScoreCalculator.calculate(content);
     }
 
 
