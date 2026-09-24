@@ -3,6 +3,7 @@ package com.quanta.demo0.mq.consumer;
 import com.quanta.demo0.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.mq.producer.UserBehaviorProducer;
+import com.quanta.demo0.properties.RecommendProperties;
 import com.quanta.demo0.service.InboxEventService;
 import com.quanta.demo0.service.UserProfileService;
 import com.rabbitmq.client.Channel;
@@ -25,7 +26,8 @@ import static org.mockito.Mockito.when;
 /**
  * UserBehaviorConsumer 的 Inbox 四态消费与权重换算测试（推荐流个性化 D2/D3）。
  * 断言：四态分支与 FeedPushConsumer 模板一致（ack/重试/死信/处理）；
- * 四种 behaviorType 按常量权重表调用 applyBehavior；
+ * 四种 behaviorType 按 RecommendProperties.Profile 注入权重调用 applyBehavior
+ * （03 Task 3.1 收口后权重唯一真源为配置，含自定义权重生效验证）；
  * applyBehavior 对已删帖跳过不抛异常（mock 不抛即代表 skip），视为成功不重试。
  */
 class UserBehaviorConsumerTest {
@@ -38,8 +40,11 @@ class UserBehaviorConsumerTest {
     private final UserBehaviorProducer userBehaviorProducer = mock(UserBehaviorProducer.class);
     private final Channel channel = mock(Channel.class);
 
+    /** 权重配置：默认值 2.0/3.0/4.0/1.0，个别用例单独覆盖自定义权重 */
+    private final RecommendProperties recommendProperties = new RecommendProperties();
+
     private final UserBehaviorConsumer consumer =
-            new UserBehaviorConsumer(inboxEventService, userProfileService, userBehaviorProducer);
+            new UserBehaviorConsumer(inboxEventService, userProfileService, userBehaviorProducer, recommendProperties);
 
     private UserBehaviorMessage message(String behaviorType, Integer retryCount) {
         return UserBehaviorMessage.builder()
@@ -279,5 +284,21 @@ class UserBehaviorConsumerTest {
         verify(userProfileService, org.mockito.Mockito.never())
                 .applyBehavior(any(), any(), org.mockito.ArgumentMatchers.anyDouble());
         verify(userBehaviorProducer).sendRetryTask(message);
+    }
+
+    @Test
+    void 自定义配置权重_消费时按注入值累加画像() throws Exception {
+        // 03 Task 3.1 收口验证：修改配置对象后消费即时生效（消费时读取，非构造期快照）
+        recommendProperties.getProfile().setLikeWeight(7.5);
+        UserBehaviorMessage message = message("LIKE", 0);
+        when(inboxEventService.acquire(eq("user-behavior-consumer"), anyString(), eq(message)))
+                .thenReturn(InboxAcquireResult.ACQUIRED);
+        when(inboxEventService.markSuccess(eq("user-behavior-consumer"), eq(message.getEventId()), anyString()))
+                .thenReturn(true);
+
+        consumer.handleUserBehaviorMessage(message, mqMessage(15L), channel);
+
+        verify(userProfileService).applyBehavior(USER_ID, CONTENT_ID, 7.5);
+        verify(channel).basicAck(15L, false);
     }
 }

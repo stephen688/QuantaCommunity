@@ -156,6 +156,20 @@ quanta:
     # Redis 推荐流为空时，启动后从 MySQL 已通过内容预热（dev-seed / Redis 清空后必开）
     warmup-on-startup: true
     warmup-batch-size: 100
+    # 画像流个性化参数（推荐流个性化 03 Task 3.1 收口，唯一真源）
+    profile:
+      recall-hot-size: 150          # 画像流 hot 池召回条数
+      recall-latest-size: 150       # 画像流 latest 池召回条数（新帖冷启动保底）
+      like-weight: 2.0
+      collect-weight: 3.0
+      comment-weight: 4.0
+      view-weight: 1.0
+      alpha-min: 0.4                # 老用户热度分下限权重
+      behavior-saturate-threshold: 100.0  # 累计行为权重饱和阈值（α 过渡用）
+      decay-daily-factor: 0.95      # 每日衰减系数
+      decay-min-score: 0.5          # 低于此值删 field
+      browse-sync-fixed-delay-ms: 600000
+      decay-cron: "0 0 4 * * ?"
   #阿里云
   alioss:
     endpoint: oss-cn-beijing.aliyuncs.com

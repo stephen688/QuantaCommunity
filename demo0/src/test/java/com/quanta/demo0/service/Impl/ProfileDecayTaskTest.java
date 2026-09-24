@@ -1,6 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.properties.RecommendProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +32,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * ProfileDecayTask 的每日画像衰减测试（推荐流个性化 D4/D12）。
- * 断言：全部画像 field ×0.95、低于 0.5 的 field 删除、__total 同步衰减；
+ * 断言：全部画像 field 按注入因子衰减、低于阈值的 field 删除、__total 同步衰减
+ * （03 Task 3.1 收口后因子/阈值唯一真源为 RecommendProperties.Profile，含自定义值生效验证）；
  * SCAN 按批迭代多批 cursor；单用户失败 WARN 继续不中断整轮；
  * 抢锁失败直接跳过；锁参数用衰减锁 key（user:profile-decay:lock，D12 隔离命名空间）与 1800 秒 TTL。
  */
@@ -48,17 +50,20 @@ class ProfileDecayTaskTest {
     @Mock
     private RedisTaskLockAdapter taskLockAdapter;
 
-    /** SCAN 游标 mock：由各用例按批构造 hasNext/next 序列 */
-    private Cursor<String> scanCursor;
+    /** 衰减参数配置：默认因子 0.95 / 阈值 0.5，个别用例单独覆盖自定义值 */
+    private final RecommendProperties recommendProperties = new RecommendProperties();
 
     private ProfileDecayTask task;
+
+    /** SCAN 游标 mock：由各用例按批构造 hasNext/next 序列 */
+    private Cursor<String> scanCursor;
 
     @BeforeEach
     void setUp() {
         when(stringRedisTemplate.opsForHash()).thenReturn(hashOperations);
         // 默认抢锁成功；抢锁失败用例单独覆盖
         when(taskLockAdapter.tryLock(eq(DECAY_LOCK_KEY), anyLong(), anyString())).thenReturn(true);
-        task = new ProfileDecayTask(taskLockAdapter, stringRedisTemplate);
+        task = new ProfileDecayTask(taskLockAdapter, stringRedisTemplate, recommendProperties);
     }
 
     /** 构造 SCAN 游标：依次返回给定画像 key，之后游标结束 */
@@ -159,5 +164,19 @@ class ProfileDecayTaskTest {
 
         verify(hashOperations, never()).put(anyString(), any(), any());
         verify(hashOperations, never()).delete(anyString(), any());
+    }
+
+    @Test
+    void 自定义衰减因子_按注入值缩放() {
+        // 03 Task 3.1 收口验证：衰减时读取注入配置，非构造期常量快照
+        recommendProperties.getProfile().setDecayDailyFactor(0.5);
+        stubScanCursor("user:profile:3");
+        when(hashOperations.entries("user:profile:3")).thenReturn(Map.of("life", "10"));
+
+        task.decayAllProfiles();
+
+        ArgumentCaptor<String> lifeValue = ArgumentCaptor.forClass(String.class);
+        verify(hashOperations).put(eq("user:profile:3"), eq("life"), lifeValue.capture());
+        assertEquals(5.0, Double.parseDouble(lifeValue.getValue()), 1e-9);
     }
 }

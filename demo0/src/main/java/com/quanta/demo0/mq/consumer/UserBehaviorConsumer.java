@@ -4,6 +4,7 @@ import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.mq.producer.UserBehaviorProducer;
+import com.quanta.demo0.properties.RecommendProperties;
 import com.quanta.demo0.service.InboxEventService;
 import com.quanta.demo0.service.UserProfileService;
 import com.rabbitmq.client.Channel;
@@ -15,16 +16,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.UUID;
 
 /**
  * 用户行为画像消费者（推荐流个性化 D2/D3）。
- * 职责：消费赞/藏/评/浏览四类行为事件，按权重表换算后调用画像服务累加 Redis 画像 Hash；
+ * 职责：消费赞/藏/评/浏览四类行为事件，按权重换算后调用画像服务累加 Redis 画像 Hash；
  * 结构逐块对齐 FeedPushConsumer 模板（Inbox acquire 四态、markSuccess/markRetry/markDead、
  * 重试上限 3 次、延迟 60 秒、缺 eventId 死信、转发失败 nack requeue）。
  * 边界：帖子已删/驳回时画像服务跳过不抛异常，本消费者视 skip 为成功，不因帖子被删无限重试；
- * 权重表本阶段为常量（03 Task 3.1 统一收口进 RecommendProperties，避免两处真源）。
+ * 权重从 RecommendProperties.Profile 注入（03 Task 3.1 已收口，代码内不再留常量副本）。
  */
 @Service
 @Slf4j
@@ -35,23 +35,15 @@ public class UserBehaviorConsumer {
     private static final int MAX_RETRY_COUNT = 3;
     private static final long RETRY_DELAY_SECONDS = 60L;
 
-    /**
-     * 行为权重表（D2）：LIKE=2.0 / COLLECT=3.0 / COMMENT=4.0 / VIEW=1.0。
-     * 03 Task 3.1 收口进配置前的唯一真源；消息不携带权重，换算由消费侧承担。
-     */
-    private static final Map<String, Double> BEHAVIOR_WEIGHTS = Map.of(
-            "LIKE", 2.0,
-            "COLLECT", 3.0,
-            "COMMENT", 4.0,
-            "VIEW", 1.0
-    );
-
     /** 实例 ID：租约归属标识，多实例部署时用于 Inbox 防抢占 */
     private final String instanceId = "user-behavior-" + UUID.randomUUID();
 
     private final InboxEventService inboxEventService;
     private final UserProfileService userProfileService;
     private final UserBehaviorProducer userBehaviorProducer;
+
+    /** 行为权重配置（D2）：LIKE/COLLECT/COMMENT/VIEW 换算值，唯一真源 quanta.recommend.profile */
+    private final RecommendProperties recommendProperties;
 
     /**
      * 消费用户行为消息：先经 Inbox 幂等抢占，再按行为权重累加画像。
@@ -126,13 +118,29 @@ public class UserBehaviorConsumer {
     }
 
     private void reconcile(UserBehaviorMessage message) {
-        // 权重表缺行为类型视为非法消息，按失败处理走重试/死信链路
-        Double weight = BEHAVIOR_WEIGHTS.get(message.getBehaviorType());
+        // 权重从配置解析：缺行为类型视为非法消息，按失败处理走重试/死信链路
+        Double weight = resolveBehaviorWeight(message.getBehaviorType());
         if (weight == null) {
             throw new IllegalStateException("未知行为类型：" + message.getBehaviorType());
         }
         // 帖子已删/驳回时画像服务内部跳过且不抛异常——视 skip 为成功，不无限重试
         userProfileService.applyBehavior(message.getUserId(), message.getContentId(), weight);
+    }
+
+    /**
+     * 从配置解析行为权重（唯一真源 quanta.recommend.profile）。
+     *
+     * @return 对应行为类型的权重；未知行为类型返回 null（由调用方按非法消息处理）
+     */
+    private Double resolveBehaviorWeight(String behaviorType) {
+        RecommendProperties.Profile profile = recommendProperties.getProfile();
+        return switch (behaviorType) {
+            case "LIKE" -> profile.getLikeWeight();
+            case "COLLECT" -> profile.getCollectWeight();
+            case "COMMENT" -> profile.getCommentWeight();
+            case "VIEW" -> profile.getViewWeight();
+            default -> null;
+        };
     }
 
     private void sendBusyMessageToRetry(UserBehaviorMessage message, Channel channel, long deliveryTag) {
