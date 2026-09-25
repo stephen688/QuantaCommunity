@@ -23,6 +23,7 @@ import com.quanta.demo0.modertion.client.AliyunTextModerationClient;
 import com.quanta.demo0.modertion.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.service.ContentModerationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,8 +52,19 @@ public class ContentModerationServiceImpl implements ContentModerationService {
     @Autowired
     private ModerationRecordMapper moderationRecordMapper;
 
+    /** C-6：bot 账号配置（botUserId 判定 bot 来源内容强制机审） */
+    @Autowired
+    private QuantabotProperties quantabotProperties;
+
     @Override
     public ModerationResult moderate(ModerationTaskMessage task) {
+        // C-6：bot 来源内容强制机审——在总开关与目标开关之前判定，消费端不短路 bot 的二审
+        if (isBotPublisher(task)) {
+            log.info("bot 来源内容强制机审 targetId={}, publisherUserId={}",
+                    task.getTargetId(), task.getPublisherUserId());
+            return doModerate(task);
+        }
+
         // 1. 检查总开关
         if (!moderationProperties.isEnabled()) {
             log.info("审核总开关关闭，跳过审核 targetId={}", task.getTargetId());
@@ -74,6 +86,19 @@ public class ContentModerationServiceImpl implements ContentModerationService {
             }
         }
 
+        return doModerate(task);
+    }
+
+    /** C-6：任务发布者是否 bot 系统账号（publisherUserId 由写库入口从评论实体带出，可信）。 */
+    private boolean isBotPublisher(ModerationTaskMessage task) {
+        return task.getPublisherUserId() != null
+                && task.getPublisherUserId().equals(quantabotProperties.getBotUserId());
+    }
+
+    /**
+     * 实际机审执行（指纹去重 + 文本/图片审核），供 moderate 开关判定通过后调用。
+     */
+    private ModerationResult doModerate(ModerationTaskMessage task) {
         // 3. 计算内容指纹，防重复审核
         String fingerprint = calculateFingerprint(task);
 

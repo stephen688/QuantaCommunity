@@ -260,14 +260,14 @@ public class CommentServiceImpl implements CommentService {
 
     }
 
-    /** 全局开关 + 评论类型开关均开启时才走 AI 审核；bot 评论强制机审。 */
+    /** 全局开关 + 评论类型开关均开启时才走 AI 审核；bot 评论强制机审（总开关与评论开关均不豁免）。 */
     boolean shouldModerateComment() {
-        if (!moderationProperties.isEnabled()) {
-            return false;
-        }
-        // C-6 契约：bot 来源评论不受 targets.comment.enabled=false 影响，强制进 AI 机审
+        // C-6：bot 来源评论强制机审——在总开关之前判定，任何开关组合下 bot 回复都过二审
         if (isBotUser(BaseContext.getCurrentId())) {
             return true;
+        }
+        if (!moderationProperties.isEnabled()) {
+            return false;
         }
         AliyunModerationProperties.TargetConfig commentConfig = getCommentTargetConfig();
         return commentConfig != null && commentConfig.isEnabled();

@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * C-6 双层审核：bot 评论强制进 AI 机审。
- * 只豁免 targets.comment.enabled 分区开关，仍尊重全局总闸。
+ * bot 豁免不受任何开关影响（分区开关与全局总闸均不豁免 bot）。
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -82,8 +82,16 @@ class CommentServiceImplBotModerationTest {
     }
 
     @Test
-    void 全局总闸关闭_bot也不机审() {
+    void 全局总闸关闭_bot仍强制机审() {
         BaseContext.setCurrentId(10000L);
+        when(moderationProperties.isEnabled()).thenReturn(false);
+
+        assertTrue(service.shouldModerateComment());
+    }
+
+    @Test
+    void 全局总闸关闭_普通用户不机审() {
+        BaseContext.setCurrentId(3L);
         when(moderationProperties.isEnabled()).thenReturn(false);
 
         assertFalse(service.shouldModerateComment());
