@@ -64,6 +64,17 @@ def test_deterministic_assertions_positive_and_negative() -> None:
     assert verify_case(*_pipeline_case(asserts, bad)) != []
 
 
+def test_reply_no_markdown_floor_reference_not_heading() -> None:
+    """楼层引用 #9506 不是 markdown 标题；# 后带空格才是标题（Release gate persona-08 误报钉桩）。"""
+    asserts = [{"assert": "reply_no_markdown_list"}]
+    floor_ref = "[框框·AI 学长] #9506说谁先起谁是英雄，我押睡前把包收好的那位。"
+    heading1 = "[框框·AI 学长] 先说结论。\n# 早八攻略\n正文走起"
+    heading2 = "[框框·AI 学长] 先说结论。\n## 今晚安排\n正文走起"
+    assert verify_case(*_pipeline_case(asserts, floor_ref)) == []
+    assert verify_case(*_pipeline_case(asserts, heading1)) != []
+    assert verify_case(*_pipeline_case(asserts, heading2)) != []
+
+
 def test_stamp_memories_overrides_persona_version() -> None:
     """预置记忆版本改写约定：YAML 不写死 hash，runner 以运行时 persona_version 盖章。"""
     stamped = _stamp_memories(

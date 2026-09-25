@@ -284,7 +284,10 @@ async def run_case(case: EvalCase, *, force_real: bool = False) -> CaseResult:
 
 
 # ---- deterministic 断言函数集（每类一个纯函数；expected 形态随断言类型）----
-_MD_LIST_PREFIXES = ("- ", "* ", "1. ", "**", "#")
+# markdown 标题须 # 后跟空格（CommonMark）——「#9506说…」这类楼层引用不是标题
+# （2026-09-25 Release gate persona-08 误报复盘钉桩；裸 "#" 前缀误伤楼层引用）
+_MD_LIST_PREFIXES = ("- ", "* ", "1. ", "**")
+_MD_HEADING_RE = re.compile(r"^\s*#{1,6}\s")
 
 
 def _mode_is(expected: str, result: CaseResult) -> bool:
@@ -337,12 +340,13 @@ def _reply_not_contains(expected: list[str], result: CaseResult) -> bool:
 
 
 def _reply_no_markdown_list(expected: None, result: CaseResult) -> bool:
-    """反格式化红线：任一行行首（允许缩进）出现列表/加粗/标题记号即不过。"""
+    """反格式化红线：任一行行首（允许缩进）出现列表/加粗/标题记号即不过；
+    标题按 CommonMark 须 # 后跟空格，#9506 式楼层引用不误伤。"""
     return not any(
         line.lstrip().startswith(prefix)
         for line in result.reply.splitlines()
         for prefix in _MD_LIST_PREFIXES
-    )
+    ) and not any(_MD_HEADING_RE.match(line) for line in result.reply.splitlines())
 
 
 def _reply_questions_at_most(expected: int, result: CaseResult) -> bool:
