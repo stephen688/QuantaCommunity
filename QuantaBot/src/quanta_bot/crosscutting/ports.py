@@ -22,6 +22,8 @@ Decision = Literal[
     "skipped_decision",  # LLM 决策判不值得回（一车四用轻量调用后静默跳过）
     "rejected_moderation",  # 规则预检拦截（红线：违规不出）
     "failed",  # 链路异常（静默不回，决策日志留痕）
+    "failed_breaker",  # M5：LLM 熔断 open，静默不回（连续失败≥阈值）
+    "skipped_cost_exhausted",  # M5：当日成本枯竭，规则兜底不调模型
 ]
 
 

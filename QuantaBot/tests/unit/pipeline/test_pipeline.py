@@ -10,11 +10,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from quanta_bot.crosscutting import budget
+from quanta_bot.crosscutting.breaker import BreakerSet, CircuitBreaker
 from quanta_bot.crosscutting.killswitch import SWITCH_KILL_KEY, ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
+from quanta_bot.infra.tracing import NullTracer
 from quanta_bot.memory import dialogue
 from quanta_bot.memory.ports import HashEmbeddingClient, MemoryRecord
 from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
@@ -580,3 +582,148 @@ async def test_leak_scan_before_write(tmp_path) -> None:
     assert "[已脱敏]" in written_content
     assert "quantabot:switch:kill" not in written_content
     assert captured_trace(deps).leak_hits
+
+
+# ---- M5 熔断接线（Task 2）----
+
+
+class _StaticTreeFetcher:
+    """最小评论树 fake（主楼+触发评论，无楼层——熔断测试不关心内容）。"""
+
+    def __init__(self) -> None:
+        self.fetch_calls = 0
+
+    async def fetch_context(self, event: TriggerEvent) -> PostThread:
+        self.fetch_calls += 1
+        return PostThread(
+            post=PostSummary(
+                post_id=event.post_id, author_user_id=1, title="t", content="主楼内容"
+            ),
+            chain=(
+                CommentNode(
+                    comment_id=event.comment_id,
+                    user_id=event.commenter_user_id,
+                    content=event.content,
+                ),
+            ),
+        )
+
+    async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
+        return ()
+
+
+class _FailingLLM:
+    """恒失败 LLM（熔断计数测试——每次调用抛 LLMClientError）。"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def complete(self, system, user, *, json_mode=False, max_tokens=None, temperature=None):
+        self.calls += 1
+        raise LLMClientError("模拟 LLM 故障")
+
+
+def _m5_deps(llm, breakers: BreakerSet | None = None) -> PipelineDeps:
+    if breakers is None:
+        breakers = BreakerSet()  # 缺省=共识默认档（closed 全放行，行为透明——吸收并行草案优点②）
+    kv = InMemoryKV()
+    return PipelineDeps(
+        kv=kv,
+        audit=SQLiteAudit(str(Path(tempfile.mkdtemp(prefix="qb-m5-")) / "audit.db")),
+        reply_writer=FakeReplyWriter(),
+        llm=llm,
+        tracer=NullTracer(),
+        control_plane=ControlPlane(kv),
+        comment_tree=_StaticTreeFetcher(),
+        persona=PersonaLibrary(),
+        memory_store=InMemoryUserMemoryStore(HashEmbeddingClient()),
+        summarizer=LLMSummarizer(llm),
+        breakers=breakers,
+    )
+
+
+def _m5_event(comment_id: int = 7001, user_id: int = 42) -> TriggerEvent:
+    return TriggerEvent(
+        event_id=f"m5-{comment_id}",
+        comment_id=comment_id,
+        post_id=6001,
+        commenter_user_id=user_id,
+        content="@框框 选课系统打不开了怎么办",
+        mentioned_bot=True,
+    )
+
+
+def _breaker_set() -> BreakerSet:
+    return BreakerSet(
+        llm=CircuitBreaker("llm", 5, 60.0),
+        memory=CircuitBreaker("memory", 5, 30.0),
+        main_service=CircuitBreaker("main_service", 5, 30.0),
+    )
+
+
+class _TraceRecorder:
+    """trace 间谍（memory_degraded 断言依据——最小内联版，计划 2 会再建全量 _SpyTracer）。"""
+
+    def __init__(self) -> None:
+        self.traces: list = []
+
+    async def record(self, trace) -> None:
+        self.traces.append(trace)
+
+
+async def test_llm_breaker_open_silences_reply() -> None:
+    """LLM 熔断 open：failed_breaker 静默不回（决策调用也不发起——open 期零 LLM 成本）。"""
+    breakers = _breaker_set()
+    for _ in range(5):
+        breakers.llm.record_failure()  # 预置 open
+    llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    )
+    deps = _m5_deps(llm, breakers)
+    decision = await run(_m5_event(), deps)
+    assert decision == "failed_breaker"  # LLM 熔断 open：静默不回
+    assert llm.calls == []  # 未发起任何 LLM 调用（决策调用也没发）
+
+
+async def test_five_failing_runs_then_sixth_short_circuits() -> None:
+    """5 个失败 run 累计熔断 → 第 6 个 run 短路 failed_breaker（run 级计数语义）。"""
+    breakers = _breaker_set()
+    failing = _FailingLLM()
+    deps = _m5_deps(failing, breakers)
+    for index in range(5):  # 5 个失败 run 累计熔断
+        decision = await run(_m5_event(comment_id=7100 + index), deps)
+        assert decision == "failed"
+    assert breakers.llm.state == "open"
+    calls_before = failing.calls
+    decision = await run(_m5_event(comment_id=7200), deps)
+    assert decision == "failed_breaker"  # 第 6 个 run 短路
+    assert failing.calls == calls_before  # 未再调 LLM（决策调用也没发）
+
+
+async def test_memory_breaker_open_degrades_but_replies() -> None:
+    """记忆熔断 open：降级空候选继续回复 + trace 标记 memory_degraded（增强通道不静默）。"""
+    breakers = _breaker_set()
+    for _ in range(5):
+        breakers.memory.record_failure()
+    tracer = _TraceRecorder()
+    script = [
+        '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "x", "memory_ops": []}'
+    ]
+    deps = _m5_deps(FakeLLM(responses=script), breakers)
+    object.__setattr__(deps, "tracer", tracer)
+    decision = await run(_m5_event(), deps)
+    assert decision == "replied"  # 记忆熔断=降级继续回复（M5 共识：增强通道不静默）
+    assert tracer.traces[-1].memory_degraded is True  # 降级留痕进 trace（观测对质）
+    assert tracer.traces[-1].decision == "replied"
+
+
+async def test_main_service_breaker_open_fails_silently() -> None:
+    """主服务熔断 open：failed 不回（写库=审核入口承接 PRD"审核"档），拉取也被挡住。"""
+    breakers = _breaker_set()
+    for _ in range(5):
+        breakers.main_service.record_failure()
+    script = ['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    deps = _m5_deps(FakeLLM(responses=script), breakers)
+    decision = await run(_m5_event(), deps)
+    assert decision == "failed"  # 主服务熔断（写库=审核入口）：failed 不回
+    assert deps.comment_tree.fetch_calls == 0  # 拉取也被同一熔断器挡住

@@ -1,25 +1,29 @@
 """pipeline/pipeline —— 核心链路组装（M3 全量：kill短路→触发→幂等→预检→硬规则→拉取→
-记忆双段召回→一车四用决策→检索→四通道总装→生成→成本→写库→记忆落库+对话链→打点）。
+记忆双段召回→一车四用决策→检索→四通道总装→生成→成本→写库→记忆落库+对话链→打点；
+M5 接入三份三态熔断：llm open=failed_breaker 静默 / memory open=降级空候选留痕 /
+main_service open=failed 不回）。
 
 职责：run() 单出口——所有回/不回分支统一落决策日志（诚实口径，PRD F6）+ RunTrace 上报
-      （M3 增截断留痕/精选记忆 id/persona_version/检索降级/leak_hits 五观测字段）；
-      kill switch 短路（G5）；硬规则低价值拉取前零成本拦截（§5.6 ①）；LLM/写库失败静默记
-      failed 不回（红线 §0.3）；记忆四态落库与对话链 append 在 replied 后执行（失败 WARNING
-      不阻断已成功回复）。
+      （M3 增截断留痕/精选记忆 id/persona_version/检索降级/leak_hits 五观测字段，M5 增
+      memory_degraded 降级留痕）；kill switch 短路（G5）；硬规则低价值拉取前零成本拦截
+      （§5.6 ①）；LLM/写库失败静默记 failed 不回（红线 §0.3）；记忆四态落库与对话链
+      append 在 replied 后执行（失败 WARNING 不阻断已成功回复）。
 边界：不建外部客户端（deps 由 composition 注入；人格/记忆/摘要三件 M3 起必填）；
-      熔断/频率/消费暂停不在本层（M5/Tranche B）；检索片段由 Task 13 的 Retriever 端口
-      注入，未配置或检索失败时 need_retrieval 走降级留痕并照常回复。
+      频率/消费暂停不在本层（Tranche B）；M5 熔断经 deps.breakers 注入（缺省=共识档
+      closed 全放行，行为透明）；检索片段由 Task 13 的 Retriever 端口注入，未配置或
+      检索失败时 need_retrieval 走降级留痕并照常回复。
 已知坑：FakeLLM 剧本按调用序弹出——决策（json_mode）调用必须在生成调用之前（测试对齐依据）；
       对话链 read_chain/append_turn 走 kv 楼层链，read-modify-write 依赖同帖串行（M2 单消费者）。
 """
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from quanta_bot.crosscutting import budget, idempotency, leak_scan, moderation
+from quanta_bot.crosscutting.breaker import BreakerOpenError, BreakerSet
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.crosscutting.ports import (
     Decision,
@@ -79,6 +83,10 @@ class PipelineDeps:
     dialogue_memory_ttl_hours: int = 48  # 对话级记忆 TTL 小时数
     summary_cache_ttl_hours: int = 24  # 远区摘要缓存 TTL 小时数
     leak_extra_patterns: tuple[tuple[str, str], ...] = ()  # 防泄露附加模式（Task 19 消费，占位）
+    # M5 横切（composition 注入 Settings 档；缺省=共识默认档 closed 全放行——既有测试/eval 组装零改动）
+    breakers: BreakerSet = field(
+        default_factory=BreakerSet
+    )  # 三份熔断器（llm/memory/main_service）
 
 
 @dataclass
@@ -101,6 +109,7 @@ class _Outcome:
     persona_version: str | None = None
     retrieval_degraded: bool = False
     leak_hits: tuple[str, ...] = ()
+    memory_degraded: bool = False  # M5：记忆熔断 open/召回失败降级留痕
 
 
 async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
@@ -134,6 +143,7 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
             persona_version=outcome.persona_version,
             retrieval_degraded=outcome.retrieval_degraded,
             leak_hits=outcome.leak_hits,
+            memory_degraded=outcome.memory_degraded,
         )
     )
     return outcome.decision
@@ -175,6 +185,12 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         None  # failed 归因锚（决策成功后链路炸时携带 mode）
     )
     leak_hits: tuple[str, ...] = ()
+    # ⑤ 拉取现场（M5：main_service 熔断前置判定——open=failed 静默，写库=审核入口承接 PRD"审核"档）
+    try:
+        deps.breakers.main_service.before_call()
+    except BreakerOpenError:
+        return _Outcome("failed", "主服务熔断 open（连续失败≥阈值），静默不回")
+    memory_degraded = False  # M5：记忆降级留痕（open 或异常降级均置位）
     try:
         # ⑤ 拉取现场（C-2①③ 线程 + C-2② 全量楼层）
         thread = await deps.comment_tree.fetch_context(event)
@@ -184,19 +200,36 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
             await deps.comment_tree.fetch_floors(event.post_id),
         )  # ⑤ 水位过滤：触发后的楼层不得进入本次决策
         # ⑥ 记忆粗召回（向量管"找得到"；负面 feedback 全量并行取）——记忆是可降级通道：
-        # 召回/负面失败降级为空候选 WARNING 留痕照常回复（真存储故障不阻断回复链路）
+        # M5：memory 熔断 open=降级空候选不计数；异常失败=降级+计失败（真存储故障不阻断回复链路）
         persona_version = deps.persona.persona_version
         try:
+            deps.breakers.memory.before_call()
             candidates = await deps.memory_store.recall(
                 event.commenter_user_id, persona_version, event.content, deps.memory_recall_top_k
             )
             negatives = await deps.memory_store.negative_feedback(
                 event.commenter_user_id, persona_version
             )
-        except Exception as exc:  # 记忆读失败降级（熔断归 M5）
+        except BreakerOpenError:
+            logger.warning("记忆熔断 open，降级为空候选（不阻断回复）")
+            candidates, negatives = (), ()
+            memory_degraded = True
+        except Exception as exc:  # 记忆读失败降级（M5 起计入熔断计数）
             logger.warning("记忆召回失败降级为空候选（不阻断回复）：%s", exc)
             candidates, negatives = (), ()
-        # ⑦ 决策一车四用（轻量调用收口；失败=failed 静默）
+            memory_degraded = True
+            deps.breakers.memory.record_failure()
+        else:
+            deps.breakers.memory.record_success()  # recall+negative 走完=本段成功结算
+        # ⑦ 决策一车四用（轻量调用收口；失败=failed 静默；M5：llm 熔断前置判定——open=failed_breaker）
+        try:
+            deps.breakers.llm.before_call()
+        except BreakerOpenError:
+            return _Outcome(
+                "failed_breaker",
+                "LLM 熔断 open（连续失败≥阈值），静默不回",
+                memory_degraded=memory_degraded,
+            )
         nearby_digest = "\n".join(f"{node.user_id}：{node.content}" for node in thread.chain)
         decision_result = await decision.decide(
             event, deps.llm, thread.post.content[:500], nearby_digest, candidates
@@ -260,6 +293,7 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         output = await generation.generate(
             event, decision_result, deps.llm, assembled.user_text, deps.persona
         )
+        deps.breakers.llm.record_success()  # M5：生成走完=llm 本 run 成功结算（决策成功单独不算）
         cost_li = budget.estimate_cost_li(
             output.prompt_tokens,
             output.completion_tokens,
@@ -276,16 +310,22 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         output.reply.content = sanitized.content
         leak_hits = sanitized.hits
         await deps.reply_writer.write_reply(output.reply)
+        deps.breakers.main_service.record_success()  # M5：拉取+写库走完=main_service 成功结算
     except (CommentFetchError, LLMClientError, ReplyWriteError) as exc:
         # 已知失败类型静默不回（红线 §0.3）；决策已成功时携带 mode 归因（M2 口径保持）。
         # 2026-09-17 review I-1：拉取异常原裸逃 _execute 击穿 run() 单出口（无 RunTrace/
         # 无归因，consumer 兜底丢观测）——HTTPCommentTreeFetcher 现统一包装 CommentFetchError。
+        if isinstance(exc, LLMClientError):  # M5：LLM 域失败（决策/生成任一）
+            deps.breakers.llm.record_failure()
+        else:  # M5：拉取/写库域失败（main_service 承接）
+            deps.breakers.main_service.record_failure()
         return _Outcome(
             "failed",
             f"链路异常静默不回：{exc}",
             mode=decision_result.mode if decision_result is not None else None,
             error=str(exc),
             leak_hits=leak_hits,
+            memory_degraded=memory_degraded,
         )
 
     # ⑫ replied 后：记忆四态落库 + 对话链 append（失败 WARNING 不阻断——回复已成功）
@@ -294,8 +334,9 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
             await deps.memory_store.apply_ops(
                 event.commenter_user_id, persona_version, decision_result.memory_ops
             )
-        except Exception as exc:  # 记忆失败不回滚回复（观测 WARNING；熔断归 M5）
+        except Exception as exc:  # 记忆失败不回滚回复（观测 WARNING；M5 起计入熔断计数）
             logger.warning("记忆四态落库失败（不阻断回复）：%s", exc)
+            deps.breakers.memory.record_failure()
     try:
         await dialogue.append_turn(
             deps.kv,
@@ -326,4 +367,5 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
         persona_version=persona_version,
         retrieval_degraded=retrieval_degraded,
         leak_hits=leak_hits,
+        memory_degraded=memory_degraded,
     )

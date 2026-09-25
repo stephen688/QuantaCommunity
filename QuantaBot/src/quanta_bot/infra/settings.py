@@ -75,6 +75,15 @@ class Settings(BaseSettings):
     redis_timeout_seconds: float = 2.0
     langfuse_timeout_seconds: float = 5.0
 
+    # ---- M5 熔断（三份：llm/memory/main_service；run 级计数，进程内存态）----
+    breaker_failure_threshold: int = 5  # 连续失败 run 数 → open（成功清零）
+    breaker_llm_open_seconds: float = 60.0  # LLM 冷却放长（防雪崩）
+    breaker_memory_open_seconds: float = 30.0  # 记忆单次调用便宜，恢复探测代价低
+    breaker_main_service_open_seconds: float = 30.0
+    qdrant_timeout_seconds: float = (
+        5.0  # Qdrant 显式超时（SDK 默认过长，记忆快失败是熔断计数有意义的前提）
+    )
+
     # ---- 控制面与成本（G5/G6）----
     # 控制面轮询间隔（秒）——G5 要求 ≤5s；kill 置位后最长该间隔内生效
     control_plane_poll_seconds: int = 5
