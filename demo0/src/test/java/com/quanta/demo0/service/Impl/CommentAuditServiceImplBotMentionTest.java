@@ -7,6 +7,7 @@ import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -42,6 +43,8 @@ class CommentAuditServiceImplBotMentionTest {
     private ContentMapper contentMapper;
     @Mock
     private QuestionMapper questionMapper;
+    @Mock
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     @InjectMocks
     private CommentAuditServiceImpl service;
@@ -83,6 +86,7 @@ class CommentAuditServiceImplBotMentionTest {
 
         verify(outboxEventService).createBotMentionEvent(
                 any(ContentComment.class), eq(List.of()), eq("mentioned"));
+        verify(contentDetailCacheInvalidator).evictAfterCommit(10L, "comment-approved");
     }
 
     @Test

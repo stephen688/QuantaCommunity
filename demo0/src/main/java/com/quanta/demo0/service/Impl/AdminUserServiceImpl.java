@@ -10,6 +10,7 @@ import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.result.PageResult;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminUserService;
+import com.quanta.demo0.service.UserReadCacheInvalidator;
 import com.quanta.demo0.vo.AdminUserDetailVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,11 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
+
+    @Autowired
+    private UserReadCacheInvalidator userReadCacheInvalidator;
+    @Autowired
+    private TrendingCacheInvalidator trendingCacheInvalidator;
 
     /**
      * 分页查询用户列表
@@ -122,6 +128,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateUser.setAccountStatus(1);
         updateUser.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(updateUser);
+        userReadCacheInvalidator.evictAllAfterCommit(userId);
 
         // 删除 Redis 登录态，强制下线
         String loginKey = LOGIN_USER_KEY + userId;
@@ -149,6 +156,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 从粉丝排行 ZSET 中移除
         stringRedisTemplate.opsForZSet().remove(RedisConstants.USER_FOLLOWER_RANK_KEY, userId.toString());
 
+        trendingCacheInvalidator.evictAfterCommit("account-ban");
+
         log.info("封禁用户成功，userId={}", userId);
     }
 
@@ -175,6 +184,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateUser.setAccountStatus(0);
         updateUser.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(updateUser);
+        userReadCacheInvalidator.evictAllAfterCommit(userId);
 
 
        // 清除封禁标记
@@ -192,6 +202,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 "accountStatus=" + user.getAccountStatus(),
                 "accountStatus=0"
         );
+
+        trendingCacheInvalidator.evictAfterCommit("account-unban");
 
     }
 

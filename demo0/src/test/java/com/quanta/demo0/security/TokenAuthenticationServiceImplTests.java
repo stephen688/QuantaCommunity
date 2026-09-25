@@ -2,11 +2,6 @@ package com.quanta.demo0.security;
 
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuth;
-import com.quanta.demo0.enums.AuditStatus;
-import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.properties.JwtProperties;
 import com.quanta.demo0.utils.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,18 +11,23 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * 统一 Token 认证服务单元测试。
  *
- * 测试只使用 Mockito，不连接真实 Redis 和 MySQL，
- * 用于锁定 JWT、登录态、封禁状态和认证缓存的判断顺序。
+ * <p>测试 JWT、Redis 当前会话与封禁标记的逐次校验，同时锁定认证服务
+ * 只消费安全快照，不再自行读取 User、UserAuth、UserRole。</p>
  */
 class TokenAuthenticationServiceImplTests {
 
@@ -40,8 +40,7 @@ class TokenAuthenticationServiceImplTests {
     private JwtProperties jwtProperties;
     private StringRedisTemplate stringRedisTemplate;
     private ValueOperations<String, String> valueOperations;
-    private UserMapper userMapper;
-    private UserRoleMapper userRoleMapper;
+    private AuthenticationSnapshotCache snapshotCache;
     private TokenAuthenticationServiceImpl authenticationService;
 
     @BeforeEach
@@ -54,13 +53,10 @@ class TokenAuthenticationServiceImplTests {
 
         stringRedisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
-        userMapper = mock(UserMapper.class);
-        userRoleMapper = mock(UserRoleMapper.class);
+        snapshotCache = mock(AuthenticationSnapshotCache.class);
 
         when(stringRedisTemplate.opsForValue())
                 .thenReturn(valueOperations);
-        when(userRoleMapper.findRoleCodesByUserId(USER_ID))
-                .thenReturn(List.of());
 
         authenticationService = new TokenAuthenticationServiceImpl();
         ReflectionTestUtils.setField(
@@ -75,13 +71,8 @@ class TokenAuthenticationServiceImplTests {
         );
         ReflectionTestUtils.setField(
                 authenticationService,
-                "userMapper",
-                userMapper
-        );
-        ReflectionTestUtils.setField(
-                authenticationService,
-                "userRoleMapper",
-                userRoleMapper
+                "authenticationSnapshotCache",
+                snapshotCache
         );
     }
 
@@ -97,7 +88,7 @@ class TokenAuthenticationServiceImplTests {
                 exception.getReason()
         );
         verify(valueOperations, never()).get(anyString());
-        verifyNoInteractions(userMapper);
+        verify(snapshotCache, never()).get(USER_ID, false);
     }
 
     @Test
@@ -114,7 +105,7 @@ class TokenAuthenticationServiceImplTests {
                 exception.getReason()
         );
         verify(valueOperations, never()).get(anyString());
-        verifyNoInteractions(userMapper);
+        verify(snapshotCache, never()).get(USER_ID, false);
     }
 
     @Test
@@ -128,7 +119,7 @@ class TokenAuthenticationServiceImplTests {
                 exception.getReason()
         );
         verify(valueOperations, never()).get(anyString());
-        verifyNoInteractions(userMapper);
+        verify(snapshotCache, never()).get(USER_ID, false);
     }
 
     @Test
@@ -142,7 +133,7 @@ class TokenAuthenticationServiceImplTests {
                 TokenAuthenticationFailureReason.SESSION_NOT_FOUND,
                 exception.getReason()
         );
-        verifyNoInteractions(userMapper);
+        verify(snapshotCache, never()).get(USER_ID, false);
     }
 
     @Test
@@ -157,13 +148,13 @@ class TokenAuthenticationServiceImplTests {
                 TokenAuthenticationFailureReason.SESSION_MISMATCH,
                 exception.getReason()
         );
-        verifyNoInteractions(userMapper);
+        verify(snapshotCache, never()).get(USER_ID, false);
     }
 
     @Test
     void redisBannedMarkerReturnsUserBanned() {
         String token = createToken(SECRET_KEY, 60_000L);
-        when(valueOperations.get(loginKey())).thenReturn(token);
+        prepareCurrentSession(token);
         when(stringRedisTemplate.hasKey(bannedKey())).thenReturn(true);
 
         TokenAuthenticationException exception = authenticateFails(token);
@@ -172,14 +163,14 @@ class TokenAuthenticationServiceImplTests {
                 TokenAuthenticationFailureReason.USER_BANNED,
                 exception.getReason()
         );
-        verifyNoInteractions(userMapper);
+        verify(snapshotCache, never()).get(USER_ID, false);
     }
 
     @Test
     void missingDatabaseUserReturnsUserNotFound() {
         String token = createToken(SECRET_KEY, 60_000L);
         prepareCurrentSession(token);
-        when(userMapper.getById(USER_ID)).thenReturn(null);
+        when(snapshotCache.get(USER_ID, false)).thenReturn(null);
 
         TokenAuthenticationException exception = authenticateFails(token);
 
@@ -193,8 +184,8 @@ class TokenAuthenticationServiceImplTests {
     void databaseBannedStatusReturnsUserBanned() {
         String token = createToken(SECRET_KEY, 60_000L);
         prepareCurrentSession(token);
-        when(userMapper.getById(USER_ID))
-                .thenReturn(normalUser(0, 1));
+        when(snapshotCache.get(USER_ID, false))
+                .thenReturn(snapshot(1, false, Set.of("USER"), Set.of(), false));
 
         TokenAuthenticationException exception = authenticateFails(token);
 
@@ -205,92 +196,76 @@ class TokenAuthenticationServiceImplTests {
     }
 
     @Test
-    void verifiedCacheHitDoesNotQueryAuthenticationTable() {
+    void snapshotHitStillChecksSessionAndBannedMarkerOnEveryRequest() {
         String token = createToken(SECRET_KEY, 60_000L);
         prepareCurrentSession(token);
-        when(userMapper.getById(USER_ID))
-                .thenReturn(normalUser(0, 0));
-        when(valueOperations.get(verifiedKey())).thenReturn("1");
+        when(snapshotCache.get(USER_ID, false))
+                .thenReturn(snapshot(0, true,
+                        Set.of("USER", "VERIFIED_USER"),
+                        Set.of(), false));
+
+        AuthenticatedUser first = authenticationService.authenticate(token);
+        AuthenticatedUser second = authenticationService.authenticate(token);
+
+        assertEquals(USER_ID, first.getUserId());
+        assertTrue(first.getVerified());
+        assertNotSame(first, second);
+        verify(valueOperations, org.mockito.Mockito.times(2))
+                .get(loginKey());
+        verify(stringRedisTemplate, org.mockito.Mockito.times(2))
+                .hasKey(bannedKey());
+        verify(snapshotCache, org.mockito.Mockito.times(2))
+                .get(USER_ID, false);
+    }
+
+    @Test
+    void snapshotAuthDataIsCopiedIntoNewAuthenticatedUserWithoutRedisVerifiedCache() {
+        String token = createToken(SECRET_KEY, 60_000L);
+        prepareCurrentSession(token);
+        when(snapshotCache.get(USER_ID, false))
+                .thenReturn(snapshot(0, true,
+                        Set.of("USER", "SUPER_ADMIN"),
+                        Set.of("ROLE_MANAGE"),
+                        true));
 
         AuthenticatedUser authenticatedUser =
                 authenticationService.authenticate(token);
 
         assertEquals(USER_ID, authenticatedUser.getUserId());
         assertTrue(authenticatedUser.getVerified());
-        assertFalse(authenticatedUser.getAdmin());
-        assertTrue(authenticatedUser.getRoles().contains("USER"));
-        assertTrue(authenticatedUser.getRoles().contains("VERIFIED_USER"));
-        assertTrue(authenticatedUser.getAuthorities().isEmpty());
-        verify(userMapper, never()).getUserAuthByUserId(USER_ID);
-    }
-
-    @Test
-    void verifiedCacheMissQueriesDatabaseAndWritesCache() {
-        String token = createToken(SECRET_KEY, 60_000L);
-        prepareCurrentSession(token);
-        when(userMapper.getById(USER_ID))
-                .thenReturn(normalUser(1, 0));
-        when(valueOperations.get(verifiedKey())).thenReturn(null);
-        when(userMapper.getUserAuthByUserId(USER_ID))
-                .thenReturn(UserAuth.builder()
-                        .userId(USER_ID)
-                        .auditStatus(AuditStatus.APPROVED.getCode())
-                        .build());
-        when(userRoleMapper.findRoleCodesByUserId(USER_ID))
-                .thenReturn(List.of("SUPER_ADMIN"));
-
-        AuthenticatedUser authenticatedUser =
-                authenticationService.authenticate(token);
-
-        assertTrue(authenticatedUser.getVerified());
         assertTrue(authenticatedUser.getAdmin());
-        assertTrue(authenticatedUser.getRoles().contains("SUPER_ADMIN"));
-        verify(valueOperations).set(
-                verifiedKey(),
-                "1",
-                RedisConstants.SECURITY_VERIFIED_TTL_MINUTES,
-                TimeUnit.MINUTES
+        assertEquals(Set.of("USER", "SUPER_ADMIN"),
+                authenticatedUser.getRoles());
+        assertEquals(Set.of("ROLE_MANAGE"),
+                authenticatedUser.getAuthorities());
+        verify(valueOperations, never()).get(verifiedKey());
+        verify(valueOperations, never()).set(
+                org.mockito.ArgumentMatchers.eq(verifiedKey()),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any()
         );
     }
 
-    @Test
-    void unverifiedCacheMissWritesNegativeCache() {
-        String token = createToken(SECRET_KEY, 60_000L);
-        prepareCurrentSession(token);
-        when(userMapper.getById(USER_ID))
-                .thenReturn(normalUser(0, 0));
-        when(valueOperations.get(verifiedKey())).thenReturn(null);
-        when(userMapper.getUserAuthByUserId(USER_ID))
-                .thenReturn(UserAuth.builder()
-                        .userId(USER_ID)
-                        .auditStatus(AuditStatus.PENDING.getCode())
-                        .build());
-
-        AuthenticatedUser authenticatedUser =
-                authenticationService.authenticate(token);
-
-        assertFalse(authenticatedUser.getVerified());
-        assertEquals(1, authenticatedUser.getRoles().size());
-        assertTrue(authenticatedUser.getRoles().contains("USER"));
-        verify(valueOperations).set(
-                verifiedKey(),
-                "0",
-                RedisConstants.SECURITY_VERIFIED_TTL_MINUTES,
-                TimeUnit.MINUTES
+    private AuthenticationSnapshot snapshot(
+            Integer accountStatus,
+            boolean verified,
+            Set<String> roles,
+            Set<String> authorities,
+            boolean admin
+    ) {
+        return new AuthenticationSnapshot(
+                accountStatus,
+                verified,
+                roles,
+                authorities,
+                admin
         );
     }
 
     private void prepareCurrentSession(String token) {
         when(valueOperations.get(loginKey())).thenReturn(token);
         when(stringRedisTemplate.hasKey(bannedKey())).thenReturn(false);
-    }
-
-    private User normalUser(Integer isAdmin, Integer accountStatus) {
-        return User.builder()
-                .id(USER_ID)
-                .isAdmin(isAdmin)
-                .accountStatus(accountStatus)
-                .build();
     }
 
     private TokenAuthenticationException authenticateFails(String token) {

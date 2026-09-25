@@ -9,9 +9,9 @@ import com.quanta.demo0.enums.NotificationType;
 import com.quanta.demo0.exception.FollowException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
-import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.result.ScrollResult;
+import com.quanta.demo0.service.AuthorProfileCache;
 import com.quanta.demo0.service.FollowService;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.vo.ContentVO;
@@ -63,7 +63,7 @@ public class FollowServiceImpl implements FollowService {
     @Autowired
     private ContentMapper contentMapper;
     @Autowired
-    private UserMapper userMapper;
+    private AuthorProfileCache authorProfileCache;
     @Autowired
     private OutboxEventService outboxEventService;
 
@@ -279,14 +279,7 @@ public class FollowServiceImpl implements FollowService {
               .distinct()
                 .toList();
 
-        List<UserAuthInfo> userAuthInfos =userIds==null||userIds.isEmpty()?new ArrayList<>():
-                userMapper.selectUserAuthInfoByIds(userIds);
-        Map<Long,UserAuthInfo>userAuthInfoMap=userAuthInfos.stream()
-                .collect(Collectors.toMap(
-                        UserAuthInfo::getUserId,
-                        userAuthInfo -> userAuthInfo,
-                                (v1,v2)->v1
-                ));
+        Map<Long, UserAuthInfo> userAuthInfoMap = authorProfileCache.getAll(userIds);
         contents.forEach(this::isContentLiked);
         contents.forEach(this::isContentCollected);
         //9。转换为vo

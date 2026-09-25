@@ -40,9 +40,10 @@ public class BotCommentServiceImpl implements BotCommentService {
     private final CommentMapper commentMapper;
     private final ContentMapper contentMapper;
 
+    // 评论链口，获取评论链（包含所有回复）
     @Override
     public BotCommentChainVO getChain(Long commentId) {
-        ContentComment trigger = commentMapper.selectVisibleById(commentId);
+        ContentComment trigger = commentMapper.selectVisibleById(commentId);//
         if (trigger == null) {
             throw new CommentFailedException("评论不存在或不可见");
         }
@@ -51,9 +52,10 @@ public class BotCommentServiceImpl implements BotCommentService {
             throw new CommentFailedException("帖子不存在或已删除");
         }
 
-        Deque<ContentComment> chainStack = new ArrayDeque<>();
-        Set<Long> visitedCommentIds = new HashSet<>();
-        ContentComment current = trigger;
+        Deque<ContentComment> chainStack = new ArrayDeque<>();// 评论链栈
+        Set<Long> visitedCommentIds = new HashSet<>();// 已访问评论ID集合
+        ContentComment current = trigger;// 当前评论
+        // 递归遍历评论链，直到到达根评论或最大深度
         while (current != null
                 && visitedCommentIds.add(current.getCommentId())
                 && chainStack.size() < MAX_CHAIN_DEPTH) {
@@ -66,6 +68,7 @@ public class BotCommentServiceImpl implements BotCommentService {
                     : commentMapper.selectVisibleById(ancestorId);
         }
 
+        // 评论链栈中的评论按时间顺序排序
         List<ContentComment> orderedChain = new ArrayList<>(chainStack);
         return BotCommentChainVO.builder()
                 .post(BotPostVO.builder()
@@ -78,16 +81,18 @@ public class BotCommentServiceImpl implements BotCommentService {
                 .build();
     }
 
+    // 评论历史口，获取评论历史（包含所有回复）
     @Override
     public BotCommentHistoryVO getHistory(Long userId, Long postId, int pageNum, int pageSize) {
-        int normalizedPage = Math.max(pageNum, 1);
-        int normalizedSize = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
-        long total = commentMapper.countBotHistory(userId, postId);
+        int normalizedPage = Math.max(pageNum, 1);//
+        int normalizedSize = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);// 分页大小
+        long total = commentMapper.countBotHistory(userId, postId);// 总评论数
         List<ContentComment> rows = commentMapper.selectBotHistory(
                 userId, postId, (normalizedPage - 1) * normalizedSize, normalizedSize);
         return BotCommentHistoryVO.builder().list(toNodes(rows)).total(total).build();
     }
 
+    // 评论树口，获取评论树（包含所有回复）
     @Override
     public BotCommentTreeVO getTree(Long postId, int pageNum, int pageSize, String sortType) {
         int normalizedPage = Math.max(pageNum, 1);

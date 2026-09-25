@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "redteam:validate": "promptfoo validate config -c eval/redteam.yaml",
+    "redteam": "uv run python scripts/run_m4_redteam.py"
+  },
+  "devDependencies": {
+    "promptfoo": "0.123.1"
+  }
+}

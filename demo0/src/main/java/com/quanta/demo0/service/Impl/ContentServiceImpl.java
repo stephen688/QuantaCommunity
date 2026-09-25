@@ -10,6 +10,7 @@ import com.quanta.demo0.dto.RecommendQueryDTO;
 import com.quanta.demo0.dto.SearchDTO;
 import com.quanta.demo0.entity.*;
 import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.enums.ContentDetailState;
 import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.enums.AuditStatus;
 import com.quanta.demo0.exception.ContentFailedException;
@@ -22,11 +23,18 @@ import com.quanta.demo0.result.ScrollResult;
 import com.quanta.demo0.mq.producer.ModerationProducer;
 import com.quanta.demo0.properties.AliyunModerationProperties;
 import com.quanta.demo0.service.ContentAuditService;
+import com.quanta.demo0.service.AuthorProfileCache;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
+import com.quanta.demo0.service.ContentDetailCacheService;
 import com.quanta.demo0.service.ContentService;
 import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.service.RecommendRerankService;
+import com.quanta.demo0.utils.HotScoreCalculator;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.vo.CollectResultVO;
 import com.quanta.demo0.vo.ContentVO;
+import com.quanta.demo0.vo.ContentDetailCacheEntry;
+import com.quanta.demo0.vo.ContentDetailSnapshot;
 import com.quanta.demo0.vo.LikeResultVO;
 import com.quanta.demo0.vo.PageVO;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +100,18 @@ public class ContentServiceImpl implements ContentService {
     private AliyunModerationProperties moderationProperties;
     @Autowired
     private ContentAuditService contentAuditService;
+    @Autowired
+    private TrendingCacheInvalidator trendingCacheInvalidator;
+    @Autowired
+    private ContentDetailCacheService contentDetailCacheService;
+    @Autowired
+    private ContentDetailDataLoader contentDetailDataLoader;
+    @Autowired
+    private AuthorProfileCache authorProfileCache;
+    @Autowired
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
+    @Autowired
+    private RecommendRerankService recommendRerankService;
 
     /**
      * 发布内容（帖子/回答）
@@ -218,6 +238,7 @@ public class ContentServiceImpl implements ContentService {
                 .isCollected(false)
                 .build();
 
+        contentDetailCacheInvalidator.evictAfterCommit(content.getContentId(), "content-publish");
         return contentVO;
 
     }
@@ -300,8 +321,9 @@ public class ContentServiceImpl implements ContentService {
     }
 
     /**
-     * 推荐内容查询接口
-     *
+     * 推荐内容查询接口（推荐流个性化 D8：scene 收敛）。
+     * scene 路由：latest / recommend / null → 画像流（RecommendRerankService 重排，
+     * 游标入参忽略、曝光 set 为隐式游标）；hot → 既有 ZSET 热度序（曝光去重已取消）。
      *
      */
     @Transactional
@@ -313,60 +335,77 @@ public class ContentServiceImpl implements ContentService {
             throw new ContentFailedException("内容类型必须为 1 或者 2或者 null");
         }
 
-
-        //========== 步骤 2：过滤曝光内容,获取曝光后的ids ==========
+        // ========== 步骤 2：确定查询参数 ==========
         Long currentUserId = BaseContext.getCurrentId();
-        Set<String> exposedSet = getExposedContentIds(recommendQueryDTO);
-
-
-        // ========== 步骤 3：确定查询参数 ==========
         int pageSize = (recommendQueryDTO.getPageSize() == null || recommendQueryDTO.getPageSize() <= 0) ? 5 : recommendQueryDTO.getPageSize();
-        // 热度流为了增加内容的多样性，允许多查询几条（pageSize * 3），后续在内存中截断到 pageSize 条；最新流正常查询 pageSize + 1 条
-        int limit = "hot".equals(recommendQueryDTO.getScene()) ? pageSize * 3 : pageSize + 1;
-        double minScore = 0D;
-        double maxScore;
-        if (recommendQueryDTO.getLastScore() == null) {
-            if ("hot".equals(recommendQueryDTO.getScene())) {
-                maxScore = Double.MAX_VALUE;
-            } else {
-                maxScore = System.currentTimeMillis();
-            }
-        } else {
-            maxScore = recommendQueryDTO.getLastScore();
-        }
-        int offset = (recommendQueryDTO.getOffset() == null || recommendQueryDTO.getOffset() < 0) ? 0 : recommendQueryDTO.getOffset();
+        String scene = recommendQueryDTO.getScene();
 
-        // ========== 步骤 4：根据scene参数选择redisKey ，并获取idsWithScores==========
-        String key;
-        if (recommendQueryDTO.getScene() == null || recommendQueryDTO.getScene().equals("latest")) {
-            key = resolveRecommendKey(recommendQueryDTO.getContentType());
-        } else if (recommendQueryDTO.getScene().equals("hot")) {
-            key = resolveRecommendHotKey(recommendQueryDTO.getContentType());
-        } else {
+        // ========== 步骤 3：scene 路由（D8） ==========
+        // latest / recommend / null（对齐现状 null→latest 默认）统一进画像流
+        if (scene == null || scene.equals("latest") || scene.equals("recommend")) {
+            return recommendByProfileFlow(recommendQueryDTO, currentUserId, pageSize);
+        }
+        if (!"hot".equals(scene)) {
+            // 非法 scene 异常语义不变
             throw new ContentFailedException("场景参数异常");
         }
+        return recommendByHotFlow(recommendQueryDTO, pageSize);
+    }
 
-//        Set<ZSetOperations.TypedTuple<String>> idsWithScores = stringRedisTemplate.
-//                opsForZSet().
-//                reverseRangeByScoreWithScores(key, minScore, maxScore, offset, limit);
+    /**
+     * 画像流推荐（D8：scene=latest/recommend/null 统一路径）。
+     * 召回、曝光过滤（隐式游标）、算分排序与曝光回写均在 RecommendRerankService 内完成；
+     * 本方法只负责第 8~11 步 VO 装配与游标语义（minScore=null、offset=0，入参 lastScore/offset 忽略——
+     * 契约变化依据总览 §4）。
+     */
+    private ScrollResult recommendByProfileFlow(RecommendQueryDTO recommendQueryDTO, Long currentUserId, int pageSize) {
+        // 1. 重排：双池召回 → 曝光过滤 → 算分排序 → 截页 → 回写曝光（contentType 分类池透传）
+        RecommendRerankService.RerankResult rerankResult = recommendRerankService.rerank(
+                currentUserId, recommendQueryDTO.getContentType(), pageSize);
 
+        List<Content> contents = rerankResult.contents();
 
-        //步骤5：循环拉取候选id
-        LoopFetchResult fetchResult = loopFetchRecommendIds(
-                key, exposedSet, recommendQueryDTO.getScene(),
-                pageSize, maxScore, offset, limit, 5);
-
-        // 热度流：小池子下曝光过滤可能把全部内容滤光，降级为不过滤曝光再拉一次
-        if ((fetchResult == null || fetchResult.ids.isEmpty())
-                && "hot".equals(recommendQueryDTO.getScene())
-                && !exposedSet.isEmpty()) {
-            fetchResult = loopFetchRecommendIds(
-                    key, Collections.emptySet(), recommendQueryDTO.getScene(),
-                    pageSize, maxScore, offset, limit, 5);
+        // 2. 空结果短路：池子耗尽或候选全被曝光/可见性过滤
+        if (contents == null || contents.isEmpty()) {
+            return ScrollResult.builder()
+                    .list(new ArrayList<>())
+                    .minScore(null)
+                    .offset(0)
+                    .hasMore(false)
+                    .build();
         }
 
+        // 3. 第 9~11 步装配：作者认证信息、点赞/收藏高亮、VO（保持 rerank 推荐序，不重排）
+        List<ContentVO> voList = assembleContentVOs(contents);
 
-        // ========== 步骤 6：处理空结果 ==========
+        // 4. 画像流游标契约：minScore=null、offset=0（隐式游标，前端无需回传）
+        return ScrollResult.builder()
+                .minScore(null)
+                .offset(0)
+                .hasMore(rerankResult.hasMore())
+                .list(voList)
+                .build();
+    }
+
+    /**
+     * 热度流推荐（D8：保持 ZSET 热度序与游标语义；曝光去重取消，无"滤光降级重拉"）。
+     */
+    private ScrollResult recommendByHotFlow(RecommendQueryDTO recommendQueryDTO, int pageSize) {
+        // 热度流为了增加内容的多样性，允许多查询几条（pageSize * 3），后续在内存中截断到 pageSize 条
+        int limit = pageSize * 3;
+        double minScore = 0D;
+        double maxScore = recommendQueryDTO.getLastScore() == null
+                ? Double.MAX_VALUE
+                : recommendQueryDTO.getLastScore();
+        int offset = (recommendQueryDTO.getOffset() == null || recommendQueryDTO.getOffset() < 0) ? 0 : recommendQueryDTO.getOffset();
+
+        // hot 池 key（contentType 分类池保持）
+        String key = resolveRecommendHotKey(recommendQueryDTO.getContentType());
+
+        // 步骤 4：循环拉取候选 id（无曝光过滤、无降级重拉）
+        LoopFetchResult fetchResult = loopFetchRecommendIds(key, pageSize, maxScore, offset, limit, 5);
+
+        // ========== 步骤 5：处理空结果 ==========
         if (fetchResult == null || fetchResult.ids.isEmpty()) {
             return ScrollResult.builder()
                     .list(new ArrayList<>())
@@ -376,14 +415,13 @@ public class ContentServiceImpl implements ContentService {
                     .build();
 
         }
-        // ========== 步骤 7：从 loopFetchRecommendIds 结果中提取数据 ==========
+        // ========== 步骤 6：从 loopFetchRecommendIds 结果中提取数据 ==========
         List<Long> ids = fetchResult.ids;
         minScore = fetchResult.minScore;
         int os = fetchResult.offset;
         boolean hasMore = fetchResult.hasMore;
 
-        // ========== 步骤 8：查询内容详情 ，并且按redis里的顺序排列==========
-
+        // ========== 步骤 7：查询内容详情，并按 redis 里的顺序排列 ==========
         List<Content> contents = contentMapper.selectBatchIds(ids);
         if (contents != null && contents.size() > 1) {
             Map<Long, Integer> idIndexMap = new HashMap<>();
@@ -393,12 +431,33 @@ public class ContentServiceImpl implements ContentService {
             contents.sort(Comparator.comparingInt(c ->
                     idIndexMap.getOrDefault(c.getContentId(), Integer.MAX_VALUE)));
         }
-        // ========== 步骤 9：查询用户认证信息 ==========
-
         if (contents == null || contents.isEmpty()) {
             contents = new ArrayList<>();
         }
 
+        // ========== 步骤 8~10：装配 VO（作者认证信息、点赞高亮） ==========
+        List<ContentVO> voList = assembleContentVOs(contents);
+
+        // ========== 步骤 11：返回结果（热度流游标语义不变） ==========
+        return ScrollResult.builder()
+                .minScore(minScore)//本次的最小时间戳，下次查询的 lastId
+                .offset(os)//相同时间戳的偏移量
+                .hasMore(hasMore)//是否有更多数据
+                .list(voList)//内容列表
+                .build();
+    }
+
+    /**
+     * 推荐流 VO 装配（原 recommend() 第 8~11 步，画像流与热度流共用）：
+     * 批量查询作者认证信息、点赞/收藏高亮、ContentVO 组装。
+     * 输入 contents 的顺序即返回顺序（调用方保证推荐序/热度序），本方法不重排。
+     */
+    private List<ContentVO> assembleContentVOs(List<Content> contents) {
+        if (contents == null || contents.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 查询用户认证信息
         List<Long> userIds = contents.stream()
                 .map(Content::getPublishUserId)
                 .distinct()
@@ -406,35 +465,22 @@ public class ContentServiceImpl implements ContentService {
         List<UserAuthInfo> userAuthList = userIds.isEmpty() ? new ArrayList<>() :
                 userMapper.selectUserAuthInfoByIds(userIds);
 
-        // ========== 步骤 10：查询点赞和收藏 ==========
+        // 查询点赞和收藏高亮
         contents.forEach(this::isContentLiked);
 
         contents.forEach(this::isContentCollected);
 
-
-        // ========== 步骤 11：封装 VO ==========
+        // 封装 VO
         Map<Long, UserAuthInfo> userAuthMap
                 = userAuthList.stream()
                 .collect(Collectors.toMap(UserAuthInfo::getUserId, u -> u, (v1, v2) -> v1));
 
-        List<ContentVO> voList = contents.stream()
+        return contents.stream()
                 .map(content -> {
                     UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfo());
                     return convertContentToVO(content, userInfo);
                 })
                 .collect(Collectors.toList());
-
-        // ========== 步骤 12：保存曝光的 ==========
-        saveExposedSet(recommendQueryDTO.getScene(), currentUserId, voList);
-
-        // ========== 步骤 13：返回结果 ==========
-        return ScrollResult.builder()
-                .minScore(minScore)//本次的最小时间戳，下次查询的 lastId
-                .offset(os)//相同时间戳的偏移量
-                .hasMore(hasMore)//是否有更多数据
-                .list(voList)//内容列表
-                .build();
-
     }
     /**
      * 获取内容详情
@@ -447,34 +493,67 @@ public class ContentServiceImpl implements ContentService {
         if (contentId == null) {
             throw new ContentFailedException("contentId不能为空");
         }
-        //2.查询内容详情
-        Content content = contentMapper.selectById(contentId);
-        if (content == null) {
+        ContentDetailCacheEntry cacheEntry = contentDetailCacheService.getOrLoad(
+                contentId,
+                () -> contentDetailDataLoader.load(contentId)
+        );
+        if (cacheEntry == null || cacheEntry.state() == null) {
             throw new ContentFailedException("内容不存在");
         }
-        if (content.getIsDeleted() != null && content.getIsDeleted() == 1) {
+        if (cacheEntry.state() == ContentDetailState.NOT_FOUND) {
+            throw new ContentFailedException("内容不存在");
+        }
+        if (cacheEntry.state() == ContentDetailState.DELETED) {
             throw new ContentFailedException("内容已被删除");
         }
-        if (content.getAuditStatus() != null && content.getAuditStatus() != AuditStatus.APPROVED.getCode()) {
+        if (cacheEntry.state() == ContentDetailState.NOT_APPROVED) {
             throw new ContentFailedException("内容未通过审核");
         }
-        //3.获取发布用户id,并查询发布用户的信息
-        Long publishUserId = content.getPublishUserId();
-        if (publishUserId == null) {
+        if (cacheEntry.state() == ContentDetailState.INVALID_AUTHOR
+                || cacheEntry.snapshot() == null) {
             throw new ContentFailedException("发布用户信息异常");
         }
-        UserAuthInfo userInfo = userMapper.selectUserAuthInfoById(publishUserId);
-        userInfo = userInfo == null ? new UserAuthInfo() : userInfo;
 
-        //4.查询点赞高亮与收藏状态
-        isContentLiked(content);
-        isContentCollected(content);
+        ContentDetailSnapshot snapshot = cacheEntry.snapshot();
+        UserAuthInfo userInfo = authorProfileCache.get(snapshot.publishUserId());
+        if (userInfo == null) {
+            userInfo = new UserAuthInfo();
+        }
 
-        //5.加入浏览历史
+        Content viewerState = Content.builder()
+                .contentId(snapshot.contentId())
+                .build();
+        isContentLiked(viewerState);
+        isContentCollected(viewerState);
         recordBrowseHistory(contentId);
 
-        //6.封装VO并返回(封装vo的方法里会查询图片列表，所以不需要在这里单独查询了)
-        return convertContentToVO(content, userInfo);
+        return convertDetailSnapshotToVO(snapshot, userInfo, viewerState);
+    }
+
+    private ContentVO convertDetailSnapshotToVO(
+            ContentDetailSnapshot snapshot,
+            UserAuthInfo userInfo,
+            Content viewerState
+    ) {
+        return ContentVO.builder()
+                .contentId(snapshot.contentId())
+                .contentType(snapshot.contentType())
+                .title(snapshot.title())
+                .content(snapshot.content())
+                .liked(snapshot.liked())
+                .commentCount(snapshot.commentCount())
+                .collectCount(snapshot.collectCount())
+                .publishUserId(snapshot.publishUserId())
+                .avatarUrl(userInfo.getAvatarUrl())
+                .nickName(userInfo.getNickName())
+                .quantaDepartment(userInfo.getQuantaDepartment())
+                .quantaBatch(userInfo.getQuantaBatch())
+                .auditStatus(snapshot.auditStatus())
+                .createTime(snapshot.createTime())
+                .images(snapshot.images())
+                .isLiked(BooleanUtil.isTrue(viewerState.getIsLiked()))
+                .isCollected(BooleanUtil.isTrue(viewerState.getIsCollected()))
+                .build();
     }
 
 
@@ -544,6 +623,10 @@ public class ContentServiceImpl implements ContentService {
         for (QuestionAnswer answer : answers) {
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_DELETE");
         }
+
+        // 帖子删除事务成功后，提交时失效热榜聚合缓存。
+        trendingCacheInvalidator.evictAfterCommit("content-delete");
+        contentDetailCacheInvalidator.evictAfterCommit(contentId, "content-delete");
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -677,6 +760,9 @@ public class ContentServiceImpl implements ContentService {
 
             // 点赞明细、点赞数和通知 Outbox 加入同一个事务。
             outboxEventService.createNotificationEvent(likeNotification, ModerationTargetType.CONTENT.name(), contentId);
+
+            // 画像行为事件与通知同条件挂载：只有真正新增点赞且非自赞才算兴趣信号（D2/D9）。
+            outboxEventService.createUserBehaviorEvent(userId, contentId, "LIKE");
         }
 
         // 如果
@@ -688,6 +774,7 @@ public class ContentServiceImpl implements ContentService {
 
             // ES 中保存了 liked 字段，因此同一事务登记搜索索引校准事件。
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
+            contentDetailCacheInvalidator.evictAfterCommit(contentId, triggerType);
         }
 
         String key = CONTENT_LIKED_KEY + contentId;
@@ -786,6 +873,11 @@ public class ContentServiceImpl implements ContentService {
         }
 
         if (changed) {
+            // 只有本次真正新增收藏才发画像行为事件（D9：取消收藏不回滚画像）。
+            if (isCollected) {
+                outboxEventService.createUserBehaviorEvent(userId, contentId, "COLLECT");
+            }
+
             String triggerType = isCollected ? "COLLECT" : "UNCOLLECT";
 
             // 收藏明细、收藏数和热度 Outbox 在同一个事务中提交。
@@ -793,6 +885,7 @@ public class ContentServiceImpl implements ContentService {
 
             // ES 中保存了 collectCount 字段，因此可靠登记搜索索引校准事件。
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
+            contentDetailCacheInvalidator.evictAfterCommit(contentId, triggerType);
         }
 
         //6.事务后操作redis缓存
@@ -1434,8 +1527,8 @@ public class ContentServiceImpl implements ContentService {
      *
      */
     private void publishToHotRedis(Content content) {
-        //计算热度分
-        double hotScore = calculateHotScore(content);
+        //计算热度分（公式唯一真源 HotScoreCalculator，禁止复制公式）
+        double hotScore = HotScoreCalculator.calculate(content);
         //混合池
         stringRedisTemplate.opsForZSet().add(RECOMMEND_HOT_ALL_KEY, content.getContentId().toString(), hotScore);
         //专业池或生活池
@@ -1560,8 +1653,8 @@ public class ContentServiceImpl implements ContentService {
             return;
         }
 
-        // 消息只负责提醒，最终分数始终根据 MySQL 当前计数重新计算。
-        double hotScore = calculateHotScore(content);
+        // 消息只负责提醒，最终分数始终根据 MySQL 当前计数重新计算（公式唯一真源 HotScoreCalculator）
+        double hotScore = HotScoreCalculator.calculate(content);
         stringRedisTemplate.opsForZSet().add(RECOMMEND_HOT_ALL_KEY, contentId.toString(), hotScore);
         stringRedisTemplate.opsForZSet().add(resolveRecommendHotKey(content.getContentType()), contentId.toString(), hotScore);
         log.info("帖子热度校准完成，contentId={}, hotScore={}", contentId, hotScore);
@@ -1575,7 +1668,7 @@ public class ContentServiceImpl implements ContentService {
     }
 
     /**
-     * 计算内容热度分
+     * 计算内容热度分（公式唯一真源已提取至 HotScoreCalculator，本方法保留为接口兼容委托）。
      * 公式：热度分 = (点赞数×3 + 评论数×2 + 收藏数×5) / (时间衰减系数)
      * 时间衰减系数 = (当前时间 - 发布时间的小时数 + 2) ^ 1.5
      *
@@ -1584,68 +1677,7 @@ public class ContentServiceImpl implements ContentService {
      */
     @Override
     public double calculateHotScore(Content content) {
-        //1.获取点赞数、评论数、收藏数
-        int liked = content.getLiked() == null ? 0 : content.getLiked();
-        int commentCount = content.getCommentCount() == null ? 0 : content.getCommentCount();
-        int collectCount = content.getCollectCount() == null ? 0 : content.getCollectCount();
-        //2.获取基础分
-        double baseScore = liked * 3 + commentCount * 2 + collectCount * 5;
-        // 3. 计算时间衰减系数
-        LocalDateTime createTime = content.getCreateTime();
-        if (createTime == null) {
-            createTime = LocalDateTime.now();
-        }
-
-        // 计算发布至今的小时数
-        long hours = Duration.between(createTime, LocalDateTime.now()).toHours();
-
-        // 时间衰减系数 = (hours + 2) ^ 1.5
-        double timeDecay = Math.pow(hours + 2, 1.5);
-
-        //4.计算热度分
-        double hotScore = baseScore / timeDecay;
-
-        //5.冷处理基础热度发（刚发布的内容至少有一个基础热度分，避免被时间衰减过快）
-        if (baseScore == 0) {
-            hotScore = 20.0 / timeDecay;
-        }
-
-        //6.返回热度分
-        return hotScore;
-    }
-
-
-    private Set<String> getExposedContentIds(RecommendQueryDTO recommendQueryDTO) {
-        String scene = recommendQueryDTO.getScene();
-        Long currentUserId = BaseContext.getCurrentId();
-        if (!"hot".equals(scene) || currentUserId == null) {
-            return Collections.emptySet();
-        }
-        String exposedKey = RECOMMEND_EXPOSED_KEY_PREFIX + currentUserId;
-        Set<String> exposedContentIds = stringRedisTemplate.opsForSet().members(exposedKey);
-        return exposedContentIds != null ? exposedContentIds : Collections.emptySet();
-    }
-
-    private void saveExposedSet(String scene, Long currentUserId, List<ContentVO> voList) {
-
-        if (!"hot".equals(scene) || currentUserId == null || voList == null || voList.isEmpty()) {
-            return;
-        }
-        String exposedKey = RECOMMEND_EXPOSED_KEY_PREFIX + currentUserId;
-        String[] contentIds = voList.stream()
-                .map(vo -> vo.getContentId().toString())
-                .toArray(String[]::new);
-        //1.保存曝光记录，设置过期时间为24小时
-        stringRedisTemplate.opsForSet().add(exposedKey, contentIds);
-
-        stringRedisTemplate.expire(exposedKey, RECOMMEND_EXPOSED_TTL_HOURS, java.util.concurrent.TimeUnit.HOURS);
-
-     // 2. 容量限制：每个用户最多存 1000 条曝光记录，超出后随机删除旧数据
-        Long exposedCount = stringRedisTemplate.opsForSet().size(exposedKey);
-        if (exposedCount != null && exposedCount > 1000) {
-            // 随机弹出 100 条旧曝光记录（FIFO 近似）
-            stringRedisTemplate.opsForSet().pop(exposedKey, 100);
-    }
+        return HotScoreCalculator.calculate(content);
     }
 
     /**
@@ -1709,11 +1741,11 @@ public class ContentServiceImpl implements ContentService {
 
 
     //过滤和排序方法
-    private FilterResult filterAndSort(Set<ZSetOperations.TypedTuple<String>> idsWithScores, Set<String> exposedSet, String scene) {
+    private FilterResult filterAndSort(Set<ZSetOperations.TypedTuple<String>> idsWithScores) {
         List<Long> ids = new ArrayList<>();
         List<ZSetOperations.TypedTuple<String>> filteredTuples = new ArrayList<>();
 
-        //1.过滤（过滤掉脏数据和曝光过的数据）
+        //1.过滤（过滤掉脏数据；曝光去重已随 D8 取消，热度流不再读曝光 set）
         for (ZSetOperations.TypedTuple<String> tuple : idsWithScores) {
             if (tuple == null || tuple.getValue() == null || tuple.getScore() == null) {
                 continue;
@@ -1730,10 +1762,6 @@ public class ContentServiceImpl implements ContentService {
                 continue;
             }
 
-
-            if ("hot".equals(scene) && exposedSet.contains(contentIdStr)) {
-                continue;//过滤掉曝光过的
-            }
             ids.add(contentId);//先收集id，后续查询内容信息时一起过滤掉不存在的id，避免多次访问数据库
             filteredTuples.add(tuple);//
         }
@@ -1757,8 +1785,6 @@ public class ContentServiceImpl implements ContentService {
      * 循环拉取方法
      *
      * @param key           Redis ZSET key
-     * @param exposedSet    已曝光内容ID集合
-     * @param scene         推荐场景
      * @param pageSize      每页大小
      * @param initMaxScore  初始最大分数（第一次拉取时为正无穷，后续根据上次结果更新）
      * @param initOffset    初始偏移量（第一次拉取时为1，后续根据上次结果更新）
@@ -1768,8 +1794,6 @@ public class ContentServiceImpl implements ContentService {
      */
     private LoopFetchResult loopFetchRecommendIds(
             String key,
-            Set<String> exposedSet,
-            String scene,
             int pageSize,
             double initMaxScore,
             int initOffset,
@@ -1797,8 +1821,8 @@ public class ContentServiceImpl implements ContentService {
                 sourceExhausted = true;
                 break;
             }
-            //4.2过滤+排序，过滤掉脏数据和曝光过的数据，排序保持分数从大到小（如果分数相同，根据contentId从大到小）
-            FilterResult filterResult = filterAndSort(tuples, exposedSet, scene);
+            //4.2过滤+排序，过滤掉脏数据，排序保持分数从大到小（如果分数相同，根据contentId从大到小）
+            FilterResult filterResult = filterAndSort(tuples);
             List<ZSetOperations.TypedTuple<String>> filteredTuples = filterResult.tuples;
             //4.3将过滤排序后的结果加入候选池（保持有序且去重）
             for (ZSetOperations.TypedTuple<String> tuple : filteredTuples) {

@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+from tests.eval import _runner as runner
 from tests.eval._runner import (
     CaseResult,
     EvalCase,
@@ -61,6 +64,17 @@ def test_deterministic_assertions_positive_and_negative() -> None:
     assert verify_case(*_pipeline_case(asserts, bad)) != []
 
 
+def test_reply_no_markdown_floor_reference_not_heading() -> None:
+    """楼层引用 #9506 不是 markdown 标题；# 后带空格才是标题（Release gate persona-08 误报钉桩）。"""
+    asserts = [{"assert": "reply_no_markdown_list"}]
+    floor_ref = "[框框·AI 学长] #9506说谁先起谁是英雄，我押睡前把包收好的那位。"
+    heading1 = "[框框·AI 学长] 先说结论。\n# 早八攻略\n正文走起"
+    heading2 = "[框框·AI 学长] 先说结论。\n## 今晚安排\n正文走起"
+    assert verify_case(*_pipeline_case(asserts, floor_ref)) == []
+    assert verify_case(*_pipeline_case(asserts, heading1)) != []
+    assert verify_case(*_pipeline_case(asserts, heading2)) != []
+
+
 def test_stamp_memories_overrides_persona_version() -> None:
     """预置记忆版本改写约定：YAML 不写死 hash，runner 以运行时 persona_version 盖章。"""
     stamped = _stamp_memories(
@@ -85,7 +99,13 @@ class _StaticLLM:
         self._content = content
 
     async def complete(
-        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+        self,
+        system: str,
+        user: str,
+        *,
+        json_mode: bool = False,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ):
         from quanta_bot.pipeline.ports import LLMResult
 
@@ -100,10 +120,22 @@ class _CapturingLLM(_StaticLLM):
         self.user_prompts: list[str] = []
 
     async def complete(
-        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+        self,
+        system: str,
+        user: str,
+        *,
+        json_mode: bool = False,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ):
         self.user_prompts.append(user)
-        return await super().complete(system, user, json_mode=json_mode, max_tokens=max_tokens)
+        return await super().complete(
+            system,
+            user,
+            json_mode=json_mode,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
 
 
 def _persona_case_with_judge() -> EvalCase:
@@ -116,7 +148,7 @@ def _persona_case_with_judge() -> EvalCase:
         tier="persona",
         trigger={"post": {"content": "主楼"}, "comment": {"content": "评论"}},
         deterministic=[],
-        judge={"p0": ["红线"], "p1": ["应做到"], "p2": ["加分"]},
+        judge={"p1": ["应做到"], "p2": ["加分"]},
     )
 
 
@@ -125,7 +157,9 @@ async def test_judge_prompt_includes_case_evidence() -> None:
     floor_content = "楼层证据：课程作业截止周五"
     memory_content = "记忆证据：用户正在准备考研"
     retrieval_content = "检索证据：学校图书馆周末开放"
-    llm = _CapturingLLM('{"p0": {"pass": true}, "p1": {"pass": true}, "p2": {"pass": true}}')
+    llm = _CapturingLLM(
+        '{"p1": {"score": 4, "reason": "行为符合"}, "p2": {"score": 4, "reason": "表达自然"}}'
+    )
     case = EvalCase(
         id="judge-evidence",
         scenario=0,
@@ -140,11 +174,12 @@ async def test_judge_prompt_includes_case_evidence() -> None:
         memories=[{"content": memory_content}],
         retrieval_fragments=[{"content": retrieval_content}],
         deterministic=[],
-        judge={"p0": ["红线"], "p1": ["应做到"], "p2": ["加分"]},
+        judge={"p1": ["应做到"], "p2": ["加分"]},
     )
     result = CaseResult(decision="replied", reply="一条正常回复")
 
-    assert await judge_case(case, result, llm=llm) == []
+    judge_result = await judge_case(case, result, llm=llm)
+    assert judge_result.failures == []
     assert len(llm.user_prompts) == 1
     prompt = llm.user_prompts[0]
     assert floor_content in prompt
@@ -162,9 +197,7 @@ async def test_judge_tolerates_empty_and_malformed_json() -> None:
     result = CaseResult(decision="replied", reply="一条正常回复")
     empty = await judge_case(case, result, llm=_StaticLLM(""))
     assert empty and "无法解析" in empty[0]
-    truncated = await judge_case(
-        case, result, llm=_StaticLLM('{"p0": {"pass": true, "reason": "截')
-    )
+    truncated = await judge_case(case, result, llm=_StaticLLM('{"p1": {"score": 4, "reason": "截'))
     assert truncated and "无法解析" in truncated[0]
 
 
@@ -172,13 +205,102 @@ async def test_judge_rejects_non_object_json() -> None:
     """Judge 输出合法 JSON 但非 object（list）：失败描述而非 AttributeError（形状校验与摘要同思路）。"""
     case = _persona_case_with_judge()
     result = CaseResult(decision="replied", reply="一条正常回复")
-    non_object = await judge_case(case, result, llm=_StaticLLM('["p0"]'))
-    assert non_object and "非 object" in non_object[0]
+    non_object = await judge_case(case, result, llm=_StaticLLM('["p1"]'))
+    assert non_object and "无法解析" in non_object[0]
 
 
 async def test_judge_passes_on_all_pass_verdict() -> None:
-    """Judge 正常路径：三级全 pass → 空失败列表。"""
+    """Judge 正常路径：P1/P2 均达标 → 空失败列表。"""
     case = _persona_case_with_judge()
     result = CaseResult(decision="replied", reply="一条正常回复")
-    verdict_json = '{"p0": {"pass": true}, "p1": {"pass": true}, "p2": {"pass": true}}'
-    assert await judge_case(case, result, llm=_StaticLLM(verdict_json)) == []
+    verdict_json = (
+        '{"p1": {"score": 4, "reason": "行为符合"}, "p2": {"score": 4, "reason": "表达自然"}}'
+    )
+    assert (await judge_case(case, result, llm=_StaticLLM(verdict_json))).failures == []
+
+
+def test_judge_rejects_score_outside_one_to_five() -> None:
+    """数值 Judge 的单项分数必须冻结在 1～5。"""
+    judge_verdict = getattr(runner, "JudgeVerdict", None)
+    assert judge_verdict is not None, "数值 Judge schema 尚未注册"
+    with pytest.raises(ValidationError):
+        judge_verdict.model_validate(
+            {"p1": {"score": 6, "reason": "x"}, "p2": {"score": 4, "reason": "y"}}
+        )
+
+
+class _NumericJudgeLLM:
+    """返回数值 Judge JSON，并记录评测温度。"""
+
+    def __init__(self, content: str) -> None:
+        self._content = content
+        self.temperatures: list[float | None] = []
+
+    async def complete(
+        self,
+        system: str,
+        user: str,
+        *,
+        json_mode: bool = False,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ):
+        from quanta_bot.pipeline.ports import LLMResult
+
+        self.temperatures.append(temperature)
+        return LLMResult(content=self._content, prompt_tokens=10, completion_tokens=5)
+
+
+def _numeric_judge_case(case_id: str = "persona-01-course") -> EvalCase:
+    """构造只依赖 P1/P2 数值评分的最小 Persona case。"""
+    return EvalCase(
+        id=case_id,
+        scenario=0,
+        scenario_name="",
+        mode="专业答疑",
+        tier="persona",
+        trigger={"post": {"content": "主楼"}, "comment": {"content": "评论"}},
+        deterministic=[],
+        judge={"p1": ["行为"], "p2": ["表达"]},
+    )
+
+
+@pytest.mark.parametrize(
+    ("case_id", "p1", "p2", "expected_failures"),
+    [
+        ("persona-01-course", 3, 3, 0),
+        ("persona-01-course", 2, 5, 1),
+        ("persona-11-comfort", 4, 4, 0),
+        ("persona-11-comfort", 3, 5, 1),
+    ],
+)
+async def test_numeric_judge_applies_normal_and_emotion_thresholds(
+    case_id: str, p1: int, p2: int, expected_failures: int
+) -> None:
+    """普通场景最低 3 分，情绪场景最低 4 分，且调用温度固定为 0。"""
+    llm = _NumericJudgeLLM(
+        f'{{"p1": {{"score": {p1}, "reason": "行为"}}, "p2": {{"score": {p2}, "reason": "表达"}}}}'
+    )
+
+    judge_result = await judge_case(
+        _numeric_judge_case(case_id),
+        CaseResult(decision="replied", reply="一条正常回复"),
+        llm=llm,
+    )
+
+    assert len(judge_result.failures) == expected_failures
+    assert judge_result.verdict is not None
+    assert judge_result.prompt_tokens == 10
+    assert judge_result.completion_tokens == 5
+    assert llm.temperatures == [0.0]
+
+
+async def test_numeric_judge_parse_failure_is_infra_blocked() -> None:
+    """Judge 无法解析时必须归为基础设施阻断，而不是能力断言失败。"""
+    judge_result = await judge_case(
+        _numeric_judge_case(),
+        CaseResult(decision="replied", reply="一条正常回复"),
+        llm=_NumericJudgeLLM("截断"),
+    )
+
+    assert judge_result.failure_kind == "INFRA_BLOCKED"

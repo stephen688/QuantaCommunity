@@ -1,4 +1,4 @@
-name: QuantaBot CI
+name: QuantaBot Fast CI
 
 on:
   push:
@@ -12,6 +12,9 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Fast 档永远不读取付费模型凭据，也不启用 QUANTABOT_EVAL=1。
+    env:
+      QUANTABOT_EVAL: "0"
     # 挂死保护：超 10 分钟判失败（M0 审查 Minor-3 清账）
     timeout-minutes: 10
     defaults:

@@ -203,6 +203,49 @@ async def test_full_m3_flow_with_memory_and_assembly() -> None:
     assert deps.reply_writer.written  # 写库收到 1 条（沿用 M2 fake 断言口径）
 
 
+async def test_trigger_waterline_excludes_floors_after_trigger_comment() -> None:
+    """触发评论 100 的上下文不得穿越到后发楼层 101。"""
+    trigger_comment = CommentNode(
+        comment_id=100,
+        user_id=42,
+        content="@框框 请看触发前的讨论",
+        create_time="2026-09-19 10:00:00",
+    )
+    floors = (
+        CommentNode(
+            comment_id=99,
+            user_id=7,
+            content="触发前楼层 99",
+            create_time="2026-09-19 09:59:00",
+        ),
+        trigger_comment,
+        CommentNode(
+            comment_id=101,
+            user_id=8,
+            content="触发后楼层 101，不得进入上下文",
+            create_time="2026-09-19 10:01:00",
+        ),
+    )
+    tree = FakeCommentTreeFetcher(
+        post=PostSummary(post_id=10, author_user_id=1, title="水位测试", content="同帖讨论"),
+        chain=(trigger_comment,),
+        floors=floors,
+    )
+    tracer = SpyTracer()
+    deps = _m3_deps(
+        FakeLLM(responses=[_DECISION_JSON, "水位测试回复"]),
+        tree=tree,
+        tracer=tracer,
+    )
+
+    result = await run(_event("@框框 请看触发前的讨论", comment_id=100), deps)
+
+    assert result == "replied"
+    context_text = tracer.traces[-1].context_text or ""
+    assert "触发后楼层 101，不得进入上下文" not in context_text
+    assert "触发前楼层 99" in context_text
+
+
 async def test_low_value_hard_rule_skips_before_fetch() -> None:
     """硬规则在拉取前拦截：零 LLM 调用、零评论树调用、决策=skipped_low_value。"""
     llm = FakeLLM()

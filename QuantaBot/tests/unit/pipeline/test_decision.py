@@ -35,6 +35,16 @@ def test_hard_low_value_blacklist_words() -> None:
     assert hard_low_value("@框框 学长有内推机会吗") is None
 
 
+def test_decision_prompt_disambiguates_supplement_and_flamewar_modes() -> None:
+    """冻结真实门禁暴露的边界：补充当前语境归玩梗，攻击现实对象优先治理。"""
+    from quanta_bot.pipeline.decision import DECISION_SYSTEM_PROMPT
+
+    assert "补充/补一手/看看有没有遗漏" in DECISION_SYSTEM_PROMPT
+    assert "生活玩梗" in DECISION_SYSTEM_PROMPT
+    assert "站队/骂醒/攻击对方" in DECISION_SYSTEM_PROMPT
+    assert "治理优先" in DECISION_SYSTEM_PROMPT
+
+
 def test_parse_decision_json_full_contract() -> None:
     """一车四用输出契约：低价值/模式/置信度/检索flag/精选/四态。"""
     raw = (

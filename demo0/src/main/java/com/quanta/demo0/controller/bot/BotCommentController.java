@@ -23,7 +23,7 @@ public class BotCommentController {
     private final BotCommentService botCommentService;
 
     @GetMapping("/chain")
-    @RateLimit(scene = "bot-read", limit = 120, windowSeconds = 60, failClosed = false)
+    @RateLimit(scene = "bot-read", limit = 120, windowSeconds = 60, failClosed = false) // 评论链接口
     public Result<BotCommentChainVO> chain(@RequestParam Long commentId) {
         return Result.success(botCommentService.getChain(commentId));
     }

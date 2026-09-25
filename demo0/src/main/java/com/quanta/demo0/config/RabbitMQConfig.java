@@ -75,6 +75,20 @@ public class RabbitMQConfig {
     public static final String HOT_SCORE_DLX_EXCHANGE = "hot.score.dlx.exchange";
     public static final String HOT_SCORE_DLX_ROUTING_KEY = "hot.score.dlx";
 
+    //用户行为画像更新队列常量（推荐流个性化 D2）
+    public static final String USER_BEHAVIOR_QUEUE = "user.behavior.queue";
+    public static final String USER_BEHAVIOR_EXCHANGE = "user.behavior.exchange";
+    public static final String USER_BEHAVIOR_ROUTING_KEY = "user.behavior";
+
+    public static final String USER_BEHAVIOR_RETRY_QUEUE = "user.behavior.retry.queue";
+    public static final String USER_BEHAVIOR_RETRY_EXCHANGE = "user.behavior.retry.exchange";
+    public static final String USER_BEHAVIOR_RETRY_ROUTING_KEY = "user.behavior.retry";
+
+    public static final String USER_BEHAVIOR_DLX_QUEUE = "user.behavior.dlx.queue";
+    public static final String USER_BEHAVIOR_DLX_EXCHANGE = "user.behavior.dlx.exchange";
+    public static final String USER_BEHAVIOR_DLX_ROUTING_KEY = "user.behavior.dlx";
+
+
 
 
     // 通知推送队列常量
@@ -246,6 +260,27 @@ public class RabbitMQConfig {
         return QueueBuilder.durable(HOT_SCORE_DLX_QUEUE).build();
     }
 
+    // 用户行为画像更新队列定义（照抄 hot score 拓扑：主队列无 DLX 参数，消费失败由消费者显式转发重试/死信）
+    @Bean
+    public Queue userBehaviorQueue() {
+        return QueueBuilder.durable(USER_BEHAVIOR_QUEUE).build();
+    }
+
+    @Bean
+    public Queue userBehaviorRetryQueue() {
+        return QueueBuilder.durable(USER_BEHAVIOR_RETRY_QUEUE)
+                .withArgument("x-message-ttl", 60000)
+                .withArgument("x-dead-letter-exchange", USER_BEHAVIOR_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", USER_BEHAVIOR_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Queue userBehaviorDlxQueue() {
+        return QueueBuilder.durable(USER_BEHAVIOR_DLX_QUEUE).build();
+    }
+
+
 
    // 通知推送队列定义
     @Bean
@@ -415,6 +450,23 @@ public class RabbitMQConfig {
         return new DirectExchange(HOT_SCORE_DLX_EXCHANGE);
     }
 
+    // 用户行为画像更新交换机定义
+    @Bean
+    public DirectExchange userBehaviorExchange() {
+        return new DirectExchange(USER_BEHAVIOR_EXCHANGE);
+    }
+
+    @Bean
+    public DirectExchange userBehaviorRetryExchange() {
+        return new DirectExchange(USER_BEHAVIOR_RETRY_EXCHANGE);
+    }
+
+    @Bean
+    public DirectExchange userBehaviorDlxExchange() {
+        return new DirectExchange(USER_BEHAVIOR_DLX_EXCHANGE);
+    }
+
+
     // 通知推送交换机定义
     @Bean
     public DirectExchange notificationExchange() {
@@ -545,6 +597,25 @@ public class RabbitMQConfig {
     public Binding hotScoreDlxBinding() {
         return BindingBuilder.bind(hotScoreDlxQueue()).to(hotScoreDlxExchange()).with(HOT_SCORE_DLX_ROUTING_KEY);
     }
+
+    // 用户行为画像更新绑定关系定义
+    @Bean
+    public Binding userBehaviorBinding() {
+        return BindingBuilder.bind(userBehaviorQueue())
+                .to(userBehaviorExchange())
+                .with(USER_BEHAVIOR_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding userBehaviorRetryBinding() {
+        return BindingBuilder.bind(userBehaviorRetryQueue()).to(userBehaviorRetryExchange()).with(USER_BEHAVIOR_RETRY_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding userBehaviorDlxBinding() {
+        return BindingBuilder.bind(userBehaviorDlxQueue()).to(userBehaviorDlxExchange()).with(USER_BEHAVIOR_DLX_ROUTING_KEY);
+    }
+
     // 通知推送绑定关系定义
     @Bean
     public Binding notificationBinding() {

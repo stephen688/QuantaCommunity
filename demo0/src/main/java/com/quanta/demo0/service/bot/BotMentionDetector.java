@@ -4,7 +4,6 @@ import java.util.Locale;
 
 /**
  * bot mention 判定（C-4 契约）。
- *
  * 直接回复 bot 评论优先归类为 replied；否则按评论文本中的 @昵称
  * 判断 mentioned。改名过渡期仍识别系统名 QuantaBot，但不会改变对外系统标识。
  */

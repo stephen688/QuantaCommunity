@@ -324,6 +324,83 @@ public class OutboxEventServiceImpl implements OutboxEventService {
 
         return eventId;
     }
+
+    /**
+     * 创建用户行为事件（画像更新信号，D2）。
+     *
+     * 与 createHotScoreRecalculateEvent 同构：eventId 用 UUID 族，
+     * 调用方已有事务时加入同一事务，插入失败抛异常让业务写一起回滚。
+     * 聚合主体是用户（画像按 userId 组织），aggregateId 记 userId。
+     */
+    @Override
+    @Transactional
+    public String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType) {
+        // 赞/藏/评路径：事件每次真正新增才创建，UUID 族 eventId 即可满足 Inbox 幂等
+        return createUserBehaviorEvent(userId, contentId, behaviorType, null);
+    }
+
+    /**
+     * 创建用户行为事件（画像更新信号，D2），支持外部指定稳定 eventId。
+     *
+     * 浏览对账任务传 user.behavior.browse:{browseHistoryId} 固定格式，
+     * watermark 未推进导致的同一行重复转发被 Inbox 幂等挡住；
+     * eventId 为 null 时内部生成 UUID（与三参版本行为一致）。
+     */
+    @Override
+    @Transactional
+    public String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType, String eventId) {
+        // 参数校验：任一必填字段为空即拒绝，不写入毒丸事件。
+        if (userId == null || contentId == null) {
+            throw new ContentFailedException("用户行为事件缺少用户 ID 或帖子 ID");
+        }
+        validateBehaviorType(behaviorType);
+
+        String finalEventId = eventId != null ? eventId : UUID.randomUUID().toString();
+        LocalDateTime occurredAt = LocalDateTime.now();
+
+        // 消息不携带权重，权重换算由画像消费侧承担。
+        UserBehaviorMessage message = UserBehaviorMessage.builder()
+                .eventId(finalEventId)
+                .eventType(OutboxEventType.USER_BEHAVIOR_REQUESTED.getCode())
+                .occurredAt(occurredAt)
+                .userId(userId)
+                .contentId(contentId)
+                .behaviorType(behaviorType)
+                .retryCount(0)
+                .build();
+
+        String payload = serializePayload(message);
+        validatePayloadSize(payload);
+
+        OutboxEvent event = OutboxEvent.builder()
+                .eventId(finalEventId)
+                .eventType(OutboxEventType.USER_BEHAVIOR_REQUESTED.getCode())
+                .aggregateType("USER")
+                .aggregateId(userId)
+                .payload(payload)
+                .status(OutboxEventStatus.PENDING.getCode())
+                .retryCount(0)
+                .nextRetryTime(occurredAt)
+                .replayCount(0)
+                .build();
+
+        // 插入失败必须抛异常，让业务写（赞/藏/评）和行为 Outbox 一起回滚。
+        if (outboxEventMapper.insert(event) != 1) {
+            throw new ContentFailedException("创建用户行为事件失败");
+        }
+
+        return finalEventId;
+    }
+
+    /**
+     * 行为类型白名单校验：只允许 D2 定义的四种行为。
+     */
+    private void validateBehaviorType(String behaviorType) {
+        if (behaviorType == null || !List.of("LIKE", "COLLECT", "COMMENT", "VIEW").contains(behaviorType)) {
+            throw new ContentFailedException("用户行为类型非法：" + behaviorType);
+        }
+    }
+
     @Override
     @Transactional
     public String createCommentModerationEvent(ContentComment comment, List<String> imageUrls) {

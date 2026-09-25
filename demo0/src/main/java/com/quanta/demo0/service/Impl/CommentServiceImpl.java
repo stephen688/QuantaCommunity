@@ -21,6 +21,7 @@ import com.quanta.demo0.properties.AliyunModerationProperties;
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.service.CommentAuditService;
 import com.quanta.demo0.service.CommentService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.vo.CommentPageVO;
@@ -79,6 +80,8 @@ public class CommentServiceImpl implements CommentService {
     private CommentAuditService commentAuditService;
     @Autowired
     private OutboxEventService outboxEventService;
+    @Autowired
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     /**
      * 发送评论
@@ -240,6 +243,10 @@ public class CommentServiceImpl implements CommentService {
             throw new CommentFailedException("评论发布失败");
         }
 
+        // 用户新增评论成功：画像行为事件与评论写入同一个事务提交（D2）。
+        // 管理员删除/审核驳回路径不经过此处，不重复发事件。
+        outboxEventService.createUserBehaviorEvent(userId, contentId, "COMMENT");
+
         // 7. 审核开启时，评论、图片和审核 Outbox 在同一个事务中提交。
         if (shouldModerateComment()) {
             outboxEventService.createCommentModerationEvent(contentComment, imageUrls);
@@ -253,14 +260,14 @@ public class CommentServiceImpl implements CommentService {
 
     }
 
-    /** 全局开关 + 评论类型开关均开启时才走 AI 审核；bot 评论强制机审。 */
+    /** 全局开关 + 评论类型开关均开启时才走 AI 审核；bot 评论强制机审（总开关与评论开关均不豁免）。 */
     boolean shouldModerateComment() {
-        if (!moderationProperties.isEnabled()) {
-            return false;
-        }
-        // C-6 契约：bot 来源评论不受 targets.comment.enabled=false 影响，强制进 AI 机审
+        // C-6：bot 来源评论强制机审——在总开关之前判定，任何开关组合下 bot 回复都过二审
         if (isBotUser(BaseContext.getCurrentId())) {
             return true;
+        }
+        if (!moderationProperties.isEnabled()) {
+            return false;
         }
         AliyunModerationProperties.TargetConfig commentConfig = getCommentTargetConfig();
         return commentConfig != null && commentConfig.isEnabled();
@@ -886,6 +893,7 @@ public class CommentServiceImpl implements CommentService {
         commentMapper.deleteCommentLikes(comment.getCommentId());
         //更新内容表评论数
         commentMapper.updateCommentCount(comment.getContentId(), -1);
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-reply-delete");
         //更新回答表评论数（仅专业区评论需要）
         if (comment.getAnswerId() != null) {
             int updateCount = questionMapper.updateAnswerCommentCount(comment.getAnswerId(), -1);
@@ -917,6 +925,7 @@ public class CommentServiceImpl implements CommentService {
         //更新内容表评论数
         int totalDeleteCount = 1 + replyCommentIds.size();
         commentMapper.updateCommentCount(comment.getContentId(), -totalDeleteCount);
+        contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-delete");
 
         // 6. 更新回答表评论数（仅专业区评论需要）
         if (comment.getAnswerId() != null) {

@@ -13,7 +13,7 @@ from quanta_bot.pipeline.ports import LLMClientError, LLMResult
 class FakeLLM:
     """内存 fake：默认固定文本；responses 剧本按调用序弹出（可控测试 LLM）。
 
-    calls 记录每次调用参数（system/user/json_mode/max_tokens）——断言调用形状用。
+    calls 记录每次调用参数（system/user/json_mode/max_tokens/temperature）——断言调用形状用。
     tokens 500/100 使成本断言可观测（estimate≈8 厘/次，沿用 M2 口径）。
     """
 
@@ -27,10 +27,22 @@ class FakeLLM:
         self.calls: list[dict[str, object]] = []
 
     async def complete(
-        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+        self,
+        system: str,
+        user: str,
+        *,
+        json_mode: bool = False,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> LLMResult:
         self.calls.append(
-            {"system": system, "user": user, "json_mode": json_mode, "max_tokens": max_tokens}
+            {
+                "system": system,
+                "user": user,
+                "json_mode": json_mode,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
         )
         content = self._responses.pop(0) if self._responses else self._default
         return LLMResult(content=content, prompt_tokens=500, completion_tokens=100)
@@ -56,7 +68,13 @@ class DeepSeekClient:
         )
 
     async def complete(
-        self, system: str, user: str, *, json_mode: bool = False, max_tokens: int | None = None
+        self,
+        system: str,
+        user: str,
+        *,
+        json_mode: bool = False,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> LLMResult:
         """调 chat/completions 并解析（失败一律 LLMClientError）。"""
         payload: dict[str, object] = {
@@ -70,6 +88,8 @@ class DeepSeekClient:
             payload["response_format"] = {"type": "json_object"}
         if max_tokens is not None:  # 轻量调用：输出上限（成本闸）
             payload["max_tokens"] = max_tokens
+        if temperature is not None:  # 评测确定性；0.0 不能因真假值判断被丢弃
+            payload["temperature"] = temperature
         try:
             resp = await self._http.post("/chat/completions", json=payload)
             resp.raise_for_status()

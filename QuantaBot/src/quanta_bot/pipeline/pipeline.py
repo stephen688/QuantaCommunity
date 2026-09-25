@@ -178,7 +178,11 @@ async def _execute(event: TriggerEvent, deps: PipelineDeps) -> _Outcome:
     try:
         # ⑤ 拉取现场（C-2①③ 线程 + C-2② 全量楼层）
         thread = await deps.comment_tree.fetch_context(event)
-        floors = await deps.comment_tree.fetch_floors(event.post_id)
+        floors = context.filter_floors_at_waterline(
+            event,
+            thread,
+            await deps.comment_tree.fetch_floors(event.post_id),
+        )  # ⑤ 水位过滤：触发后的楼层不得进入本次决策
         # ⑥ 记忆粗召回（向量管"找得到"；负面 feedback 全量并行取）——记忆是可降级通道：
         # 召回/负面失败降级为空候选 WARNING 留痕照常回复（真存储故障不阻断回复链路）
         persona_version = deps.persona.persona_version

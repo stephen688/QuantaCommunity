@@ -31,9 +31,149 @@ def _event() -> TriggerEvent:
 
 
 def _floor(
-    comment_id: int, parent_id: int | None = None, content: str = "楼层内容", user_id: int = 7
+    comment_id: int,
+    parent_id: int | None = None,
+    content: str = "楼层内容",
+    user_id: int = 7,
+    create_time: str = "",
 ) -> CommentNode:
-    return CommentNode(commentId=comment_id, parentId=parent_id, userId=user_id, content=content)
+    return CommentNode(
+        commentId=comment_id,
+        parentId=parent_id,
+        userId=user_id,
+        content=content,
+        createTime=create_time,
+    )
+
+
+def test_waterline_falls_back_to_comment_id_when_time_is_missing() -> None:
+    """缺少 createTime 时按触发 comment_id 收口，未知后发楼层宁可丢弃。"""
+    event = TriggerEvent(
+        event_id="evt-100",
+        comment_id=100,
+        post_id=22,
+        commenter_user_id=5,
+        content="@框框 水位测试",
+        mentioned_bot=True,
+    )
+    trigger_node = _floor(100, content="@框框 水位测试")
+    thread = PostThread(
+        post=PostSummary(postId=22, userId=1, title="水位", content="讨论"),
+        chain=(trigger_node,),
+    )
+    floors = (
+        _floor(99, content="触发前"),
+        _floor(100, content="触发评论"),
+        _floor(101, content="触发后"),
+    )
+
+    filtered = context.filter_floors_at_waterline(event, thread, floors)
+
+    assert [node.comment_id for node in filtered] == [99, 100]
+
+
+def test_waterline_uses_timestamp_before_comment_id_when_both_are_known() -> None:
+    """时间齐全时以真实先后为准；ID 只用于缺时间兼容，不能误删旧楼或放入新楼。"""
+    event = TriggerEvent(
+        event_id="evt-100",
+        comment_id=100,
+        post_id=22,
+        commenter_user_id=5,
+        content="@框框 水位测试",
+        mentioned_bot=True,
+    )
+    trigger_node = CommentNode(
+        commentId=100,
+        parentId=None,
+        userId=5,
+        content="@框框 水位测试",
+        createTime="2026-09-19T10:00:00+00:00",
+    )
+    thread = PostThread(
+        post=PostSummary(postId=22, userId=1, title="水位", content="讨论"),
+        chain=(trigger_node,),
+    )
+    older_with_larger_id = CommentNode(
+        commentId=101,
+        parentId=None,
+        userId=7,
+        content="实际更早",
+        createTime="2026-09-19T09:59:00+00:00",
+    )
+    newer_with_smaller_id = CommentNode(
+        commentId=99,
+        parentId=None,
+        userId=7,
+        content="实际更晚",
+        createTime="2026-09-19T10:01:00+00:00",
+    )
+
+    filtered = context.filter_floors_at_waterline(
+        event, thread, (older_with_larger_id, newer_with_smaller_id)
+    )
+
+    assert [node.comment_id for node in filtered] == [101]
+
+
+def test_waterline_same_second_later_floor_excluded_by_comment_id() -> None:
+    """同秒并发：时间同秒时以 comment_id 决胜——后发楼层（id 更大）不得穿越进上下文。
+
+    2026-09-24 轨道 B 真实链路复现：触发 404 与楼层 405 同秒落库，405 进近区上下文，
+    回复 406 复述了仅存在于 405 的词面（与 S14 机审污染同源）。DB create_time 只有
+    秒级精度，同秒内 comment_id 自增序=插入序，是唯一可靠的决胜依据。
+    """
+    event = TriggerEvent(
+        event_id="evt-404",
+        comment_id=404,
+        post_id=22,
+        commenter_user_id=5,
+        content="@框框 水位测试",
+        mentioned_bot=True,
+    )
+    trigger_node = _floor(
+        404, content="@框框 水位测试", user_id=5, create_time="2026-09-24T22:05:41+00:00"
+    )
+    thread = PostThread(
+        post=PostSummary(postId=22, userId=1, title="水位", content="讨论"),
+        chain=(trigger_node,),
+    )
+    floors = (
+        _floor(402, content="早一秒", create_time="2026-09-24T22:05:40+00:00"),
+        _floor(403, content="同秒先发", create_time="2026-09-24T22:05:41+00:00"),
+        trigger_node,  # 触发评论自身：同秒同 id，必须保留
+        _floor(405, content="同秒后发", create_time="2026-09-24T22:05:41+00:00"),
+    )
+
+    filtered = context.filter_floors_at_waterline(event, thread, floors)
+
+    assert [node.comment_id for node in filtered] == [402, 403, 404]
+
+
+def test_waterline_same_second_missing_time_falls_back_to_id_gate() -> None:
+    """同秒并发且后发楼层缺 createTime：回退 comment_id 门，id 大于触发的楼层宁可丢弃。"""
+    event = TriggerEvent(
+        event_id="evt-404",
+        comment_id=404,
+        post_id=22,
+        commenter_user_id=5,
+        content="@框框 水位测试",
+        mentioned_bot=True,
+    )
+    trigger_node = _floor(
+        404, content="@框框 水位测试", user_id=5, create_time="2026-09-24T22:05:41+00:00"
+    )
+    thread = PostThread(
+        post=PostSummary(postId=22, userId=1, title="水位", content="讨论"),
+        chain=(trigger_node,),
+    )
+    floors = (
+        _floor(403, content="同秒先发", create_time="2026-09-24T22:05:41+00:00"),
+        _floor(405, content="同秒后发但缺时间"),  # create_time 缺失（空串→不可解析）
+    )
+
+    filtered = context.filter_floors_at_waterline(event, thread, floors)
+
+    assert [node.comment_id for node in filtered] == [403]
 
 
 def test_partition_by_parent_chain_not_recency() -> None:

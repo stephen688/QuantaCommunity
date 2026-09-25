@@ -5,12 +5,12 @@ import com.quanta.demo0.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.service.ContentExposureService;
+import com.quanta.demo0.utils.HotScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -154,8 +154,8 @@ public class ContentExposureServiceImpl implements ContentExposureService {
      * @param content 内容实体（用于计算热度分）
      */
     private void publishToHotRedis(Content content) {
-        // 计算热度分（点赞×3 + 评论×2 + 收藏×5，再除以时间衰减因子）
-        double hotScore = calculateHotScore(content);
+        // 计算热度分（公式唯一真源 HotScoreCalculator，禁止复制公式）
+        double hotScore = HotScoreCalculator.calculate(content);
         // 写入全量热度池
         stringRedisTemplate.opsForZSet().add(RECOMMEND_HOT_ALL_KEY, content.getContentId().toString(), hotScore);
         // 写入分类热度池
@@ -199,40 +199,6 @@ public class ContentExposureServiceImpl implements ContentExposureService {
             return RECOMMEND_HOT_PROFESSIONAL_KEY;
         }
         throw new ContentFailedException("内容类型必须为 1 或 2");
-    }
-
-    /**
-     * 计内容热度分（Hacker News 算法变种）
-     * 公式：hotScore = (点赞×3 + 评论×2 + 收藏×5) / (小时数 + 2)^1.5
-     * 设计要点：
-     * - 权重分配：收藏(5) > 点赞(3) > 评论(2)，收藏代表最高认可度
-     * - 时间衰减：(hours + 2)^1.5，新内容衰减慢，旧内容衰减快
-     * - 保底分数：无互动内容给 20 分基础分，避免完全沉底
-     * @param content 内容实体
-     * @return 热度分
-     */
-    private double calculateHotScore(Content content) {
-        // 获取互动数据（null 安全处理）
-        int liked = content.getLiked() == null ? 0 : content.getLiked();
-        int commentCount = content.getCommentCount() == null ? 0 : content.getCommentCount();
-        int collectCount = content.getCollectCount() == null ? 0 : content.getCollectCount();
-        
-        // 计算基础分（加权求和）
-        double baseScore = liked * 3 + commentCount * 2 + collectCount * 5;
-
-        // 计算时间衰减因子
-        LocalDateTime createTime = content.getCreateTime() != null ? content.getCreateTime() : LocalDateTime.now();
-        long hours = Duration.between(createTime, LocalDateTime.now()).toHours();
-        double timeDecay = Math.pow(hours + 2, 1.5);
-        
-        // 计算热度分
-        double hotScore = baseScore / timeDecay;
-        
-        // 保底分数：无互动内容给 20 分基础分（避免完全沉底）
-        if (baseScore == 0) {
-            hotScore = 20.0 / timeDecay;
-        }
-        return hotScore;
     }
 
     /**

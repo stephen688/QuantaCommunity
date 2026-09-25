@@ -2,16 +2,12 @@ package com.quanta.demo0.security;
 
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.properties.JwtProperties;
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.utils.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -19,8 +15,8 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -51,14 +49,9 @@ class TokenAuthenticationServiceImplBotTokenTest {
     private ValueOperations<String, String> valueOperations;
 
     @Mock
-    private UserMapper userMapper;
+    private AuthenticationSnapshotCache snapshotCache;
 
-    @Mock
-    private UserRoleMapper userRoleMapper;
-
-    @InjectMocks
     private TokenAuthenticationServiceImpl service;
-
     private final QuantabotProperties quantabotProperties =
             new QuantabotProperties();
 
@@ -71,10 +64,22 @@ class TokenAuthenticationServiceImplBotTokenTest {
         lenient().when(stringRedisTemplate.hasKey(anyString()))
                 .thenReturn(false);
 
+        service = new TokenAuthenticationServiceImpl();
+        ReflectionTestUtils.setField(service, "jwtProperties", jwtProperties);
+        ReflectionTestUtils.setField(
+                service,
+                "stringRedisTemplate",
+                stringRedisTemplate
+        );
         ReflectionTestUtils.setField(
                 service,
                 "quantabotProperties",
                 quantabotProperties
+        );
+        ReflectionTestUtils.setField(
+                service,
+                "authenticationSnapshotCache",
+                snapshotCache
         );
     }
 
@@ -86,20 +91,20 @@ class TokenAuthenticationServiceImplBotTokenTest {
         return JwtUtil.createJWT(SECRET, 60_000L, claims);
     }
 
-    private User botUser() {
-        User user = new User();
-        user.setId(10000L);
-        user.setNickName("框框");
-        user.setAccountStatus(0);
-        return user;
+    private AuthenticationSnapshot snapshot(Set<String> roles) {
+        return new AuthenticationSnapshot(
+                0,
+                false,
+                roles,
+                Set.of(),
+                false
+        );
     }
 
     @Test
-    void serviceToken免Redis会话校验_角色含BOT() {
-        when(userMapper.getById(10000L)).thenReturn(botUser());
-        when(userMapper.getUserAuthByUserId(10000L)).thenReturn(null);
-        when(userRoleMapper.findRoleCodesByUserId(10000L))
-                .thenReturn(List.of("BOT"));
+    void serviceTokenSkipsSessionLookupButStillUsesServiceScopedSnapshot() {
+        when(snapshotCache.get(10000L, true))
+                .thenReturn(snapshot(Set.of("USER", "BOT")));
 
         AuthenticatedUser authenticated =
                 service.authenticate(serviceToken(10000L));
@@ -108,10 +113,17 @@ class TokenAuthenticationServiceImplBotTokenTest {
         assertTrue(authenticated.getRoles().contains("BOT"));
         assertTrue(authenticated.getRoles().contains("USER"));
         assertFalse(authenticated.getVerified());
+        verify(valueOperations, never()).get(
+                RedisConstants.LOGIN_USER_KEY + 10000L
+        );
+        verify(snapshotCache).get(10000L, true);
+        verify(stringRedisTemplate).hasKey(
+                RedisConstants.USER_BANNED_KEY + 10000L
+        );
     }
 
     @Test
-    void serviceToken用于非bot账号_拒绝() {
+    void serviceTokenForNonBotAccountIsRejectedBeforeSnapshotLookup() {
         TokenAuthenticationException exception = assertThrows(
                 TokenAuthenticationException.class,
                 () -> service.authenticate(serviceToken(1L))
@@ -121,10 +133,11 @@ class TokenAuthenticationServiceImplBotTokenTest {
                 TokenAuthenticationFailureReason.TOKEN_INVALID,
                 exception.getReason()
         );
+        verify(snapshotCache, never()).get(1L, true);
     }
 
     @Test
-    void 普通token无Redis会话_仍报会话失效() {
+    void ordinaryTokenWithoutRedisSessionStillFailsBeforeSnapshotLookup() {
         Map<String, Object> claims = new HashMap<>();
         claims.put(JwtClaimsConstant.USER_ID, 10000L);
         String normalToken = JwtUtil.createJWT(SECRET, 60_000L, claims);
@@ -138,34 +151,35 @@ class TokenAuthenticationServiceImplBotTokenTest {
                 TokenAuthenticationFailureReason.SESSION_NOT_FOUND,
                 exception.getReason()
         );
+        verify(snapshotCache, never()).get(10000L, false);
     }
 
     @Test
-    void 普通用户即使数据库误授BOT角色_也不得获得BOT() {
+    void ordinaryUserSnapshotCannotGainBotRole() {
         String normalToken = normalToken(3L);
         prepareNormalSession(normalToken, 3L);
-        when(userMapper.getById(3L)).thenReturn(user(3L));
-        when(userRoleMapper.findRoleCodesByUserId(3L))
-                .thenReturn(List.of("BOT"));
+        when(snapshotCache.get(3L, false))
+                .thenReturn(snapshot(Set.of("USER")));
 
         AuthenticatedUser authenticated = service.authenticate(normalToken);
 
         assertTrue(authenticated.getRoles().contains("USER"));
         assertFalse(authenticated.getRoles().contains("BOT"));
+        verify(snapshotCache).get(3L, false);
     }
 
     @Test
-    void bot用户普通token即使数据库有BOT角色_也不得获得BOT() {
+    void botUserOrdinaryTokenCannotReuseServiceSnapshot() {
         String normalToken = normalToken(10000L);
         prepareNormalSession(normalToken, 10000L);
-        when(userMapper.getById(10000L)).thenReturn(botUser());
-        when(userRoleMapper.findRoleCodesByUserId(10000L))
-                .thenReturn(List.of("BOT"));
+        when(snapshotCache.get(10000L, false))
+                .thenReturn(snapshot(Set.of("USER")));
 
         AuthenticatedUser authenticated = service.authenticate(normalToken);
 
         assertTrue(authenticated.getRoles().contains("USER"));
         assertFalse(authenticated.getRoles().contains("BOT"));
+        verify(snapshotCache).get(10000L, false);
     }
 
     private String normalToken(Long userId) {
@@ -181,13 +195,5 @@ class TokenAuthenticationServiceImplBotTokenTest {
         when(stringRedisTemplate.hasKey(
                 RedisConstants.USER_BANNED_KEY + userId
         )).thenReturn(false);
-    }
-
-    private User user(Long userId) {
-        User user = new User();
-        user.setId(userId);
-        user.setNickName("测试用户");
-        user.setAccountStatus(0);
-        return user;
     }
 }

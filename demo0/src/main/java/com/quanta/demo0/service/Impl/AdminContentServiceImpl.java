@@ -22,6 +22,7 @@ import com.quanta.demo0.result.PageResult;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminContentService;
 import com.quanta.demo0.service.ContentExposureService;
+import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +65,10 @@ public class AdminContentServiceImpl  implements AdminContentService {
     private OutboxEventService outboxEventService;
     @Autowired
     private ContentExposureService contentExposureService;
+    @Autowired
+    private TrendingCacheInvalidator trendingCacheInvalidator;
+    @Autowired
+    private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
@@ -127,6 +132,20 @@ public class AdminContentServiceImpl  implements AdminContentService {
         updateContent.setUpdateTime(LocalDateTime.now());
         contentMapper.update(updateContent);
 
+        boolean visibilityChanged = (oldAuditStatus == 0 && auditDTO.getAuditResult() == 1)
+                || (oldAuditStatus == 1 && auditDTO.getAuditResult() == 2)
+                || (oldAuditStatus == 2 && auditDTO.getAuditResult() == 1);
+        if (visibilityChanged) {
+            // 先登记提交后失效；后续异常导致事务回滚时不会真正驱逐缓存。
+            trendingCacheInvalidator.evictAfterCommit("admin-content-audit");
+        }
+        if (!oldAuditStatus.equals(auditDTO.getAuditResult())) {
+            contentDetailCacheInvalidator.evictAfterCommit(
+                    auditDTO.getContentId(),
+                    "admin-content-audit"
+            );
+        }
+
         if (!oldAuditStatus.equals(auditDTO.getAuditResult())) {
             String triggerType = auditDTO.getAuditResult() == 1 ? "AUDIT_APPROVED" : "AUDIT_REJECTED";
 
@@ -183,6 +202,7 @@ public class AdminContentServiceImpl  implements AdminContentService {
             // 帖子审核状态和审核结果通知 Outbox 在同一个事务中提交。
             outboxEventService.createNotificationEvent(auditNotification, ModerationTargetType.CONTENT.name(), auditDTO.getContentId());
         }
+
     }
 
     //TODO: 后续可以抽取一个公共方法，专门处理内容删除的业务逻辑，deleteContent 和 deleteContentByAdmin 都调用这个公共方法，避免代码重复
@@ -239,6 +259,9 @@ public class AdminContentServiceImpl  implements AdminContentService {
         for (QuestionAnswer answer : answers) {
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_DELETE");
         }
+
+        trendingCacheInvalidator.evictAfterCommit("admin-content-delete:" + contentId);
+        contentDetailCacheInvalidator.evictAfterCommit(contentId, "admin-content-delete");
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

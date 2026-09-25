@@ -51,3 +51,6 @@ src/main/resources/application-secret.yml
 !.env.example
 !**/*.example
 application.yml.local-backup
+
+### Trending cache performance artifacts ###
+/perf/results/

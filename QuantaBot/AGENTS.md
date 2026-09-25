@@ -8,6 +8,7 @@
 > v0.4.3（2026-09-16）——M2 完成：§3 增「本地全栈」「integration 显式档」命令；「与主服务联调」[待确认] 按 Phase 0 结论（C-1~C-7）落为契约级事实（真联调回补随 demo0 D1-D7）。
 > v0.4.4（2026-09-16）——§4.3 硬规则收紧两条：①命名禁止单字母/过度简化变量（循环索引除外）；②核心业务链路每一步必须跟简短行内注释说明业务意图（M2 review 反馈）。
 > v0.4.5（2026-09-18）——M3 完成：§3 回填 eval 两档运行说明（默认 pipeline 档零成本；`QUANTABOT_EVAL=1` persona 档真调 DeepSeek 并产生费用），从零初始化口径同步落定。
+> v0.4.6（2026-09-19）——M4 落地：§3/§6.3 回填 Fast、Persona、Release 三档门禁、失败退出码、Promptfoo 完整管线红队与同模型 Judge 偏置边界。
 
 ***
 
@@ -71,8 +72,10 @@ QuantaBot/
 - **单测**：`uv run pytest tests/unit -q`。
 - **本地全栈（M2 起）**：`docker compose -f docker/docker-compose.yml up -d`（app+qdrant+dev RabbitMQ+agent-redis+Langfuse v4 全家桶，共 10 容器；资源 12GB+）。
 - **integration 显式档（真依赖 smoke）**：`QUANTABOT_INTEGRATION=1 uv run pytest tests/integration`（默认 skip；真调 DeepSeek/Langfuse/Redis/MQ/Qdrant，LLM 产生真实计费；跑前 `docker compose stop app` 防消费者抢消息，跑完恢复）。
-- **评测门禁（两档）**：`uv run pytest tests/eval` = pipeline 档（FakeLLM，默认运行、零成本、persona 用例跳过）；`QUANTABOT_EVAL=1 uv run pytest tests/eval` = persona 档（真调 DeepSeek 生成 + deterministic + Judge，产生真实费用；改人格/策略后本地终验必须全绿）。
-- **promptfoo 红队**：`promptfoo redteam run --config eval/redteam.yaml`（独立 CLI，不进 Python 依赖树；报告进发布门禁）。
+- **Fast gate（零成本）**：`uv run ruff format --check src tests && uv run ruff check src tests && uv run pytest -m "not persona" -q`；不设置 `QUANTABOT_EVAL=1`。
+- **Persona gate（付费单轮）**：`$env:QUANTABOT_EVAL='1'; uv run python scripts/run_m4_gate.py --runs 1 --manifest eval/gate-manifest.yaml --output-dir eval/reports`。
+- **Release gate（付费双轮 + 红队）**：先以同一冻结 SHA 执行上一命令的 `--runs 2`，再 `npm ci` 与 `uv run python scripts/run_m4_redteam.py --tag gate=m4-v1 --tag "git.sha=$(git rev-parse HEAD)"`。生成模型与 Judge 均固定 `deepseek-v4-flash`；同模型 Judge 存在自评偏置，只裁决 P1/P2，不能覆盖 P0。
+- **门禁退出码**：`0=通过`，`1=断言/能力/安全失败`，`2=运行环境、凭据或基础设施失败`；基础设施最多重试一次。
 - **lint/格式化**：`uv run ruff check src tests` + `uv run ruff format src tests`（ruff 同时承担 lint 与 format，不引入 black/isort）。
 - **与主服务联调**（Phase 0 已对齐 C-1~C-7，契约级等价物已落地）：MQ 队列 `quantabot.comment.queue`（C-1 消息契约=BotMentionMessage）；评论树 GET `/bot/comment/chain|history`、写库 POST `/comment/send`（C-2/C-5，Bearer service token）；**端到端真联调随 demo0 D1-D7 回补**（M2 计划 Task 19）。
 - **从零初始化**：复制 `.env.example` 为 `.env` 并填写所需密钥，执行 `uv sync --frozen`；先跑默认 pipeline 档 eval，配置 DeepSeek 后再显式跑 persona 档。promptfoo 为独立 CLI、不进 Python 依赖树，其红队配置与发布门禁在 M4 收紧。
@@ -168,7 +171,7 @@ QuantaBot/
 ### 6.3 大功能完成后（After coding）
 
 1. **验证三件套（必跑）**：`uv run ruff format src tests` + `uv run ruff check src tests` + `uv run pytest tests/unit -q`。
-2. **评测门禁**：改人格/策略/审核/幂等逻辑 → 必须 `uv run pytest tests/eval` 通过 + `promptfoo redteam run --config eval/redteam.yaml` 报告；不达标不得提交发布。
+2. **评测门禁**：改人格/策略/审核/幂等逻辑 → Fast 必须通过；发布前必须在同一冻结 SHA 通过 Persona 双轮和 `scripts/run_m4_redteam.py` 完整管线红队。脱敏 summary 可入 Git，`eval/reports/raw/` 仅作受限 artifact；不达标不得发布。
 3. **自查 diff**：每行改动都能对应需求；删除自己引入的孤儿代码（未用 import/变量/函数）；diff 里没有与任务无关的变更。
 4. **独立审查（用** **`requesting-code-review`** **skill）**：自查通过后，派发 reviewer 子代理按 `code-reviewer.md` 模板审查本次 diff（提供：改动摘要 + 需求出处 + BASE\_SHA/HEAD\_SHA，**不给主会话历史**，保持审查者只看工作产品不被写码过程带偏）。意见按严重度处理：**Critical 立即修、Important 修完才能提交、Minor 记入交付摘要**；对意见先核实再实现，有技术依据可反驳，不表演式附和。高频场景：完成任务后、合并前、卡住要新视角时、复杂 bug 修完后、重构前。纯文档措辞类改动可免。
 5. **文档回写**：消灭本次涉及到的 `[待确认]`（或按 Phase 0 结论更新）；决策变化先改 `技术选型.md`（唯一权威）再同步本文件；本文件追加变更记录。

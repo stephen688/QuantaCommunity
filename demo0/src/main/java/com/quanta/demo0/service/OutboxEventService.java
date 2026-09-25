@@ -71,6 +71,21 @@ public interface OutboxEventService {
      */
     String createHotScoreRecalculateEvent(Long contentId, String triggerType);
 
+    /**
+     * 用户行为事件（画像更新信号）。与业务写同事务调用。
+     * behaviorType 仅允许 LIKE / COLLECT / COMMENT / VIEW。
+     * 返回 eventId，与其它 create* 事件入口同构，便于调用方记录与排查。
+     */
+    String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType);
+
+    /**
+     * 用户行为事件（画像更新信号），指定稳定 eventId 的重载。
+     * 浏览对账任务用 user.behavior.browse:{browseHistoryId} 固定格式，
+     * 保证同一行重复转发（watermark 未推进重扫）被 Inbox 幂等挡住；
+     * 赞/藏/评路径用三参版本（内部生成 UUID）。eventId 传 null 时同样内部生成。
+     */
+    String createUserBehaviorEvent(Long userId, Long contentId, String behaviorType, String eventId);
+
 
     /**
      * 在业务事务中创建 ES 校准事件。

@@ -135,6 +135,19 @@ public class OutboxRouteRegistry {
                     .build();
         }
 
+        /**
+         * 用户行为事件（D2）：路由到 user.behavior 拓扑，画像消费者累加画像 Hash。
+         */
+        if (OutboxEventType.USER_BEHAVIOR_REQUESTED.getCode().equals(event.getEventType())) {
+            UserBehaviorMessage message = deserializePayload(event.getPayload(), UserBehaviorMessage.class);
+
+            return OutboxRoute.builder()
+                    .exchange(RabbitMQConfig.USER_BEHAVIOR_EXCHANGE)
+                    .routingKey(RabbitMQConfig.USER_BEHAVIOR_ROUTING_KEY)
+                    .message(message)
+                    .build();
+        }
+
 
         throw new IllegalArgumentException(
                 "不支持的 Outbox 事件类型：" + event.getEventType()

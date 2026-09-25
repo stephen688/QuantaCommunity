@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -22,6 +23,22 @@ if TYPE_CHECKING:
 
 # AI 身份标识（红线 §0.1——生成层强制注入，不依赖模型自觉）
 AI_BADGE = "[框框·AI 学长]"
+_SAFE_INTERNAL_REFUSAL = f"{AI_BADGE} 这类内部内容不提供。你可以直接说想解决什么问题。"
+_INTERNAL_OBJECT = re.compile(
+    r"(?:系统|内部|隐藏|秘密).{0,8}(?:提示(?:词)?|指令|规则|配置)"
+    r"|(?:提示(?:词)?|指令|规则|配置).{0,8}(?:系统|内部|隐藏|秘密)"
+    r"|system\s*prompt",
+    re.IGNORECASE,
+)
+_EXTRACTION_ACTION = re.compile(
+    r"公开|输出|泄露|展示|告诉|列出|逐条|改写|复述|总结|翻译|打印|返回|提供|分享|透露"
+    r"|写|编写|起草|设计|举例|示例|说明|描述"
+)
+
+
+def _requests_internal_instructions(content: str) -> bool:
+    """识别明确索取/变换内部指令的请求；普通治理问题不命中。"""
+    return bool(_INTERNAL_OBJECT.search(content) and _EXTRACTION_ACTION.search(content))
 
 
 class GeneratedReply(BaseModel):
@@ -60,6 +77,18 @@ async def generate(
     12000 预算校验；M2 遗留的触发评论后缀曾致三重注入且在校验后追加可超预算（已删）。
     """
     user_prompt = context_text
+    if _requests_internal_instructions(event.content):
+        parent_floor = event.parent_id if event.parent_id is not None else event.comment_id
+        return GenerationOutput(
+            reply=GeneratedReply(
+                post_id=event.post_id,
+                answer_id=event.answer_id,
+                reply_to_comment_id=event.comment_id,
+                reply_to_user_id=event.commenter_user_id,
+                parent_floor_comment_id=parent_floor,
+                content=_SAFE_INTERNAL_REFUSAL,
+            )
+        )
     system = persona.system_prompt(
         decision.mode if decision else "生活玩梗"
     )  # 人格 system（A 通道）

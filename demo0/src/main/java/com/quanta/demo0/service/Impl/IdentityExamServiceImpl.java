@@ -16,7 +16,7 @@ import com.quanta.demo0.mapper.IdentityExamMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.result.PageResult;
-import com.quanta.demo0.security.VerifiedStatusCacheEvictor;
+import com.quanta.demo0.service.UserReadCacheInvalidator;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.IdentityExamService;
 import com.quanta.demo0.service.OutboxEventService;
@@ -58,7 +58,7 @@ public class IdentityExamServiceImpl implements IdentityExamService {
      * 用户认证状态缓存失效器。
      */
     @Autowired
-    private VerifiedStatusCacheEvictor verifiedStatusCacheEvictor;
+    private UserReadCacheInvalidator userReadCacheInvalidator;
 
     /**
      * 管理员审计记录器。
@@ -176,7 +176,7 @@ public class IdentityExamServiceImpl implements IdentityExamService {
          * 此处只是登记事务提交回调：
          * 数据库事务成功提交后才会真正删除Redis缓存。
          */
-        verifiedStatusCacheEvictor.evictAfterCommit(auth.getUserId());
+        userReadCacheInvalidator.evictAllAfterCommit(auth.getUserId());
 
         // 审计：身份审核成功
         adminAuditRecorder.recordSuccess(

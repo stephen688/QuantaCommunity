@@ -15,6 +15,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from quanta_bot.crosscutting.ports import KeyValueStore, TruncationRecord
 from quanta_bot.pipeline.ports import (
@@ -33,6 +34,51 @@ CHANNEL_C_BUDGET = 2500  # C 摘要：远区楼层压缩
 CHANNEL_D_BUDGET = 1500  # D 记忆：精选+负面
 RESERVED_BUDGET = 1000  # 预留：触发评论+格式开销+检索片段
 NEAR_PARALLEL_FLOORS = 2  # 近区平行一级楼层数（分区=父链优先，非机械最近 N 楼）
+
+
+def _parse_comment_time(value: str) -> datetime | None:
+    """解析主服务时间；缺失或格式未知时返回 None，交给 comment_id 兼容回退。"""
+    normalized = value.strip()
+    if not normalized:
+        return None
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def filter_floors_at_waterline(
+    event: TriggerEvent,
+    thread: PostThread,
+    floors: Sequence[CommentNode],
+) -> tuple[CommentNode, ...]:
+    """只保留触发评论及其之前的楼层，阻止快照读取到后发评论。
+
+    TriggerEvent 当前没有 createTime，因此优先从父链中找到同 comment_id 的节点取时间。
+    收口口径（2026-09-24 轨道 B 真实链路复现后钉桩）：双侧时间可解析时以时间为主，
+    同秒以 comment_id 决胜——DB create_time 只有秒级精度，同秒内 id 自增序=插入序
+    （原实现 floor_time <= trigger_time 使同秒后发楼层穿越进上下文，与 S14 机审污染
+    同源）；任一侧缺时间/坏时间时回退到 comment_id 水位（<= 触发 ID），宁可丢掉无法
+    证明在水位前的楼层，也不把未知楼层送进模型。触发评论自身（同秒同 id）天然满足。
+    """
+    trigger_node = next(
+        (node for node in thread.chain if node.comment_id == event.comment_id), None
+    )
+    trigger_time = _parse_comment_time(trigger_node.create_time) if trigger_node else None
+    filtered: list[CommentNode] = []
+    for floor in floors:
+        floor_time = _parse_comment_time(floor.create_time)
+        if trigger_time is not None and floor_time is not None:
+            # 时间为主、同秒以 comment_id 决胜（秒级时间戳分不出同秒先后，id 自增序=插入序）
+            if floor_time < trigger_time or (
+                floor_time == trigger_time and floor.comment_id <= event.comment_id
+            ):
+                filtered.append(floor)
+            continue
+        if floor.comment_id <= event.comment_id:  # 任一侧缺时间：id 门兜底（宁可丢弃未知楼层）
+            filtered.append(floor)
+    return tuple(filtered)
 
 
 def partition_floors(

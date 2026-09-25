@@ -112,3 +112,28 @@ async def test_fake_llm_scripted_responses_and_call_log() -> None:
     assert second.content == "第二段"
     assert fake.calls[0]["json_mode"] is True and fake.calls[0]["max_tokens"] == 300
     assert fake.calls[1]["json_mode"] is False
+
+
+async def test_llm_clients_preserve_zero_temperature_and_omit_none() -> None:
+    """评测温度 0.0 必须透传；未指定时不能凭空写入请求。"""
+    fake = FakeLLM()
+    await fake.complete("s", "u", temperature=0.0)
+    assert fake.calls[0]["temperature"] == 0.0
+
+    captured: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content.decode("utf-8")))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}], "usage": {}})
+
+    client = DeepSeekClient(
+        "https://api.test", "sk-x", "deepseek-chat", 5.0, transport=httpx.MockTransport(handler)
+    )
+    try:
+        await client.complete("s", "u", temperature=0.0)
+        await client.complete("s", "u")
+    finally:
+        await client.aclose()
+
+    assert captured[0]["temperature"] == 0.0
+    assert "temperature" not in captured[1]
