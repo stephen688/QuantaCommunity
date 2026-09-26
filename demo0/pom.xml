@@ -28,7 +28,6 @@
     </scm>
     <properties>
         <java.version>17</java.version>
-        <elasticsearch.version>7.12.1</elasticsearch.version>
         <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
     <dependencies>
@@ -193,10 +192,10 @@
         </dependency>
 
 
+        <!-- Elasticsearch 8 官方 Java API Client；版本由 Spring Boot BOM 管理 -->
         <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-high-level-client</artifactId>
-            <version>${elasticsearch.version}</version>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
         </dependency>
         <!-- Knife4j (Boot3 + Jakarta) -->
         <dependency>

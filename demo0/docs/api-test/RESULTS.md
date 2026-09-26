@@ -22,6 +22,22 @@
 
 ---
 
+## Elasticsearch 8 客户端迁移（2026-09-26）
+
+本节只记录本轮已执行证据，不覆盖上方历史接口汇总。代码迁移已完成；完整业务级 SearchReconcile、回答召回与 RAG 用例未在本轮重新造数，因此总状态记为 `PARTIAL`。
+
+| 验收项 | 证据 | 状态 |
+|---|---|---|
+| 客户端与旧依赖清理 | Spring Boot 3.5.11 BOM 解析 `elasticsearch-java=8.18.8`；`RestHighLevelClient`、旧 high-level-client 依赖及 7.12.1 版本属性已移除 | PASS |
+| 编译与核心回归 | `mvn -DskipTests compile` 退出码 0；最终 `ElasticSearchServiceImplTest,ConsumerReliabilityTests` 共 9/9 通过；内容搜索测试含 ES7 存量 UTC `...Z` 日期兼容 | PASS |
+| Maven 全量回归 | 日期兼容复核前执行一次 `mvn test`：323 tests，0 failures，0 errors，1 skipped；复核修复后按不过度测试约束仅重跑直接受影响的核心+Consumer 9/9 | PASS |
+| 真实 ES8 与 IK | 临时开发节点 `Elasticsearch 8.18.8`；`analysis-ik 8.18.8`；`content`、`answer` 索引均 green | PASS |
+| 索引初始化与 mapping | 应用启动日志确认两个索引由新版 initializer 创建；`ik_max_word`/`ik_smart` 与原日期 format 保持不变 | PASS |
+| 内容搜索 API | 临时文档 `content/987654321`；`GET /search/content?keyword=迁移验证&contentType=2` 返回 HTTP 200、total=1，title/content 均有 `<em>` 高亮 | PASS |
+| 回答真实写删、MQ 重投、RAG `enableAi=false` | 本轮未新造完整业务链路；由核心单测覆盖回答搜索失败降级，由 Consumer 测试覆盖校准幂等，但不能替代真链路 | PARTIAL |
+
+---
+
 ## Bot 主链路（Task 13/14，2026-09-19 真实执行记录）
 
 本章记录本轮后端真栈冒烟与验收结果；不覆盖上方历史的 Phase 0-7 汇总。证据只保留可复核的标识、状态和数量，不写 token、密钥或完整请求 payload。单条冒烟为 `triggerCommentId=347`、`botReplyCommentId=348`；小程序 Task 11 按当前要求暂缓，保持 `DEFERRED`。
