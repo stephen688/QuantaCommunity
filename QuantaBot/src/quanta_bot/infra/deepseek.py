@@ -58,8 +58,11 @@ class DeepSeekClient:
         model: str,
         timeout_seconds: float,
         transport: httpx.AsyncBaseTransport | None = None,
+        *,
+        enable_thinking: bool | None = None,
     ) -> None:
         self._model = model
+        self._enable_thinking = enable_thinking
         self._http = httpx.AsyncClient(
             base_url=base_url,
             timeout=timeout_seconds,
@@ -90,6 +93,8 @@ class DeepSeekClient:
             payload["max_tokens"] = max_tokens
         if temperature is not None:  # 评测确定性；0.0 不能因真假值判断被丢弃
             payload["temperature"] = temperature
+        if self._enable_thinking is not None:
+            payload["enable_thinking"] = self._enable_thinking
         try:
             resp = await self._http.post("/chat/completions", json=payload)
             resp.raise_for_status()

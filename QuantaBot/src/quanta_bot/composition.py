@@ -91,6 +91,7 @@ def build_runtime(settings: Settings) -> Runtime:
     if settings.fake_mode:
         kv: InMemoryKV | RedisKV = InMemoryKV()
         llm = FakeLLM()
+        light_llm = None  # M5：fake 模式无轻模型（eval 由 runner 按用例注入 fake）
         tracer = NullTracer()
         writer = FakeReplyWriter()
         tree = FakeCommentTreeFetcher()
@@ -113,6 +114,19 @@ def build_runtime(settings: Settings) -> Runtime:
         else:
             logger.warning("deepseek_api_key 未配置——LLM 降级为 FakeLLM（固定文本）")
             llm = FakeLLM()
+        # M5 轻模型（吃紧档生成专用；三项配置齐才建，缺任一 = None 回落主模型）
+        light_llm: DeepSeekClient | None = None
+        if settings.light_llm_base_url and settings.light_llm_api_key and settings.light_llm_model:
+            light_llm = DeepSeekClient(
+                settings.light_llm_base_url,
+                settings.light_llm_api_key,
+                settings.light_llm_model,
+                settings.llm_timeout_seconds,
+                enable_thinking=False,  # Qwen 吃紧档使用非思考模式，避免默认长推理耗时。
+            )
+            closers.append(light_llm.aclose)
+        else:
+            logger.warning("轻模型配置不全——成本吃紧档将回落主模型")
         if settings.langfuse_public_key and settings.langfuse_secret_key:
             tracer = LangfuseTracer(
                 settings.langfuse_public_key, settings.langfuse_secret_key, settings.langfuse_host
@@ -246,6 +260,14 @@ def build_runtime(settings: Settings) -> Runtime:
         summary_cache_ttl_hours=settings.summary_cache_ttl_hours,
         leak_extra_patterns=leak_extra_patterns,
         breakers=breakers,  # M5：三份熔断器（Settings 档装配注入）
+        llm_light=light_llm,  # M5：轻模型（fake 模式 None；真模式三项配置齐才建）
+        light_llm_input_price_per_mtok=settings.light_llm_input_price_per_mtok,
+        light_llm_output_price_per_mtok=settings.light_llm_output_price_per_mtok,
+        cost_tight_threshold_li=settings.cost_tight_threshold_li,
+        cost_exhausted_threshold_li=settings.cost_exhausted_threshold_li,
+        post_reply_limit=settings.post_reply_limit,
+        post_rate_window_hours=settings.post_rate_window_hours,
+        user_daily_limit=settings.user_daily_limit,
     )
     consumer: CommentEventConsumer | None = None
     if not settings.fake_mode and settings.mq_url:

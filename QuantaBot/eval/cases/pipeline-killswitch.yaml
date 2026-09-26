@@ -1,0 +1,16 @@
+# kill switch 短路：预置 kill=true → 管线最前置拦截（G5 管线侧介入点的 eval 锚点）。
+id: pipeline-killswitch
+scenario: 0
+scenario_name: kill switch 短路
+mode: 生活玩梗
+tier: pipeline
+memories: []
+kv_presets:
+  - { key: quantabot:switch:kill, value: "true", ttl_seconds: 3600 }
+trigger:
+  post: { postId: 4002, userId: 1, title: 闲聊, content: 今天天气不错 }
+  comment: { commentId: 9201, userId: 42, content: "@框框 今天天气不错啊" }
+llm_script: null
+deterministic:
+  - { assert: decision_is, expected: skipped_killswitch }
+judge: null

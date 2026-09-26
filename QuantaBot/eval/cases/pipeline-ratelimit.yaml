@@ -1,0 +1,16 @@
+# 频率约束：同帖已回 3 条（预置计数）→ 第 4 条静默 skipped_rate_limit。
+id: pipeline-ratelimit
+scenario: 0
+scenario_name: 同帖回复上限拦截
+mode: 生活玩梗
+tier: pipeline
+memories: []
+kv_presets:
+  - { key: "quantabot:ratelimit:post:4004", value: "3", ttl_seconds: 172800 }
+trigger:
+  post: { postId: 4004, userId: 1, title: 闲聊, content: 周末去哪玩 }
+  comment: { commentId: 9203, userId: 42, content: "@框框 周末去哪玩比较好" }
+llm_script: null
+deterministic:
+  - { assert: decision_is, expected: skipped_rate_limit }
+judge: null

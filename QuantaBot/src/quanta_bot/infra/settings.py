@@ -84,6 +84,21 @@ class Settings(BaseSettings):
         5.0  # Qdrant 显式超时（SDK 默认过长，记忆快失败是熔断计数有意义的前提）
     )
 
+    # ---- M5 成本分档（日键 quantabot:cost:{yyyymmdd}，G6）----
+    cost_tight_threshold_li: int = 20000  # 吃紧 = 20 元（只切生成）
+    cost_exhausted_threshold_li: int = 28000  # 枯竭 = 28 元（静默不回；30 元目标留 2 元收敛缓冲）
+    # 轻模型（Qwen3.5-Plus，技术选型 §4.6 降级档；OpenAI 兼容端点复用 DeepSeekClient）
+    light_llm_base_url: str = ""  # 空值 = 未配置（吃紧档回落主模型 + WARNING）
+    light_llm_api_key: str = ""
+    light_llm_model: str = ""
+    light_llm_input_price_per_mtok: float = 0.8  # 技术选型 §4.3；实施期以 dashscope 官方定价页校准
+    light_llm_output_price_per_mtok: float = 4.8  # 官方北京档<=128k输入的输出价（2026-09-26校准）
+
+    # ---- M5 尝试配额 + 静默期（同帖多用户共享；每次尝试刷新 TTL）----
+    post_reply_limit: int = 3
+    post_rate_window_hours: int = 48
+    user_daily_limit: int = 5
+
     # ---- 控制面与成本（G5/G6）----
     # 控制面轮询间隔（秒）——G5 要求 ≤5s；kill 置位后最长该间隔内生效
     control_plane_poll_seconds: int = 5

@@ -9,6 +9,7 @@
 > v0.4.4（2026-09-16）——§4.3 硬规则收紧两条：①命名禁止单字母/过度简化变量（循环索引除外）；②核心业务链路每一步必须跟简短行内注释说明业务意图（M2 review 反馈）。
 > v0.4.5（2026-09-18）——M3 完成：§3 回填 eval 两档运行说明（默认 pipeline 档零成本；`QUANTABOT_EVAL=1` persona 档真调 DeepSeek 并产生费用），从零初始化口径同步落定。
 > v0.4.6（2026-09-19）——M4 落地：§3/§6.3 回填 Fast、Persona、Release 三档门禁、失败退出码、Promptfoo 完整管线红队与同模型 Judge 偏置边界。
+> v0.4.7（2026-09-26）——M5 接线与指标脚本：新增 Maintain 闭环及运维命令；实际演练/Release 状态以总计划和 m5-final-acceptance 为准。
 
 ***
 
@@ -76,6 +77,8 @@ QuantaBot/
 - **Persona gate（付费单轮）**：`$env:QUANTABOT_EVAL='1'; uv run python scripts/run_m4_gate.py --runs 1 --manifest eval/gate-manifest.yaml --output-dir eval/reports`。
 - **Release gate（付费双轮 + 红队）**：先以同一冻结 SHA 执行上一命令的 `--runs 2`，再 `npm ci` 与 `uv run python scripts/run_m4_redteam.py --tag gate=m4-v1 --tag "git.sha=$(git rev-parse HEAD)"`。生成模型与 Judge 均固定 `deepseek-v4-flash`；同模型 Judge 存在自评偏置，只裁决 P1/P2，不能覆盖 P0。
 - **门禁退出码**：`0=通过`，`1=断言/能力/安全失败`，`2=运行环境、凭据或基础设施失败`；基础设施最多重试一次。
+- **指标日报（M5）**：`uv run python scripts/report_metrics.py --date <YYYY-MM-DD>`；提交成功率/管线耗时，真实终审指标待联调，详见技术选型 §5.5。
+- **成本对账（M5）**：`uv run python scripts/reconcile_cost.py --date <YYYY-MM-DD>`；当前生成估算费用账本，`0=匹配 / 1=差异超容忍 / 2=依赖或样本缺失`，详见技术选型 §4.7。
 - **lint/格式化**：`uv run ruff check src tests` + `uv run ruff format src tests`（ruff 同时承担 lint 与 format，不引入 black/isort）。
 - **与主服务联调**（Phase 0 已对齐 C-1~C-7，契约级等价物已落地）：MQ 队列 `quantabot.comment.queue`（C-1 消息契约=BotMentionMessage）；评论树 GET `/bot/comment/chain|history`、写库 POST `/comment/send`（C-2/C-5，Bearer service token）；**端到端真联调随 demo0 D1-D7 回补**（M2 计划 Task 19）。
 - **从零初始化**：复制 `.env.example` 为 `.env` 并填写所需密钥，执行 `uv sync --frozen`；先跑默认 pipeline 档 eval，配置 DeepSeek 后再显式跑 persona 档。promptfoo 为独立 CLI、不进 Python 依赖树，其红队配置与发布门禁在 M4 收紧。
@@ -183,6 +186,18 @@ QuantaBot/
 - **git 执行位置**：QuantaBot 不是独立 git 仓库——所有 git 命令（status/add/commit/branch）在 `QuantaCommunity` 根仓库执行，路径带 `QuantaBot/` 前缀。
 - **分支模型**：`main`（可运行基线）+ 功能分支 `feat/<模块>-<一句话>`（如 `feat/trigger-mq-consumer`）、修复分支 `fix/<现象>`；分支生命期 ≤3 天，防长分支漂移。
 - **提交频率**：每完成一个可独立验证的小块就提交一次，不攒大 commit。
+
+### 6.5 故障复盘与经验固化（Maintain 闭环）
+
+真实故障、演练缺陷或评测随机违规修复后，48h 内完成：
+
+1. 在总计划变更记录回写现象、根因、修复 commit；影响面大的写 `docs/plans/<里程碑>-复盘.md`。
+2. 将本次缺陷固化为行为回归测试；外部工具问题不能测试时，写入技术选型风险注记并附证据。
+3. 若存在“再出现则升级”的条件，记录触发条件及升级动作，触发即立项。
+
+观察项：Flash 输出若继续违反冻结 P0，立项写库前确定性格式护栏；轻模型生成尚未跑 Persona，若吃紧档发生 P0 硬伤，先 kill 止血再补轻模型评测；红队复跑前核实 Promptfoo resume 路径。
+
+复盘模板：现象与证据 → 根因 → 修复 commit → 新回归测试或留档路径 → 后续观察条件与动作。M5 当前演练和门禁证据由 `eval/reports/m5-final-acceptance.md` 汇总，未跑项保留未完成。
 
 ***
 

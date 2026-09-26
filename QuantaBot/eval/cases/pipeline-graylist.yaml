@@ -1,0 +1,16 @@
+# 灰度放量：白名单 [1,2] 非空 → 触发用户 99 未放行静默跳过。
+id: pipeline-graylist
+scenario: 0
+scenario_name: 灰度白名单放量拦截
+mode: 生活玩梗
+tier: pipeline
+memories: []
+kv_presets:
+  - { key: quantabot:switch:graylist, value: "[1, 2]", ttl_seconds: 3600 }
+trigger:
+  post: { postId: 4003, userId: 1, title: 闲聊, content: 中午吃什么好 }
+  comment: { commentId: 9202, userId: 99, content: "@框框 中午吃什么好呀" }
+llm_script: null
+deterministic:
+  - { assert: decision_is, expected: skipped_graylist }
+judge: null

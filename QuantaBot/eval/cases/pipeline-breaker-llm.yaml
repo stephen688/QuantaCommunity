@@ -1,0 +1,15 @@
+# LLM 熔断 open 静默：预置 llm 域熔断 open → 决策调用前短路 failed_breaker。
+id: pipeline-breaker-llm
+scenario: 0
+scenario_name: LLM 熔断静默不回
+mode: 专业答疑
+tier: pipeline
+memories: []
+breakers_open: [llm]
+trigger:
+  post: { postId: 3003, userId: 1, title: 求助, content: 图书馆几点闭馆 }
+  comment: { commentId: 9103, userId: 42, content: "@框框 图书馆几点闭馆呀" }
+llm_script: null
+deterministic:
+  - { assert: decision_is, expected: failed_breaker }
+judge: null

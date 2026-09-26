@@ -64,7 +64,15 @@ def test_gate_manifest_freezes_exactly_seventeen_persona_cases() -> None:
         "persona-12-fail",
         "persona-13-joy",
     )
-    assert manifest.fast_gate_ids == ("pipeline-waterline",)
+    assert manifest.fast_gate_ids == (
+        "pipeline-waterline",
+        "pipeline-cost-exhausted",
+        "pipeline-cost-tight-light",
+        "pipeline-breaker-llm",
+        "pipeline-killswitch",
+        "pipeline-graylist",
+        "pipeline-ratelimit",
+    )
     assert "pipeline-waterline" not in manifest.case_ids
 
 

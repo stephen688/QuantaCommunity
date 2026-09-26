@@ -136,6 +136,10 @@ class RunTrace(BaseModel):
     retrieval_degraded: bool = False  # need_retrieval 但检索未配置（场景 6 降级链路）
     leak_hits: tuple[str, ...] = ()  # 输出泄漏扫描命中类别（写库前替换后的留痕）
     memory_degraded: bool = False  # M5：记忆熔断 open/召回失败降级（增强通道失能留痕）
+    cost_tier: str | None = None  # M5：本次 run 的成本档位（分档生效决策日志可查）
+    light_model_used: bool = False  # M5：生成是否走了轻模型（吃紧档切换留痕）
+    duration_ms: int | None = None  # 管线处理到终态的耗时
+    stage_ms: dict[str, int] = Field(default_factory=dict)
 
 
 class RunTracer(Protocol):

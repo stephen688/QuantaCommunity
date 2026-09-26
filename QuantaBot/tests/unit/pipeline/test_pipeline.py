@@ -690,6 +690,8 @@ async def test_five_failing_runs_then_sixth_short_circuits() -> None:
     breakers = _breaker_set()
     failing = _FailingLLM()
     deps = _m5_deps(failing, breakers)
+    deps.post_reply_limit = 10  # 熔断用例需独立于尝试配额，确保5次失败实际到达LLM
+    deps.user_daily_limit = 10
     for index in range(5):  # 5 个失败 run 累计熔断
         decision = await run(_m5_event(comment_id=7100 + index), deps)
         assert decision == "failed"
@@ -727,3 +729,62 @@ async def test_main_service_breaker_open_fails_silently() -> None:
     decision = await run(_m5_event(), deps)
     assert decision == "failed"  # 主服务熔断（写库=审核入口）：failed 不回
     assert deps.comment_tree.fetch_calls == 0  # 拉取也被同一熔断器挡住
+
+
+# ---- M5 成本分档（Task 3）----
+
+
+async def test_cost_exhausted_silences_without_llm_call() -> None:
+    """成本枯竭：skipped_cost_exhausted 静默不回（规则兜底，任何 LLM 调用前短路）。"""
+    llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    )
+    deps = _m5_deps(llm)
+    await deps.kv.set(budget.cost_key(datetime.now(UTC).date()), "28500", 48 * 3600)  # 预置枯竭
+    decision = await run(_m5_event(comment_id=7301), deps)
+    assert decision == "skipped_cost_exhausted"
+    assert llm.calls == []  # 枯竭档零 LLM 调用（规则兜底不调模型）
+
+
+async def test_cost_tight_switches_generation_to_light_model() -> None:
+    """成本吃紧：决策仍走主模型（json_mode），生成切轻模型（按轻模型单价计价）。"""
+    main_llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    )
+    light_llm = FakeLLM(default_content="[轻模型]降级档回复")
+    deps = _m5_deps(main_llm)
+    deps.llm_light = light_llm
+    await deps.kv.set(budget.cost_key(datetime.now(UTC).date()), "21000", 48 * 3600)  # 预置吃紧
+    decision = await run(_m5_event(comment_id=7302), deps)
+    assert decision == "replied"
+    assert len(main_llm.calls) == 1  # 决策仍走主模型（json_mode 调用）
+    assert main_llm.calls[0]["json_mode"] is True
+    assert len(light_llm.calls) == 1  # 生成切轻模型
+    assert light_llm.calls[0]["json_mode"] is False
+
+
+async def test_cost_read_failure_fails_open_to_sufficient() -> None:
+    """成本键读失败：fail-open 按充足档继续回复（成本是预算控制非安全红线）。"""
+
+    class _BrokenKV:
+        """get 恒炸（模拟 Redis 读失败——fail-open 验证）。"""
+
+        async def set_if_absent(self, key, ttl_seconds) -> bool:
+            return True
+
+        async def get(self, key):
+            raise RuntimeError("redis down")
+
+        async def set(self, key, value, ttl_seconds) -> None:
+            return None
+
+        async def increment(self, key, amount, ttl_seconds) -> int:
+            return 0
+
+    llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "x"}']
+    )
+    deps = _m5_deps(llm)
+    object.__setattr__(deps, "kv", _BrokenKV())  # 幂等 set_if_absent 走 True 分支不受影响
+    decision = await run(_m5_event(comment_id=7303), deps)
+    assert decision == "replied"  # 成本读失败按充足档继续（M5 共识 fail-open）

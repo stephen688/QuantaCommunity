@@ -32,16 +32,24 @@ class ControlPlaneSnapshot(BaseModel):
     persona_version: str = ""
 
 
-def parse_snapshot(raw: dict[str, str | None]) -> ControlPlaneSnapshot:
-    """把三键原始值解析为快照（脏数据宽容降级，不打断轮询）。"""
+def parse_snapshot(
+    raw: dict[str, str | None], previous: ControlPlaneSnapshot | None = None
+) -> ControlPlaneSnapshot:
+    """解析三键；灰名单损坏沿用有效快照，冷启动无快照则为空。"""
     kill = (raw.get(SWITCH_KILL_KEY) or "").strip().lower() == "true"
     graylist: tuple[int, ...] = ()
     gray_raw = (raw.get(SWITCH_GRAYLIST_KEY) or "").strip()
     if gray_raw:
         try:
-            graylist = tuple(int(x) for x in json.loads(gray_raw))
+            parsed_graylist = json.loads(gray_raw)
+            if not isinstance(parsed_graylist, list) or any(
+                type(item) is not int for item in parsed_graylist
+            ):
+                raise ValueError("灰名单必须是 JSON 整数数组")
+            graylist = tuple(parsed_graylist)
         except (ValueError, TypeError):
-            logger.warning("灰名单键值非 JSON 整数数组，降级为空：%r", gray_raw)
+            graylist = previous.graylist if previous is not None else ()
+            logger.warning("灰名单键值损坏，沿用上一有效快照：%r", gray_raw)
     persona_version = (raw.get(SWITCH_PERSONA_VERSION_KEY) or "").strip()
     return ControlPlaneSnapshot(kill=kill, graylist=graylist, persona_version=persona_version)
 
@@ -63,7 +71,7 @@ class ControlPlane:
     async def refresh(self) -> None:
         """读三键并更新快照（也可手动调用，测试/运维即时生效用）。"""
         raw: dict[str, str | None] = {key: await self._kv.get(key) for key in _ALL_SWITCH_KEYS}
-        self._snapshot = parse_snapshot(raw)
+        self._snapshot = parse_snapshot(raw, previous=self._snapshot)
 
     async def run_forever(self) -> None:
         """轮询主循环（server lifespan 启动的后台任务）。"""

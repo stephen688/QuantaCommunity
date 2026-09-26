@@ -1,0 +1,20 @@
+# 成本吃紧切轻模型：预置 21000 厘（吃紧档）→ 决策仍主模型（json_mode 剧本第 1 条）、生成切轻模型 fake。
+id: pipeline-cost-tight-light
+scenario: 0
+scenario_name: 成本吃紧生成切轻模型
+mode: 专业答疑
+tier: pipeline
+memories: []
+preset_cost_li: 21000
+light_llm_content: "[轻模型]这是降级档生成的回复"
+trigger:
+  post: { postId: 3002, userId: 1, title: 求助, content: 学分绩点怎么算 }
+  comment: { commentId: 9102, userId: 42, content: "@框框 学分绩点怎么算的" }
+llm_script:
+  - '{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "求学业规则"}'
+deterministic:
+  - { assert: decision_is, expected: replied }
+  - { assert: cost_tier_is, expected: tight }
+  - { assert: light_model_used_is, expected: true }
+  - { assert: reply_contains, expected: "[轻模型]这是降级档生成的回复" }
+judge: null

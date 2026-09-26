@@ -64,6 +64,27 @@ async def test_deepseek_client_http_error_wrapped() -> None:
         await client.complete(system="s", user="u")
 
 
+async def test_light_client_explicitly_disables_thinking_without_changing_default() -> None:
+    seen: list[httpx.Request] = []
+    normal = DeepSeekClient("https://api.test", "test", "deepseek-v4-flash", 5, _ok_handler(seen))
+    light = DeepSeekClient(
+        "https://api.test",
+        "test",
+        "qwen3.5-plus",
+        5,
+        _ok_handler(seen),
+        enable_thinking=False,
+    )
+    try:
+        await normal.complete("system", "user")
+        await light.complete("system", "user")
+    finally:
+        await normal.aclose()
+        await light.aclose()
+    assert "enable_thinking" not in json.loads(seen[0].content)
+    assert json.loads(seen[1].content)["enable_thinking"] is False
+
+
 async def test_deepseek_client_bad_contract_wrapped() -> None:
     """响应契约不符（缺 choices）→ LLMClientError（不吞成假成功——诚实口径）。"""
     transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"unexpected": 1}))
