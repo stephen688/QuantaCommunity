@@ -115,7 +115,7 @@
 
 **怎么做（要点）**：所有查询构造/索引管理代码从 RestHighLevelClient 重写为 ElasticsearchClient；数据量小，索引直接重灌不做 reindex；放执行中段，不阻塞缓存/推荐改造。升级完成后再拍板第 5 项的向量库归属。
 
-**实施状态（2026-09-26）**：客户端、配置、索引初始化与搜索 Service 已原位迁移到 `ElasticsearchClient 8.18.8`；一次 323 项 Maven 全量回归、日期兼容修复后的核心+Consumer 9 项定向回归及真实 ES8+IK 内容搜索通过。回答真实写删、SearchReconcile 重投与 RAG `enableAi=false` 尚未重新造数验收，当前记为 **PARTIAL**，证据见 `docs/api-test/RESULTS.md`。
+**实施状态（2026-09-26）**：**已完成**。客户端、配置、索引初始化与搜索 Service 已原位迁移到 `ElasticsearchClient 8.18.8`；一次 323 项 Maven 全量回归、日期兼容修复后的核心+Consumer 9 项定向回归及真实 ES8+IK 内容搜索通过；回答真实写删、SearchReconcile 同事件重投幂等与 RAG `enableAi=false` 真实造数也已完成真栈验收，证据见 `docs/api-test/RESULTS.md`。
 
 ---
 
