@@ -12,13 +12,14 @@ import os
 import re
 import tempfile
 from collections.abc import Callable, Iterator, Sequence
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError
 
+from quanta_bot.crosscutting import budget
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.crosscutting.leak_scan import sanitize
 from quanta_bot.infra.audit_db import SQLiteAudit
@@ -56,12 +57,18 @@ class EvalCase(BaseModel):
     scenario_name: str
     mode: str
     tier: Literal["pipeline", "persona"]
-    memories: list[dict] = []
-    retrieval_fragments: list[dict] = []  # Task 13：FakeRetriever 注入形态（空=不注入检索）
+    memories: list[dict] = Field(default_factory=list)
+    retrieval_fragments: list[dict] = Field(
+        default_factory=list
+    )  # Task 13：FakeRetriever 注入形态（空=不注入检索）
     trigger: dict
     llm_script: list[str] | None = None
-    deterministic: list[dict] = []
+    deterministic: list[dict] = Field(default_factory=list)
     judge: dict | None = None
+    kv_presets: list[dict] = Field(default_factory=list)  # M5：通用控制面/计数键预置
+    preset_cost_li: int | None = None  # M5：当日成本键预置（按运行时 UTC 日期落键）
+    light_llm_content: str | None = None  # M5：吃紧档 Fake 轻模型回复
+    breakers_open: list[str] = Field(default_factory=list)  # M5：预置 open 域
 
 
 class CaseResult(BaseModel):
@@ -265,6 +272,7 @@ async def run_case(case: EvalCase, *, force_real: bool = False) -> CaseResult:
         else FakeLLM(responses=case.llm_script)
     )
     deps, writer, tracer, spy_store = build_case_deps(case, llm)
+    await _prepare_case(case, deps)
     spy_store.preset(_stamp_memories(case.memories, deps.persona.persona_version))
     if case.retrieval_fragments:  # Task 13：FakeRetriever 注入（片段按 case 字段预置）
         deps.retriever = _CaseRetriever(
@@ -281,6 +289,28 @@ async def run_case(case: EvalCase, *, force_real: bool = False) -> CaseResult:
         trace=tracer.traces[-1] if tracer.traces else None,
         memory_ops=tuple(spy_store.captured_ops),
     )
+
+
+async def _prepare_case(case: EvalCase, deps: PipelineDeps) -> None:
+    """在异步执行阶段预置用例状态，避免污染同步依赖组装接口。"""
+    for preset in case.kv_presets:
+        await deps.kv.set(str(preset["key"]), str(preset["value"]), int(preset["ttl_seconds"]))
+    if case.preset_cost_li is not None:
+        await deps.kv.set(
+            budget.cost_key(datetime.now(UTC).date()),
+            str(case.preset_cost_li),
+            deps.cost_key_ttl_hours * 3600,
+        )
+    if case.light_llm_content is not None:
+        deps.llm_light = FakeLLM(default_content=case.light_llm_content)
+    for domain in case.breakers_open:
+        try:
+            target_breaker = getattr(deps.breakers, domain)
+        except AttributeError as exc:
+            raise ValueError(f"未知熔断域：{domain}") from exc
+        for _ in range(5):
+            target_breaker.record_failure()
+    await deps.control_plane.refresh()
 
 
 # ---- deterministic 断言函数集（每类一个纯函数；expected 形态随断言类型）----
@@ -390,6 +420,16 @@ def _retrieval_degraded_is(expected: bool, result: CaseResult) -> bool:
     return result.trace is not None and result.trace.retrieval_degraded == expected
 
 
+def _cost_tier_is(expected: str, result: CaseResult) -> bool:
+    """成本档位断言：trace.cost_tier == expected。"""
+    return result.trace is not None and result.trace.cost_tier == expected
+
+
+def _light_model_used_is(expected: bool, result: CaseResult) -> bool:
+    """轻模型切换断言：trace.light_model_used == expected。"""
+    return result.trace is not None and result.trace.light_model_used == expected
+
+
 _ASSERTIONS: dict[str, Callable[[object, CaseResult], bool]] = {
     "mode_is": _mode_is,
     "decision_is": _decision_is,
@@ -408,6 +448,8 @@ _ASSERTIONS: dict[str, Callable[[object, CaseResult], bool]] = {
     "leak_hits_present": _leak_hits_present,
     "retrieval_in_context": _retrieval_in_context,
     "retrieval_degraded_is": _retrieval_degraded_is,
+    "cost_tier_is": _cost_tier_is,
+    "light_model_used_is": _light_model_used_is,
 }
 
 

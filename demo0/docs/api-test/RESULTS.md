@@ -22,6 +22,24 @@
 
 ---
 
+## Elasticsearch 8 客户端迁移（2026-09-26）
+
+本节只记录本轮已执行证据，不覆盖上方历史接口汇总。代码迁移与三项业务级真栈验收均已完成，本节总状态为 `PASS`。运行窗口为 2026-09-26 21:04～21:08（Asia/Shanghai），验收节点为 Elasticsearch 8.18.8 + analysis-ik 8.18.8、demo0 `:19191`、RabbitMQ `:5674`。
+
+| 验收项 | 证据 | 状态 |
+|---|---|---|
+| 客户端与旧依赖清理 | Spring Boot 3.5.11 BOM 解析 `elasticsearch-java=8.18.8`；`RestHighLevelClient`、旧 high-level-client 依赖及 7.12.1 版本属性已移除 | PASS |
+| 编译与核心回归 | `mvn -DskipTests compile` 退出码 0；最终 `ElasticSearchServiceImplTest,ConsumerReliabilityTests` 共 9/9 通过；内容搜索测试含 ES7 存量 UTC `...Z` 日期兼容 | PASS |
+| Maven 全量回归 | 日期兼容复核前执行一次 `mvn test`：323 tests，0 failures，0 errors，1 skipped；复核修复后按不过度测试约束仅重跑直接受影响的核心+Consumer 9/9 | PASS |
+| 真实 ES8 与 IK | 临时开发节点 `Elasticsearch 8.18.8`；`analysis-ik 8.18.8`；`content`、`answer` 索引均 green | PASS |
+| 索引初始化与 mapping | 应用启动日志确认两个索引由新版 initializer 创建；`ik_max_word`/`ik_smart` 与原日期 format 保持不变 | PASS |
+| 内容搜索 API | 临时文档 `content/987654321`；`GET /search/content?keyword=迁移验证&contentType=2` 返回 HTTP 200、total=1，title/content 均有 `<em>` 高亮 | PASS |
+| 回答真实写入与删除 | 发布并审核 `answerId=106`（`questionId=117`）；审核事件 `f2ac23bf-747d-40b7-997c-740adeb4e3ba` 为 Outbox `SENT` / Inbox `SUCCESS`，ES `_doc/106` 存在且 answer `multi_match` 唯一命中；业务删除事件 `20d20f02-93f7-4ce9-acd1-f2d7bd64752a` 同为 `SENT` / `SUCCESS`，MySQL `audit_status=1,is_deleted=1`，ES 返回 404 | PASS |
+| SearchReconcile 同事件重投幂等 | 将审核事件原 payload、原 `eventId` 再投 `search.reconcile.exchange/search.reconcile`，Rabbit 返回 `routed=true`；Inbox 行数保持 1、状态 `SUCCESS`、`retryCount=0`、`replayCount=0`、`processedTime` 不变，ES `_version` 保持 `1→1`，应用日志确认“已经处理成功，直接 ACK” | PASS |
+| RAG `enableAi=false` 真实造数 | API 新造并审核 `contentId=138`（唯一关键词“星河校准20260926”）；审核事件 `64745484-5f77-41b1-b2b8-733581e0f487` 为 `SENT` / `SUCCESS`；`POST /rag/search` 返回 code 200、`aiAnswer=null`、`total=10`，结果首项为 138；清理删除事件 `75089098-343d-4490-ad65-7120429b5fcb` 为 `SENT` / `SUCCESS`，MySQL `is_deleted=1`，ES 返回 404 | PASS |
+
+---
+
 ## Bot 主链路（Task 13/14，2026-09-19 真实执行记录）
 
 本章记录本轮后端真栈冒烟与验收结果；不覆盖上方历史的 Phase 0-7 汇总。证据只保留可复核的标识、状态和数量，不写 token、密钥或完整请求 payload。单条冒烟为 `triggerCommentId=347`、`botReplyCommentId=348`；小程序 Task 11 按当前要求暂缓，保持 `DEFERRED`。

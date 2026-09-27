@@ -1,0 +1,17 @@
+# 成本枯竭规则兜底：预置当日成本 28500 厘（> 枯竭阈值 28000）→ 任何 LLM 调用前短路静默。
+id: pipeline-cost-exhausted
+scenario: 0
+scenario_name: 成本枯竭规则兜底
+mode: 专业答疑
+tier: pipeline
+memories: []
+preset_cost_li: 28500
+trigger:
+  post: { postId: 3001, userId: 1, title: 求助, content: 选课系统今天打不开了 }
+  comment: { commentId: 9101, userId: 42, content: "@框框 选课系统打不开了怎么办" }
+llm_script: null
+deterministic:
+  - { assert: decision_is, expected: skipped_cost_exhausted }
+  - { assert: cost_tier_is, expected: exhausted }
+  - { assert: light_model_used_is, expected: false }
+judge: null

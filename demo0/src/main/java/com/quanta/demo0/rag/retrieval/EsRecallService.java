@@ -34,7 +34,7 @@ import java.util.List;
  * filter: isDeleted=0（只查未删除的）
  * filter: auditStatus=1（只查审核通过的）
  * 第 3 步：执行 ES 查询
- * 调用 RestHighLevelClient.search()
+ * 通过 ElasticSearchService 调用 Elasticsearch Java API Client
  * 按 _score（相关度得分）降序排序
  * 限制返回数量为 topK（默认 20）
  * 第 4 步：解析 ES 结果

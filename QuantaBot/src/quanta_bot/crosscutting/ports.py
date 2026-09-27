@@ -22,6 +22,10 @@ Decision = Literal[
     "skipped_decision",  # LLM 决策判不值得回（一车四用轻量调用后静默跳过）
     "rejected_moderation",  # 规则预检拦截（红线：违规不出）
     "failed",  # 链路异常（静默不回，决策日志留痕）
+    "failed_breaker",  # M5：LLM 熔断 open，静默不回（连续失败≥阈值）
+    "skipped_cost_exhausted",  # M5：当日成本枯竭，规则兜底不调模型
+    "skipped_graylist",  # M5：灰度名单未放行
+    "skipped_rate_limit",  # M5：尝试配额已耗尽
 ]
 
 
@@ -33,6 +37,8 @@ class DecisionLogEntry(BaseModel):
     mode: str | None = Field(default=None, description="表达模式；未进决策/生成阶段为 None")
     reason: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    duration_ms: int | None = None  # 管线处理耗时，不含排队与异步终审
+    cost_li: int | None = None  # 当前生成路径估算费用，不代表供应商全量账单
 
 
 class KeyValueStore(Protocol):

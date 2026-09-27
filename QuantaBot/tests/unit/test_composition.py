@@ -1,6 +1,7 @@
 """装配根行为测试：fake 全内存；真模式逐项真接/缺配置降级（不发网络）。"""
 
 from quanta_bot.composition import build_runtime
+from quanta_bot.crosscutting.breaker import BreakerSet
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import DeepSeekClient, FakeLLM
@@ -57,6 +58,9 @@ async def test_fake_mode_deps_and_pipeline_run(tmp_path) -> None:
     assert deps.memory_recall_top_k == 8 and deps.memory_select_max == 3
     assert deps.rag_fragment_limit == 3
     assert deps.dialogue_memory_ttl_hours == 48 and deps.summary_cache_ttl_hours == 24
+    # M5 装配：熔断三件为 BreakerSet（Settings 档注入；缺省 closed 全放行=行为透明）
+    assert isinstance(deps.breakers, BreakerSet)
+    assert deps.breakers.llm.state == "closed"
     # 决策层 v2 真实化：默认 FakeLLM 固定文本过不了决策 JSON 解析，替换为同类型剧本版跑通 replied
     deps.llm = FakeLLM(responses=[_DECISION_JSON, "fake 模式端到端回复"])
     result = await run(
@@ -170,3 +174,15 @@ async def test_runtime_aclose_is_idempotent(tmp_path) -> None:
     runtime = build_runtime(_settings(tmp_path, fake_mode=False))
     await runtime.aclose()
     await runtime.aclose()  # 不抛即通过
+
+
+def test_breakers_wired_from_settings(tmp_path) -> None:
+    """M5 装配：BreakerSet 参数来自 Settings 档（阈值覆盖为 3 → 3 次失败即 open，行为级验证）。"""
+    runtime = build_runtime(_settings(tmp_path, breaker_failure_threshold=3))
+    breakers = runtime.deps.breakers
+    assert isinstance(breakers, BreakerSet)
+    for _ in range(2):  # 2 次 < Settings 覆盖阈值 3 → 仍 closed
+        breakers.llm.record_failure()
+    assert breakers.llm.state == "closed"
+    breakers.llm.record_failure()  # 第 3 次达阈值 → open（若装配用默认 5 则此断言失败）
+    assert breakers.llm.state == "open"

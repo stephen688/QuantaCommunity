@@ -1,16 +1,32 @@
 """crosscutting/budget —— Redis 日累计成本键（G6：实时控制依据；Langfuse 事后对账）。
 
-职责：quantabot:cost:{yyyymmdd} 键的读/累加；token 用量按单价折算为厘。
-边界：只做记账，不做分档切换（充足/吃紧/枯竭三档是 M5-成本分档全量的范围）；
+职责：quantabot:cost:{yyyymmdd} 键的读/累加；token 用量按单价折算为厘；
+      M5 三档判定（classify_tier——充足/吃紧/枯竭，阈值含边界）。
+边界：记账与分档判定在此，切换动作在管线（吃紧切轻模型/枯竭静默）；
       成本单位=厘（1 元=1000 厘）——Redis INCR 仅整数，用厘避免浮点漂移。
 """
 
 from datetime import date
+from typing import Literal
 
 from quanta_bot.crosscutting.ports import KeyValueStore
 
 # 成本键前缀（P0-7 键命名口径：quantabot: 命名空间）
 COST_KEY_PREFIX = "quantabot:cost:"
+
+# M5 成本三档（grill 共识：吃紧 20 元=20000 厘 / 枯竭 28 元=28000 厘，Settings 可配）
+CostTier = Literal["sufficient", "tight", "exhausted"]
+
+
+def classify_tier(
+    daily_cost_li: int, tight_threshold_li: int, exhausted_threshold_li: int
+) -> CostTier:
+    """按当日累计成本判档：枯竭优先判定（阈值含边界——达到即切换）。"""
+    if daily_cost_li >= exhausted_threshold_li:
+        return "exhausted"
+    if daily_cost_li >= tight_threshold_li:
+        return "tight"
+    return "sufficient"
 
 
 def cost_key(day: date) -> str:

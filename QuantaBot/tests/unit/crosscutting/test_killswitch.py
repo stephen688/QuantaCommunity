@@ -41,6 +41,19 @@ def test_parse_snapshot_graylist_and_persona() -> None:
     assert bad.graylist == ()
 
 
+def test_parse_snapshot_rejects_non_integer_array_and_keeps_previous() -> None:
+    """灰名单必须是 JSON 整数数组；标量/对象/非整数元素沿用上一快照。"""
+    previous = parse_snapshot({SWITCH_GRAYLIST_KEY: "[7, 9]"})
+    dirty_values = ('"42"', '{"42": true}', '[1, "2"]', "[1.0]", "[true]")
+
+    for dirty_value in dirty_values:
+        snapshot = parse_snapshot({SWITCH_GRAYLIST_KEY: dirty_value}, previous=previous)
+        assert snapshot.graylist == (7, 9)
+
+    cold_start = parse_snapshot({SWITCH_GRAYLIST_KEY: '"42"'})
+    assert cold_start.graylist == ()
+
+
 async def test_control_plane_refresh_and_snapshot() -> None:
     """refresh 读三键更新快照。"""
     kv = InMemoryKV()

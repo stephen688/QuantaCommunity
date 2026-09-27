@@ -1,15 +1,13 @@
 package com.quanta.demo0.es.initializer;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.client.indices.GetIndexRequest;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+
+import java.io.StringReader;
 
 /**
  * ES 索引初始化器（继承 ApplicationRunner，用于应用启动后自动创建索引）
@@ -21,7 +19,7 @@ import org.springframework.stereotype.Component;
 public class ElasticsearchIndexInitializer implements ApplicationRunner {
 
     @Autowired
-    private RestHighLevelClient client;
+    private ElasticsearchClient client;
 
     private static final String INDEX_NAME = "content";
 
@@ -29,16 +27,12 @@ public class ElasticsearchIndexInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         try {
-            GetIndexRequest getIndexRequest = new GetIndexRequest(INDEX_NAME);
-            boolean exists = client.indices().exists(getIndexRequest, RequestOptions.DEFAULT);
+            boolean exists = client.indices().exists(request -> request.index(INDEX_NAME)).value();
 
             if (exists) {
                 log.info("ES 索引 [{}] 已存在，跳过创建", INDEX_NAME);
 
             }else {
-                // 创建内容索引
-                CreateIndexRequest createIndexRequest = new CreateIndexRequest(INDEX_NAME);
-
                 String mappingJson = """
                     {
                       "settings": {
@@ -74,8 +68,9 @@ public class ElasticsearchIndexInitializer implements ApplicationRunner {
                     }
                     """;
 
-                createIndexRequest.source(mappingJson, XContentType.JSON);// 设置索引映射
-                client.indices().create(createIndexRequest, RequestOptions.DEFAULT); // 创建索引
+                client.indices().create(request -> request
+                        .index(INDEX_NAME)
+                        .withJson(new StringReader(mappingJson)));
 
                 log.info("ES 索引 [{}] 创建成功", INDEX_NAME);
             }
@@ -93,15 +88,12 @@ public class ElasticsearchIndexInitializer implements ApplicationRunner {
      */
     private void createAnswerIndexIfNotExists() {
         try {
-            GetIndexRequest getIndexRequest = new GetIndexRequest(ANSWER_INDEX_NAME);
-            boolean exists = client.indices().exists(getIndexRequest, RequestOptions.DEFAULT);
+            boolean exists = client.indices().exists(request -> request.index(ANSWER_INDEX_NAME)).value();
 
             if (exists) {
                 log.info("ES 回答索引 [{}] 已存在，跳过创建", ANSWER_INDEX_NAME);
                 return;
             }
-
-            CreateIndexRequest createIndexRequest = new CreateIndexRequest(ANSWER_INDEX_NAME);
 
             String mappingJson = """
                 {
@@ -138,8 +130,9 @@ public class ElasticsearchIndexInitializer implements ApplicationRunner {
                 }
                 """;
 
-            createIndexRequest.source(mappingJson, XContentType.JSON);
-            client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
+            client.indices().create(request -> request
+                    .index(ANSWER_INDEX_NAME)
+                    .withJson(new StringReader(mappingJson)));
 
             log.info("ES 回答索引 [{}] 创建成功", ANSWER_INDEX_NAME);
 

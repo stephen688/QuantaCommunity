@@ -10,11 +10,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from quanta_bot.crosscutting import budget
+from quanta_bot.crosscutting.breaker import BreakerSet, CircuitBreaker
 from quanta_bot.crosscutting.killswitch import SWITCH_KILL_KEY, ControlPlane
 from quanta_bot.infra.audit_db import SQLiteAudit
 from quanta_bot.infra.deepseek import FakeLLM
 from quanta_bot.infra.kv import InMemoryKV
 from quanta_bot.infra.main_service import FakeCommentTreeFetcher, FakeReplyWriter
+from quanta_bot.infra.tracing import NullTracer
 from quanta_bot.memory import dialogue
 from quanta_bot.memory.ports import HashEmbeddingClient, MemoryRecord
 from quanta_bot.memory.user_memory import InMemoryUserMemoryStore
@@ -390,6 +392,126 @@ async def test_llm_failure_records_failed_zero_reply(tmp_path) -> None:
     assert deps.tracer.traces[0].decision == "failed"
 
 
+async def test_question_guard_failure_keeps_known_cost_and_does_not_write(tmp_path) -> None:
+    """格式护栏二次仍违规：失败静默不写，但两次已知 usage 记入原日期键。"""
+    llm = FakeLLM(
+        responses=[
+            _DECISION_JSON,
+            "你今晚就要交？能等到明天吗？",
+            "你要交纸质版吗？电子版也可以吗？",
+        ]
+    )
+    deps = _m3_deps(llm, tmp_path=tmp_path)
+
+    result = await run(_event("@框框 请帮我看看这个问题", comment_id=51), deps)
+
+    assert result == "failed"
+    assert deps.reply_writer.written == []
+    trace = captured_trace(deps)
+    assert trace.prompt_tokens == 1000
+    assert trace.completion_tokens == 200
+    assert trace.generation_usage_complete is True
+    assert trace.generation_validation_failed is True
+    assert trace.cost_li == 17
+    assert await deps.kv.get(budget.cost_key(datetime.now(UTC).date())) == "17"
+
+
+async def test_question_guard_retry_success_propagates_incomplete_usage_to_trace(tmp_path) -> None:
+    """二次修复成功但无 usage 时仍回复，trace 维持不完整以阻挡严格对账。"""
+
+    class MissingRetryUsageLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(
+                    content=_DECISION_JSON,
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                    usage_complete=True,
+                )
+            if self.calls == 2:
+                return LLMResult(
+                    content="你今晚就要交？能等到明天吗？",
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                    usage_complete=True,
+                )
+            return LLMResult(
+                content="一次先确认截止时间，你今晚必须交纸质版吗？",
+                usage_complete=False,
+            )
+
+    llm = MissingRetryUsageLLM()
+    deps = _m3_deps(llm, tmp_path=tmp_path)
+
+    result = await run(_event("@框框 请帮我看看这个问题", comment_id=53), deps)
+
+    assert result == "replied"
+    assert llm.calls == 3
+    trace = captured_trace(deps)
+    assert trace.prompt_tokens == 500
+    assert trace.completion_tokens == 100
+    assert trace.generation_usage_complete is False
+
+
+async def test_question_guard_retry_failure_keeps_partial_cost_and_marks_unknown(
+    tmp_path,
+) -> None:
+    """格式重试外部失败：首笔生成 usage 计费，未知第二笔不伪装为零或完整。"""
+
+    class RetryFailureLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(content=_DECISION_JSON, prompt_tokens=500, completion_tokens=100)
+            if self.calls == 2:
+                return LLMResult(
+                    content="你今晚就要交？能等到明天吗？",
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                )
+            raise LLMClientError("retry timeout")
+
+    llm = RetryFailureLLM()
+    deps = _m3_deps(llm, tmp_path=tmp_path)
+
+    result = await run(_event("@框框 请帮我看看这个问题", comment_id=52), deps)
+
+    assert result == "failed"
+    assert deps.reply_writer.written == []
+    assert llm.calls == 3
+    trace = captured_trace(deps)
+    assert trace.prompt_tokens == 500
+    assert trace.completion_tokens == 100
+    assert trace.generation_usage_complete is False
+    assert trace.generation_validation_failed is False
+    assert trace.cost_li == 8
+    assert await deps.kv.get(budget.cost_key(datetime.now(UTC).date())) == "8"
+    assert "第二次调用 usage 未知" in (trace.error or "")
+
+
 async def test_failed_after_decision_records_mode(tmp_path) -> None:
     """决策成功后生成失败：failed 分支仍携带决策 mode（归因不因异常丢失——M2 口径保持）。"""
     deps = _m3_deps(DecisionThenExplodeLLM(), tmp_path=tmp_path)
@@ -580,3 +702,209 @@ async def test_leak_scan_before_write(tmp_path) -> None:
     assert "[已脱敏]" in written_content
     assert "quantabot:switch:kill" not in written_content
     assert captured_trace(deps).leak_hits
+
+
+# ---- M5 熔断接线（Task 2）----
+
+
+class _StaticTreeFetcher:
+    """最小评论树 fake（主楼+触发评论，无楼层——熔断测试不关心内容）。"""
+
+    def __init__(self) -> None:
+        self.fetch_calls = 0
+
+    async def fetch_context(self, event: TriggerEvent) -> PostThread:
+        self.fetch_calls += 1
+        return PostThread(
+            post=PostSummary(
+                post_id=event.post_id, author_user_id=1, title="t", content="主楼内容"
+            ),
+            chain=(
+                CommentNode(
+                    comment_id=event.comment_id,
+                    user_id=event.commenter_user_id,
+                    content=event.content,
+                ),
+            ),
+        )
+
+    async def fetch_floors(self, post_id: int) -> tuple[CommentNode, ...]:
+        return ()
+
+
+class _FailingLLM:
+    """恒失败 LLM（熔断计数测试——每次调用抛 LLMClientError）。"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def complete(self, system, user, *, json_mode=False, max_tokens=None, temperature=None):
+        self.calls += 1
+        raise LLMClientError("模拟 LLM 故障")
+
+
+def _m5_deps(llm, breakers: BreakerSet | None = None) -> PipelineDeps:
+    if breakers is None:
+        breakers = BreakerSet()  # 缺省=共识默认档（closed 全放行，行为透明——吸收并行草案优点②）
+    kv = InMemoryKV()
+    return PipelineDeps(
+        kv=kv,
+        audit=SQLiteAudit(str(Path(tempfile.mkdtemp(prefix="qb-m5-")) / "audit.db")),
+        reply_writer=FakeReplyWriter(),
+        llm=llm,
+        tracer=NullTracer(),
+        control_plane=ControlPlane(kv),
+        comment_tree=_StaticTreeFetcher(),
+        persona=PersonaLibrary(),
+        memory_store=InMemoryUserMemoryStore(HashEmbeddingClient()),
+        summarizer=LLMSummarizer(llm),
+        breakers=breakers,
+    )
+
+
+def _m5_event(comment_id: int = 7001, user_id: int = 42) -> TriggerEvent:
+    return TriggerEvent(
+        event_id=f"m5-{comment_id}",
+        comment_id=comment_id,
+        post_id=6001,
+        commenter_user_id=user_id,
+        content="@框框 选课系统打不开了怎么办",
+        mentioned_bot=True,
+    )
+
+
+def _breaker_set() -> BreakerSet:
+    return BreakerSet(
+        llm=CircuitBreaker("llm", 5, 60.0),
+        memory=CircuitBreaker("memory", 5, 30.0),
+        main_service=CircuitBreaker("main_service", 5, 30.0),
+    )
+
+
+class _TraceRecorder:
+    """trace 间谍（memory_degraded 断言依据——最小内联版，计划 2 会再建全量 _SpyTracer）。"""
+
+    def __init__(self) -> None:
+        self.traces: list = []
+
+    async def record(self, trace) -> None:
+        self.traces.append(trace)
+
+
+async def test_llm_breaker_open_silences_reply() -> None:
+    """LLM 熔断 open：failed_breaker 静默不回（决策调用也不发起——open 期零 LLM 成本）。"""
+    breakers = _breaker_set()
+    for _ in range(5):
+        breakers.llm.record_failure()  # 预置 open
+    llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    )
+    deps = _m5_deps(llm, breakers)
+    decision = await run(_m5_event(), deps)
+    assert decision == "failed_breaker"  # LLM 熔断 open：静默不回
+    assert llm.calls == []  # 未发起任何 LLM 调用（决策调用也没发）
+
+
+async def test_five_failing_runs_then_sixth_short_circuits() -> None:
+    """5 个失败 run 累计熔断 → 第 6 个 run 短路 failed_breaker（run 级计数语义）。"""
+    breakers = _breaker_set()
+    failing = _FailingLLM()
+    deps = _m5_deps(failing, breakers)
+    deps.post_reply_limit = 10  # 熔断用例需独立于尝试配额，确保5次失败实际到达LLM
+    deps.user_daily_limit = 10
+    for index in range(5):  # 5 个失败 run 累计熔断
+        decision = await run(_m5_event(comment_id=7100 + index), deps)
+        assert decision == "failed"
+    assert breakers.llm.state == "open"
+    calls_before = failing.calls
+    decision = await run(_m5_event(comment_id=7200), deps)
+    assert decision == "failed_breaker"  # 第 6 个 run 短路
+    assert failing.calls == calls_before  # 未再调 LLM（决策调用也没发）
+
+
+async def test_memory_breaker_open_degrades_but_replies() -> None:
+    """记忆熔断 open：降级空候选继续回复 + trace 标记 memory_degraded（增强通道不静默）。"""
+    breakers = _breaker_set()
+    for _ in range(5):
+        breakers.memory.record_failure()
+    tracer = _TraceRecorder()
+    script = [
+        '{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "x", "memory_ops": []}'
+    ]
+    deps = _m5_deps(FakeLLM(responses=script), breakers)
+    object.__setattr__(deps, "tracer", tracer)
+    decision = await run(_m5_event(), deps)
+    assert decision == "replied"  # 记忆熔断=降级继续回复（M5 共识：增强通道不静默）
+    assert tracer.traces[-1].memory_degraded is True  # 降级留痕进 trace（观测对质）
+    assert tracer.traces[-1].decision == "replied"
+
+
+async def test_main_service_breaker_open_fails_silently() -> None:
+    """主服务熔断 open：failed 不回（写库=审核入口承接 PRD"审核"档），拉取也被挡住。"""
+    breakers = _breaker_set()
+    for _ in range(5):
+        breakers.main_service.record_failure()
+    script = ['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    deps = _m5_deps(FakeLLM(responses=script), breakers)
+    decision = await run(_m5_event(), deps)
+    assert decision == "failed"  # 主服务熔断（写库=审核入口）：failed 不回
+    assert deps.comment_tree.fetch_calls == 0  # 拉取也被同一熔断器挡住
+
+
+# ---- M5 成本分档（Task 3）----
+
+
+async def test_cost_exhausted_silences_without_llm_call() -> None:
+    """成本枯竭：skipped_cost_exhausted 静默不回（规则兜底，任何 LLM 调用前短路）。"""
+    llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    )
+    deps = _m5_deps(llm)
+    await deps.kv.set(budget.cost_key(datetime.now(UTC).date()), "28500", 48 * 3600)  # 预置枯竭
+    decision = await run(_m5_event(comment_id=7301), deps)
+    assert decision == "skipped_cost_exhausted"
+    assert llm.calls == []  # 枯竭档零 LLM 调用（规则兜底不调模型）
+
+
+async def test_cost_tight_switches_generation_to_light_model() -> None:
+    """成本吃紧：决策仍走主模型（json_mode），生成切轻模型（按轻模型单价计价）。"""
+    main_llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "专业答疑", "confidence": 0.9, "reason": "x"}']
+    )
+    light_llm = FakeLLM(default_content="[轻模型]降级档回复")
+    deps = _m5_deps(main_llm)
+    deps.llm_light = light_llm
+    await deps.kv.set(budget.cost_key(datetime.now(UTC).date()), "21000", 48 * 3600)  # 预置吃紧
+    decision = await run(_m5_event(comment_id=7302), deps)
+    assert decision == "replied"
+    assert len(main_llm.calls) == 1  # 决策仍走主模型（json_mode 调用）
+    assert main_llm.calls[0]["json_mode"] is True
+    assert len(light_llm.calls) == 1  # 生成切轻模型
+    assert light_llm.calls[0]["json_mode"] is False
+
+
+async def test_cost_read_failure_fails_open_to_sufficient() -> None:
+    """成本键读失败：fail-open 按充足档继续回复（成本是预算控制非安全红线）。"""
+
+    class _BrokenKV:
+        """get 恒炸（模拟 Redis 读失败——fail-open 验证）。"""
+
+        async def set_if_absent(self, key, ttl_seconds) -> bool:
+            return True
+
+        async def get(self, key):
+            raise RuntimeError("redis down")
+
+        async def set(self, key, value, ttl_seconds) -> None:
+            return None
+
+        async def increment(self, key, amount, ttl_seconds) -> int:
+            return 0
+
+    llm = FakeLLM(
+        responses=['{"should_reply": true, "mode": "生活玩梗", "confidence": 0.9, "reason": "x"}']
+    )
+    deps = _m5_deps(llm)
+    object.__setattr__(deps, "kv", _BrokenKV())  # 幂等 set_if_absent 走 True 分支不受影响
+    decision = await run(_m5_event(comment_id=7303), deps)
+    assert decision == "replied"  # 成本读失败按充足档继续（M5 共识 fail-open）

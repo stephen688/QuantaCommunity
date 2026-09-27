@@ -22,10 +22,27 @@ class LLMResult(BaseModel):
     content: str
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    # 旧的内存 fake/测试调用方只提供 token 数时沿用“已知”语义；真实客户端缺失 usage 会显式置 False。
+    usage_complete: bool = True
 
 
 class LLMClientError(Exception):
-    """LLM 调用失败（网络/HTTP/响应契约不符统一包装；管线 failed 分支捕获类型）。"""
+    """LLM 调用失败，可携带 usage 与能力校验标记；管线 failed 分支捕获此类型。"""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        prompt_tokens: int | None = None,
+        completion_tokens: int | None = None,
+        usage_complete: bool = False,
+        validation_failed: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.usage_complete = usage_complete
+        self.validation_failed = validation_failed
 
 
 class CommentFetchError(Exception):
@@ -126,6 +143,8 @@ class RunTrace(BaseModel):
     generated_content: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
+    generation_usage_complete: bool | None = None  # M5：usage 是否覆盖本 run 的全部生成调用
+    generation_validation_failed: bool = False  # M5：格式/空输出能力失败，不应按基础设施重试
     cost_li: int | None = None
     daily_cost_li_after: int | None = None
     error: str | None = None
@@ -135,6 +154,11 @@ class RunTrace(BaseModel):
     persona_version: str | None = None  # 人格版本指纹（归因人格变更对回复的影响）
     retrieval_degraded: bool = False  # need_retrieval 但检索未配置（场景 6 降级链路）
     leak_hits: tuple[str, ...] = ()  # 输出泄漏扫描命中类别（写库前替换后的留痕）
+    memory_degraded: bool = False  # M5：记忆熔断 open/召回失败降级（增强通道失能留痕）
+    cost_tier: str | None = None  # M5：本次 run 的成本档位（分档生效决策日志可查）
+    light_model_used: bool = False  # M5：生成是否走了轻模型（吃紧档切换留痕）
+    duration_ms: int | None = None  # 管线处理到终态的耗时
+    stage_ms: dict[str, int] = Field(default_factory=dict)
 
 
 class RunTracer(Protocol):

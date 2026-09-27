@@ -1,0 +1,56 @@
+{
+  "scope": "SQLite existing columns only; persona_version/cost_tier/stage_ms are Langfuse-only",
+  "samples": [
+    {
+      "sqlite": {
+        "comment_id": 476,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "duration_ms": 14516,
+        "cost_li": 54
+      },
+      "langfuse": {
+        "comment_id": 476,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "duration_ms": 14516,
+        "cost_li": 54
+      },
+      "equal": true
+    },
+    {
+      "sqlite": {
+        "comment_id": 481,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "duration_ms": 15609,
+        "cost_li": 47
+      },
+      "langfuse": {
+        "comment_id": 481,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "duration_ms": 15609,
+        "cost_li": 47
+      },
+      "equal": true
+    },
+    {
+      "sqlite": {
+        "comment_id": 489,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "duration_ms": 13875,
+        "cost_li": 2
+      },
+      "langfuse": {
+        "comment_id": 489,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "duration_ms": 13875,
+        "cost_li": 2
+      },
+      "equal": true
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "started_utc": "2026-09-26T08:15:11.614702+00:00",
+  "scenarios": [
+    {
+      "name": "cost_tight_retry",
+      "audit": {
+        "id": 75,
+        "comment_id": 489,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "reason": "链路完整（决策：用户真诚求一条可立即执行的复习建议，属求助提问，值得回。；模式 专业答疑；本次成本 2 厘，日累计 21002 厘）",
+        "created_at": "2026-09-26T08:15:28.735367+00:00",
+        "duration_ms": 13875,
+        "cost_li": 2
+      },
+      "trace": {
+        "comment_id": 489,
+        "decision": "replied",
+        "mode": "专业答疑",
+        "persona_version": "6604cf98e561",
+        "memory_selected_ids": [
+          "6037be7e-10e9-4352-9203-3abed0029bd4"
+        ],
+        "memory_degraded": false,
+        "retrieval_degraded": false,
+        "cost_tier": "tight",
+        "light_model_used": true,
+        "cost_li": 2,
+        "daily_cost_li_after": 21002,
+        "duration_ms": 13875,
+        "stage_ms": {
+          "decision": 2093,
+          "context": 8157,
+          "generation": 3250,
+          "write": 31
+        },
+        "leak_hits": []
+      },
+      "visible": [
+        {
+          "commentId": 490,
+          "isBot": true,
+          "userId": 10000
+        }
+      ]
+    },
+    {
+      "name": "cost_exhausted_retry",
+      "audit": {
+        "id": 76,
+        "comment_id": 491,
+        "decision": "skipped_cost_exhausted",
+        "mode": null,
+        "reason": "当日成本已到枯竭阈值，规则兜底不调模型",
+        "created_at": "2026-09-26T08:15:34.376106+00:00",
+        "duration_ms": 0,
+        "cost_li": null
+      },
+      "trace": {
+        "comment_id": 491,
+        "decision": "skipped_cost_exhausted",
+        "mode": null,
+        "persona_version": null,
+        "memory_selected_ids": [],
+        "memory_degraded": false,
+        "retrieval_degraded": false,
+        "cost_tier": "exhausted",
+        "light_model_used": false,
+        "cost_li": null,
+        "daily_cost_li_after": null,
+        "duration_ms": 0,
+        "stage_ms": {},
+        "leak_hits": []
+      },
+      "visible": []
+    },
+    {
+      "name": "post_quota",
+      "audit": {
+        "id": 77,
+        "comment_id": 492,
+        "decision": "skipped_rate_limit",
+        "mode": null,
+        "reason": "同帖尝试配额耗尽（4>3），需静默48h",
+        "created_at": "2026-09-26T08:15:38.529638+00:00",
+        "duration_ms": 0,
+        "cost_li": null
+      },
+      "trace": {
+        "comment_id": 492,
+        "decision": "skipped_rate_limit",
+        "mode": null,
+        "persona_version": null,
+        "memory_selected_ids": [],
+        "memory_degraded": false,
+        "retrieval_degraded": false,
+        "cost_tier": null,
+        "light_model_used": false,
+        "cost_li": null,
+        "daily_cost_li_after": null,
+        "duration_ms": 0,
+        "stage_ms": {},
+        "leak_hits": []
+      }
+    },
+    {
+      "name": "user_quota",
+      "audit": {
+        "id": 78,
+        "comment_id": 493,
+        "decision": "skipped_rate_limit",
+        "mode": null,
+        "reason": "同用户尝试配额耗尽（6>5），需静默24h",
+        "created_at": "2026-09-26T08:15:42.732662+00:00",
+        "duration_ms": 0,
+        "cost_li": null
+      },
+      "trace": {
+        "comment_id": 493,
+        "decision": "skipped_rate_limit",
+        "mode": null,
+        "persona_version": null,
+        "memory_selected_ids": [],
+        "memory_degraded": false,
+        "retrieval_degraded": false,
+        "cost_tier": null,
+        "light_model_used": false,
+        "cost_li": null,
+        "daily_cost_li_after": null,
+        "duration_ms": 0,
+        "stage_ms": {},
+        "leak_hits": []
+      }
+    }
+  ],
+  "fixtures": {
+    "user_ids": [
+      1,
+      23
+    ],
+    "post_id": 14,
+    "quota_isolated_with_original_restore": true
+  },
+  "restored": {
+    "cost_original": "329",
+    "actual_fees_added_li": 2,
+    "cost_current": "331",
+    "controls_restored": true
+  },
+  "ended_utc": "2026-09-26T08:15:47.432317+00:00"
+}

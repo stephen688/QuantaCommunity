@@ -3,6 +3,7 @@
 from datetime import date
 
 from quanta_bot.crosscutting import budget
+from quanta_bot.crosscutting.budget import classify_tier
 from quanta_bot.infra.kv import InMemoryKV
 
 
@@ -26,3 +27,15 @@ def test_estimate_cost_li() -> None:
     assert budget.estimate_cost_li(1_000_000, 0, 12.0, 24.0) == 12000
     assert budget.estimate_cost_li(0, 500_000, 12.0, 24.0) == 12000
     assert budget.estimate_cost_li(500, 100, 12.0, 24.0) == 8  # (6000+2400)/1e6 元 → 8.4 厘 → 8
+
+
+# ---- M5 三档判定 ----
+
+
+async def test_classify_tier_boundaries() -> None:
+    """三档判定边界：枯竭优先、阈值含边界（达到即切换）。"""
+    assert classify_tier(0, 20000, 28000) == "sufficient"
+    assert classify_tier(19999, 20000, 28000) == "sufficient"  # 阈值前一分属充足
+    assert classify_tier(20000, 20000, 28000) == "tight"  # 达吃紧阈值即吃紧
+    assert classify_tier(27999, 20000, 28000) == "tight"
+    assert classify_tier(28000, 20000, 28000) == "exhausted"  # 达枯竭阈值即枯竭

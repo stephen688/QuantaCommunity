@@ -6,11 +6,14 @@ import pytest
 from pydantic import ValidationError
 from tests.eval import _runner as runner
 from tests.eval._runner import (
+    _ASSERTIONS,
+    CASES_DIR,
     CaseResult,
     EvalCase,
     _stamp_memories,
     judge_case,
     load_case,
+    run_case,
     verify_case,
 )
 
@@ -304,3 +307,57 @@ async def test_numeric_judge_parse_failure_is_infra_blocked() -> None:
     )
 
     assert judge_result.failure_kind == "INFRA_BLOCKED"
+
+
+# ---- M5 runner 扩展（preset_cost_li / light_llm_content / kv_presets）----
+
+
+async def test_preset_cost_li_and_light_content_flow() -> None:
+    """预置成本键 + 轻模型内容端到端：吃紧档 replied、trace 留痕、断言函数可判。"""
+    case = load_case(CASES_DIR / "pipeline-cost-tight-light.yaml")
+    result = await run_case(case)
+    assert result.decision == "replied"
+    assert result.trace is not None and result.trace.cost_tier == "tight"
+    assert result.trace.light_model_used is True
+    assert _ASSERTIONS["cost_tier_is"]("tight", result) is True
+    assert _ASSERTIONS["light_model_used_is"](True, result) is True
+
+
+async def test_runner_applies_kv_presets_before_pipeline() -> None:
+    """runner 必须把通用键预置刷新进控制面，否则 kill 用例会误跑完整管线。"""
+    case = EvalCase(
+        id="runner-kv-preset",
+        scenario=0,
+        scenario_name="runner kv preset",
+        mode="生活玩梗",
+        tier="pipeline",
+        kv_presets=[{"key": "quantabot:switch:kill", "value": "true", "ttl_seconds": 3600}],
+        trigger={
+            "post": {"postId": 3010, "userId": 1, "title": "闲聊", "content": "今天天气不错"},
+            "comment": {"commentId": 9110, "userId": 42, "content": "@框框 今天天气不错啊"},
+        },
+    )
+
+    result = await run_case(case)
+
+    assert result.decision == "skipped_killswitch"
+
+
+async def test_runner_opens_requested_breaker_before_pipeline() -> None:
+    """runner 的熔断预置必须在决策 LLM 调用前生效。"""
+    case = EvalCase(
+        id="runner-llm-breaker",
+        scenario=0,
+        scenario_name="runner breaker preset",
+        mode="专业答疑",
+        tier="pipeline",
+        breakers_open=["llm"],
+        trigger={
+            "post": {"postId": 3011, "userId": 1, "title": "求助", "content": "图书馆几点闭馆"},
+            "comment": {"commentId": 9111, "userId": 42, "content": "@框框 图书馆几点闭馆呀"},
+        },
+    )
+
+    result = await run_case(case)
+
+    assert result.decision == "failed_breaker"

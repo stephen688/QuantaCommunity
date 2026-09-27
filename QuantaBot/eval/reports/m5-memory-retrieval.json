@@ -1,0 +1,19 @@
+{
+  "local_version": "6604cf98e561",
+  "retrieval": "real Qwen embedding + Qdrant filtered query",
+  "local": [
+    {
+      "memory_id": "6037be7e-10e9-4352-9203-3abed0029bd4",
+      "persona_version": "6604cf98e561",
+      "user_id": 1
+    }
+  ],
+  "fresh_namespace": [],
+  "restored": [
+    {
+      "memory_id": "6037be7e-10e9-4352-9203-3abed0029bd4",
+      "persona_version": "6604cf98e561",
+      "user_id": 1
+    }
+  ]
+}
