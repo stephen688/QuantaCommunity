@@ -43,5 +43,5 @@
 ### Task 3: Review、冻结与真实Release（主agent协调）
 
 - [x] 依requesting-code-review做独立只读review，C=0/I=0/Minor=0后精确提交实现与校准计划，冻结新SHA。
-- [ ] 派两个agent并行Persona17×2和红队75，使用相同新SHA、同模型同阈值；基础设施只按原runner规定重试，不能能力失败刷轮次。
-- [ ] 回填实际pass/fail/error、usage估计、hash与SHA。未通过保持FAIL并保留证据；全部通过后只将确实完成的终验勾选，成本缺口单独保留暂缓。
+- [x] 派两个agent并行Persona17×2和红队75，使用相同新SHA、同模型同阈值；基础设施只按原runner规定重试，不能能力失败刷轮次。冻结SHA `9c29bf2`：Persona34/34通过；红队75项执行结束，自动73通过/2失败，评审有效性待补证，不宣称Release通过。
+- [x] 回填实际pass/fail/error、usage估计、hash与SHA。Persona通过；红队为 `EVALUATION_BLOCKED`（75项执行完成、73自动通过、2无有效判据的评审异常），保留自动失败及raw证据，不人工改PASS。M5上线/评测终验仍未勾选，成本缺口单独保留暂缓。详见 `eval/reports/m5-final-acceptance.md` 与新SHA脱敏摘要。

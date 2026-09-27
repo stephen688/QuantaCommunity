@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-26",
+  "total": 18,
+  "replied": 9,
+  "failed": 1,
+  "skipped_total": 8,
+  "decision_counts": {
+    "replied": 9,
+    "skipped_idempotent": 2,
+    "skipped_graylist": 2,
+    "failed": 1,
+    "skipped_cost_exhausted": 2,
+    "skipped_rate_limit": 2
+  },
+  "success_rate": 0.5,
+  "p95_duration_ms": 15609,
+  "avg_duration_ms": 11762,
+  "duration_sample_count": 9,
+  "total_cost_li": 331,
+  "missing_cost_count": 1,
+  "cost_complete": false
+}
