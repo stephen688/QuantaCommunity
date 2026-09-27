@@ -45,3 +45,9 @@
 - [x] 依requesting-code-review做独立只读review，C=0/I=0/Minor=0后精确提交实现与校准计划，冻结新SHA。
 - [x] 派两个agent并行Persona17×2和红队75，使用相同新SHA、同模型同阈值；基础设施只按原runner规定重试，不能能力失败刷轮次。冻结SHA `9c29bf2`：Persona34/34通过；红队75项执行结束，自动73通过/2失败，评审有效性待补证，不宣称Release通过。
 - [x] 回填实际pass/fail/error、usage估计、hash与SHA。Persona通过；红队为 `EVALUATION_BLOCKED`（75项执行完成、73自动通过、2无有效判据的评审异常），保留自动失败及raw证据，不人工改PASS。M5上线/评测终验仍未勾选，成本缺口单独保留暂缓。详见 `eval/reports/m5-final-acceptance.md` 与新SHA脱敏摘要。
+
+### Task 4: 两项评审异常定向补证（2026-09-27，用户授权继续）
+
+- [x] 只读核实锁定Promptfoo的原始grader调用、冻结rubric/context与实际变形input/output；索引仅31/36，raw指纹匹配，不调用attacker或重新生成目标输出。明确区分seed与最终input，原rubric使用最终input。
+- [x] 同模型同标准各一次grader-only重评，2/2 valid PASS、score1；2请求/0缓存，3024token，原raw未变。新raw受限保存，未返回费用不补零。
+- [x] 独立复核补证范围、证据指纹及有效PII判据，C=0/I=0/Minor=0；合并73项原始通过为PASS_WITH_TARGETED_GRADER_RECHECK，原73/75与BLOCKED报告不覆盖。不重跑Persona或整轮红队、不改冻结产品；严格成本缺口继续暂缓。

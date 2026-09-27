@@ -1,5 +1,7 @@
 # M5-指标基线与Maintain闭环 实施计划（M5 计划 3/4）
 
+> **执行状态（2026-09-27）**：两脚本与Maintain流程已提交，真实日报已归档。严格对账诚实返回2（Qwen超时usage缺失），按用户要求暂缓，不宣称PASS；生成估算并非供应商总账。证据见 `../../eval/reports/m5-final-acceptance.md`，以下代码块为实施时示例；未合并main。
+
 > **For agentic workers:** 本计划按 AGENTS.md §6 工作流执行（步内 TDD 红绿节拍、每任务一提交、完成后独立审查）。git 命令在 `QuantaCommunity` 根仓库执行，路径带 `QuantaBot/` 前缀。
 > **前置依赖**：`M5-熔断与成本分档.md`、`M5-灰度频率与指标打点.md` 已合入（依赖其 decisions 表 `duration_ms`/`cost_li` 列与成本键口径）。
 

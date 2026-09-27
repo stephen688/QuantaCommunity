@@ -11,6 +11,7 @@
 > v0.4.6（2026-09-19）——M4 落地：§3/§6.3 回填 Fast、Persona、Release 三档门禁、失败退出码、Promptfoo 完整管线红队与同模型 Judge 偏置边界。
 > v0.4.7（2026-09-26）——M5 接线与指标脚本：新增 Maintain 闭环及运维命令；实际演练/Release 状态以总计划和 m5-final-acceptance 为准。
 > v0.4.8（2026-09-27）——M5 Persona 校准：显式问句格式护栏已触发落地，失败用量完整性与能力失败分类见技术选型 §4.7，仍须新 SHA Release 裁决。
+> v0.4.9（2026-09-27）——M5门禁闭环：9c29bf2 Persona双轮通过；原红队73通过+两项原输出有效grader-only补评，裁决PASS_WITH_TARGETED_GRADER_RECHECK，失败证据保留。严格成本完整性按用户要求暂缓，实际边界见终验记录。
 
 ***
 
