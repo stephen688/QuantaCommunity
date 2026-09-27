@@ -113,6 +113,8 @@ async def _execute_case(
         trace.completion_tokens if trace and trace.completion_tokens else 0
     )
     if result.decision == "failed":
+        # 格式护栏能力失败不可重跑刷分；网络/供应商失败保留原有一次基础设施重试。
+        validation_failed = trace is not None and trace.generation_validation_failed
         return CaseRunRecord(
             case_id=case.id,
             run_number=run_number,
@@ -121,7 +123,12 @@ async def _execute_case(
             p0_results=p0_results,
             prompt_tokens=generation_prompt_tokens,
             completion_tokens=generation_completion_tokens,
-            failure_kind=FailureKind.INFRA_BLOCKED,
+            estimated_cost_fen=_estimated_cost_fen(
+                settings, generation_prompt_tokens, generation_completion_tokens
+            ),
+            failure_kind=(
+                FailureKind.ASSERTION_FAILED if validation_failed else FailureKind.INFRA_BLOCKED
+            ),
             failure_reason=trace.error if trace else "pipeline failed",
         )
     if p0_failures:

@@ -392,6 +392,126 @@ async def test_llm_failure_records_failed_zero_reply(tmp_path) -> None:
     assert deps.tracer.traces[0].decision == "failed"
 
 
+async def test_question_guard_failure_keeps_known_cost_and_does_not_write(tmp_path) -> None:
+    """格式护栏二次仍违规：失败静默不写，但两次已知 usage 记入原日期键。"""
+    llm = FakeLLM(
+        responses=[
+            _DECISION_JSON,
+            "你今晚就要交？能等到明天吗？",
+            "你要交纸质版吗？电子版也可以吗？",
+        ]
+    )
+    deps = _m3_deps(llm, tmp_path=tmp_path)
+
+    result = await run(_event("@框框 请帮我看看这个问题", comment_id=51), deps)
+
+    assert result == "failed"
+    assert deps.reply_writer.written == []
+    trace = captured_trace(deps)
+    assert trace.prompt_tokens == 1000
+    assert trace.completion_tokens == 200
+    assert trace.generation_usage_complete is True
+    assert trace.generation_validation_failed is True
+    assert trace.cost_li == 17
+    assert await deps.kv.get(budget.cost_key(datetime.now(UTC).date())) == "17"
+
+
+async def test_question_guard_retry_success_propagates_incomplete_usage_to_trace(tmp_path) -> None:
+    """二次修复成功但无 usage 时仍回复，trace 维持不完整以阻挡严格对账。"""
+
+    class MissingRetryUsageLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(
+                    content=_DECISION_JSON,
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                    usage_complete=True,
+                )
+            if self.calls == 2:
+                return LLMResult(
+                    content="你今晚就要交？能等到明天吗？",
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                    usage_complete=True,
+                )
+            return LLMResult(
+                content="一次先确认截止时间，你今晚必须交纸质版吗？",
+                usage_complete=False,
+            )
+
+    llm = MissingRetryUsageLLM()
+    deps = _m3_deps(llm, tmp_path=tmp_path)
+
+    result = await run(_event("@框框 请帮我看看这个问题", comment_id=53), deps)
+
+    assert result == "replied"
+    assert llm.calls == 3
+    trace = captured_trace(deps)
+    assert trace.prompt_tokens == 500
+    assert trace.completion_tokens == 100
+    assert trace.generation_usage_complete is False
+
+
+async def test_question_guard_retry_failure_keeps_partial_cost_and_marks_unknown(
+    tmp_path,
+) -> None:
+    """格式重试外部失败：首笔生成 usage 计费，未知第二笔不伪装为零或完整。"""
+
+    class RetryFailureLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(content=_DECISION_JSON, prompt_tokens=500, completion_tokens=100)
+            if self.calls == 2:
+                return LLMResult(
+                    content="你今晚就要交？能等到明天吗？",
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                )
+            raise LLMClientError("retry timeout")
+
+    llm = RetryFailureLLM()
+    deps = _m3_deps(llm, tmp_path=tmp_path)
+
+    result = await run(_event("@框框 请帮我看看这个问题", comment_id=52), deps)
+
+    assert result == "failed"
+    assert deps.reply_writer.written == []
+    assert llm.calls == 3
+    trace = captured_trace(deps)
+    assert trace.prompt_tokens == 500
+    assert trace.completion_tokens == 100
+    assert trace.generation_usage_complete is False
+    assert trace.generation_validation_failed is False
+    assert trace.cost_li == 8
+    assert await deps.kv.get(budget.cost_key(datetime.now(UTC).date())) == "8"
+    assert "第二次调用 usage 未知" in (trace.error or "")
+
+
 async def test_failed_after_decision_records_mode(tmp_path) -> None:
     """决策成功后生成失败：failed 分支仍携带决策 mode（归因不因异常丢失——M2 口径保持）。"""
     deps = _m3_deps(DecisionThenExplodeLLM(), tmp_path=tmp_path)

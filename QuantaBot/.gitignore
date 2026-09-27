@@ -12,6 +12,7 @@ node_modules/
 .promptfoo/
 # M4 完整回复与 trace 只作本地/CI artifact，禁止入库
 eval/reports/raw/
+eval/reports/**/raw/
 eval/m4-v1-redteam-generated.yaml
 # 构建产物
 dist/

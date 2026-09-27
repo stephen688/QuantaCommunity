@@ -22,10 +22,27 @@ class LLMResult(BaseModel):
     content: str
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    # 旧的内存 fake/测试调用方只提供 token 数时沿用“已知”语义；真实客户端缺失 usage 会显式置 False。
+    usage_complete: bool = True
 
 
 class LLMClientError(Exception):
-    """LLM 调用失败（网络/HTTP/响应契约不符统一包装；管线 failed 分支捕获类型）。"""
+    """LLM 调用失败，可携带 usage 与能力校验标记；管线 failed 分支捕获此类型。"""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        prompt_tokens: int | None = None,
+        completion_tokens: int | None = None,
+        usage_complete: bool = False,
+        validation_failed: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.usage_complete = usage_complete
+        self.validation_failed = validation_failed
 
 
 class CommentFetchError(Exception):
@@ -126,6 +143,8 @@ class RunTrace(BaseModel):
     generated_content: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
+    generation_usage_complete: bool | None = None  # M5：usage 是否覆盖本 run 的全部生成调用
+    generation_validation_failed: bool = False  # M5：格式/空输出能力失败，不应按基础设施重试
     cost_li: int | None = None
     daily_cost_li_after: int | None = None
     error: str | None = None

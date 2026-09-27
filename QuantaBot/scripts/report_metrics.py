@@ -44,10 +44,11 @@ _NO_GENERATION_DECISIONS = frozenset(
         "skipped_cost_exhausted",
     }
 )
+_COST_COMPLETENESS_UNKNOWN_DECISIONS = frozenset({"failed"})
 
 
 def compute_metrics(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
-    """按日报口径聚合决策行；缺失样本通过显式字段暴露。"""
+    """按日报口径聚合决策行；cost_complete 仅指费用字段无缺失/待核，不证明 usage 完整。"""
     total = len(rows)
     decision_counts: dict[str, int] = {}
     replied_durations: list[int] = []
@@ -62,6 +63,9 @@ def compute_metrics(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
                 missing_cost_count += 1
         else:
             total_cost_li += int(cost_li)
+            if decision in _COST_COMPLETENESS_UNKNOWN_DECISIONS:
+                # SQLite 不带 generation_usage_complete；failed 的已知费用只能待核。
+                missing_cost_count += 1
         if decision == _REPLIED and row.get("duration_ms") is not None:
             replied_durations.append(int(row["duration_ms"]))
 
@@ -135,9 +139,9 @@ def write_report(
     total_cost_li = int(metrics["total_cost_li"])
     missing_cost_count = int(metrics["missing_cost_count"])
     cost_note = (
-        "成本样本完整"
+        "SQLite费用字段齐全；不证明生成usage完整"
         if bool(metrics["cost_complete"])
-        else f"成本样本缺失 {missing_cost_count} 条，合计值不可视为完整对账"
+        else f"费用缺失或待核 {missing_cost_count} 条，合计值不可视为完整对账"
     )
     lines = [
         f"# 指标基线日报 {day.isoformat()}",

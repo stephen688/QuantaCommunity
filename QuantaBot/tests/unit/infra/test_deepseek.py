@@ -56,6 +56,27 @@ async def test_deepseek_client_request_shape_and_parse() -> None:
     assert body["messages"][0]["content"] == "你是测试助手"
 
 
+async def test_deepseek_client_marks_success_without_usage_incomplete() -> None:
+    """HTTP 200 有内容但缺 usage 时保留回复，并标记用量不完整。"""
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "收到"}}]},
+        )
+    )
+    client = DeepSeekClient("https://api.deepseek.com", "sk-test", "deepseek-chat", 5.0, transport)
+    try:
+        result = await client.complete(system="s", user="u")
+    finally:
+        await client.aclose()
+
+    assert result.content == "收到"
+    assert result.prompt_tokens == 0
+    assert result.completion_tokens == 0
+    assert result.usage_complete is False
+
+
 async def test_deepseek_client_http_error_wrapped() -> None:
     """HTTP 错误（4xx/5xx/网络）统一包成 LLMClientError（管线 failed 分支只认这个类型）。"""
     transport = httpx.MockTransport(lambda request: httpx.Response(500, json={"error": "boom"}))

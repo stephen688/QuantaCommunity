@@ -160,7 +160,7 @@ def fetch_langfuse_cost_stats(client: object, day: date_type) -> dict[str, int]:
     while True:
         parameters: dict[str, Any] = {
             "fields": "basic,metadata",
-            "expand_metadata": "cost_li",
+            "expand_metadata": "cost_li,generation_usage_complete",
             "limit": _PAGE_SIZE,
             "name": _ROOT_OBSERVATION_NAME,
             "is_root_observation": True,
@@ -182,9 +182,10 @@ def fetch_langfuse_cost_stats(client: object, day: date_type) -> dict[str, int]:
                 no_generation_sample_count += 1
             else:
                 unknown_state_count += 1
+            usage_incomplete = metadata.get("generation_usage_complete") is False
             raw_cost = metadata.get("cost_li")
             if raw_cost is None:
-                if generation_state != "no_generation":
+                if generation_state != "no_generation" or usage_incomplete:
                     missing_cost_count += 1
                 continue
             try:
@@ -195,6 +196,8 @@ def fetch_langfuse_cost_stats(client: object, day: date_type) -> dict[str, int]:
             if generation_state == "no_generation" and cost_li != 0:
                 unexpected_cost_count += 1
                 continue
+            if usage_incomplete:
+                missing_cost_count += 1
             total += cost_li
         next_cursor = _response_cursor(response)
         if next_cursor is None:

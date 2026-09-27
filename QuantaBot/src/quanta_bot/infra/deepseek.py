@@ -45,7 +45,12 @@ class FakeLLM:
             }
         )
         content = self._responses.pop(0) if self._responses else self._default
-        return LLMResult(content=content, prompt_tokens=500, completion_tokens=100)
+        return LLMResult(
+            content=content,
+            prompt_tokens=500,
+            completion_tokens=100,
+            usage_complete=True,
+        )
 
 
 class DeepSeekClient:
@@ -105,11 +110,36 @@ class DeepSeekClient:
             # JSONDecodeError（ValueError 子类）也统一包装，不留逃逸域异常
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
-            usage = data.get("usage") or {}
+            usage = data.get("usage")
+            usage_is_mapping = isinstance(usage, dict)
+            usage = usage if usage_is_mapping else {}
+            prompt_tokens = 0
+            completion_tokens = 0
+            prompt_tokens_valid = "prompt_tokens" in usage
+            completion_tokens_valid = "completion_tokens" in usage
+            if prompt_tokens_valid:
+                try:
+                    prompt_tokens = int(usage["prompt_tokens"])
+                    prompt_tokens_valid = prompt_tokens >= 0
+                except (TypeError, ValueError):
+                    prompt_tokens_valid = False
+                if not prompt_tokens_valid:
+                    prompt_tokens = 0
+            if completion_tokens_valid:
+                try:
+                    completion_tokens = int(usage["completion_tokens"])
+                    completion_tokens_valid = completion_tokens >= 0
+                except (TypeError, ValueError):
+                    completion_tokens_valid = False
+                if not completion_tokens_valid:
+                    completion_tokens = 0
             return LLMResult(
                 content=content,
-                prompt_tokens=int(usage.get("prompt_tokens", 0)),
-                completion_tokens=int(usage.get("completion_tokens", 0)),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                usage_complete=(
+                    usage_is_mapping and prompt_tokens_valid and completion_tokens_valid
+                ),
             )
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise LLMClientError(f"DeepSeek 响应契约不符：{exc}") from exc

@@ -68,6 +68,15 @@ def test_compute_metrics_does_not_mark_valid_skips_as_missing_cost() -> None:
     assert metrics["cost_complete"] is True
 
 
+def test_compute_metrics_keeps_failed_known_cost_pending() -> None:
+    """failed 行的已知成本保留，但 SQLite 日报保守标记为待核。"""
+    metrics = compute_metrics([_row("failed", 120, 8)])
+
+    assert metrics["total_cost_li"] == 8
+    assert metrics["missing_cost_count"] == 1
+    assert metrics["cost_complete"] is False
+
+
 async def test_fetch_rows_reads_legacy_schema_without_m5_columns(tmp_path) -> None:
     """日报读取 M4 旧库时把未存在的两列视为缺失样本，不报 SQL 错。"""
     db = tmp_path / "legacy.db"

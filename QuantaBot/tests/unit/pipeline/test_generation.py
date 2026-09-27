@@ -114,6 +114,221 @@ async def test_generate_output_anchors_and_usage() -> None:
     assert "# 模式：生活玩梗" in system  # decision.mode 驱动对应模式文本
 
 
+async def test_generate_retries_once_for_question_overflow_and_sums_usage() -> None:
+    """首答显式问题超过一个时只重生成一次，并合计两次真实 usage。"""
+    first_response = "你今晚就要交？能等到明天吗？"
+    second_response = "一次先确认截止时间，你今晚必须交纸质版吗？"
+    llm = FakeLLM(responses=[first_response, second_response])
+
+    output = await generate(
+        _event(),
+        decision=None,
+        llm=llm,
+        context_text="上下文",
+        persona=PersonaLibrary(),
+    )
+
+    assert output.reply.content == f"[框框·AI 学长] {second_response}"
+    assert output.prompt_tokens == 1000
+    assert output.completion_tokens == 200
+    assert len(llm.calls) == 2
+    assert llm.calls[1]["user"] == "上下文"
+    assert "最多一个问题" in llm.calls[1]["system"]
+    assert first_response not in llm.calls[1]["system"]
+
+
+async def test_generate_preserves_first_tokens_but_marks_missing_retry_usage_incomplete() -> None:
+    """二次成功缺 usage 时仍合计首笔已知 token，但输出不得宣称完整。"""
+
+    class MissingRetryUsageLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(
+                    content="你今晚就要交？能等到明天吗？",
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                    usage_complete=True,
+                )
+            return LLMResult(
+                content="一次先确认截止时间，你今晚必须交纸质版吗？",
+                usage_complete=False,
+            )
+
+    llm = MissingRetryUsageLLM()
+    output = await generate(
+        _event(),
+        decision=None,
+        llm=llm,
+        context_text="上下文",
+        persona=PersonaLibrary(),
+    )
+
+    assert llm.calls == 2
+    assert output.prompt_tokens == 500
+    assert output.completion_tokens == 100
+    assert output.usage_complete is False
+
+
+async def test_generate_does_not_retry_single_question() -> None:
+    """零或一个显式问题是正常输出，不触发格式修复调用。"""
+    llm = FakeLLM(responses=["截止时间是哪天？"])
+
+    output = await generate(
+        _event(),
+        decision=None,
+        llm=llm,
+        context_text="上下文",
+        persona=PersonaLibrary(),
+    )
+
+    assert output.reply.content == "[框框·AI 学长] 截止时间是哪天？"
+    assert len(llm.calls) == 1
+
+
+async def test_generate_fails_after_second_question_overflow_without_third_call() -> None:
+    """二次格式修复仍有多个显式问题时静默失败，并保留两次 usage。"""
+    llm = FakeLLM(
+        responses=[
+            "你今晚就要交？能等到明天吗？",
+            "你要交纸质版吗？电子版也可以吗？",
+        ]
+    )
+
+    with pytest.raises(LLMClientError, match="超过一个") as raised:
+        await generate(
+            _event(),
+            decision=None,
+            llm=llm,
+            context_text="上下文",
+            persona=PersonaLibrary(),
+        )
+
+    assert len(llm.calls) == 2
+    assert raised.value.prompt_tokens == 1000
+    assert raised.value.completion_tokens == 200
+    assert raised.value.usage_complete is True
+    assert raised.value.validation_failed is True
+
+
+async def test_generate_fails_after_blank_format_retry_and_keeps_usage() -> None:
+    """格式修复返回空白时不生成空壳回复，并保留两次已知 usage。"""
+    llm = FakeLLM(responses=["你今晚就要交？能等到明天吗？", " \n"])
+
+    with pytest.raises(LLMClientError, match="空内容") as raised:
+        await generate(
+            _event(),
+            decision=None,
+            llm=llm,
+            context_text="上下文",
+            persona=PersonaLibrary(),
+        )
+
+    assert len(llm.calls) == 2
+    assert raised.value.prompt_tokens == 1000
+    assert raised.value.completion_tokens == 200
+    assert raised.value.usage_complete is True
+    assert raised.value.validation_failed is True
+
+
+async def test_generate_keeps_first_usage_when_format_retry_fails() -> None:
+    """格式重试外部失败时保留首笔 usage，并明确第二笔 usage 未知。"""
+
+    class RetryFailureLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(
+                    content="你今晚就要交？能等到明天吗？",
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                )
+            raise LLMClientError("second timeout")
+
+    llm = RetryFailureLLM()
+    with pytest.raises(LLMClientError, match="第二次调用 usage 未知") as raised:
+        await generate(
+            _event(),
+            decision=None,
+            llm=llm,
+            context_text="上下文",
+            persona=PersonaLibrary(),
+        )
+
+    assert llm.calls == 2
+    assert raised.value.prompt_tokens == 500
+    assert raised.value.completion_tokens == 100
+    assert raised.value.usage_complete is False
+
+
+async def test_generate_preserves_complete_retry_usage() -> None:
+    """二次异常自带完整 usage 时合并并保留完整标记，不误报未知。"""
+
+    class CompleteUsageFailureLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(
+            self,
+            system: str,
+            user: str,
+            *,
+            json_mode: bool = False,
+            max_tokens: int | None = None,
+            temperature: float | None = None,
+        ) -> LLMResult:
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResult(
+                    content="你今晚就要交？能等到明天吗？",
+                    prompt_tokens=500,
+                    completion_tokens=100,
+                )
+            raise LLMClientError(
+                "retry failed",
+                prompt_tokens=400,
+                completion_tokens=80,
+                usage_complete=True,
+            )
+
+    llm = CompleteUsageFailureLLM()
+    with pytest.raises(LLMClientError, match="usage 已知") as raised:
+        await generate(
+            _event(),
+            decision=None,
+            llm=llm,
+            context_text="上下文",
+            persona=PersonaLibrary(),
+        )
+
+    assert llm.calls == 2
+    assert raised.value.prompt_tokens == 900
+    assert raised.value.completion_tokens == 180
+    assert raised.value.usage_complete is True
+
+
 async def test_generate_blocks_internal_prompt_rewrite_without_calling_llm() -> None:
     """红队回归：索取/改写内部提示规则时只给固定泛化拒绝，不让模型复述规则。"""
     llm = FakeLLM()

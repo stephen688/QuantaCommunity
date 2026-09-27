@@ -2,7 +2,8 @@
 
 职责：组装 system+user 调 LLM；强制 AI 身份标识（红线 §0.1）；输出回复与 usage（成本折算输入）。
 边界：人格 prompt 由 persona.py 读 prompts/ 数据文件（M3 起）；
-      不折算成本（budget/crosscutting 负责）；LLM 失败不在此捕获（管线 failed 分支统一处理）。
+      不折算成本（budget/crosscutting 负责）；格式修复失败只合并已知 usage 后重抛，
+      管线 failed 分支统一静默处理。格式协议不是人格数据，不声明理解隐式问句。
 """
 
 from __future__ import annotations
@@ -34,6 +35,10 @@ _EXTRACTION_ACTION = re.compile(
     r"公开|输出|泄露|展示|告诉|列出|逐条|改写|复述|总结|翻译|打印|返回|提供|分享|透露"
     r"|写|编写|起草|设计|举例|示例|说明|描述"
 )
+_FORMAT_REPAIR_INSTRUCTION = (
+    "格式校正：最终回复最多一个问题；若需要澄清，请选择唯一最关键的澄清点，"
+    "使用自然完整标点，不得省略标点来掩盖多个问题；直接输出最终回复，不复述上一条回复。"
+)
 
 
 def _requests_internal_instructions(content: str) -> bool:
@@ -62,6 +67,7 @@ class GenerationOutput(BaseModel):
     reply: GeneratedReply
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    usage_complete: bool = True
 
 
 async def generate(
@@ -93,12 +99,82 @@ async def generate(
         decision.mode if decision else "生活玩梗"
     )  # 人格 system（A 通道）
     result = await llm.complete(system=system, user=user_prompt)  # 调用 LLM
+    prompt_tokens = result.prompt_tokens
+    completion_tokens = result.completion_tokens
+    usage_complete = result.usage_complete
     content = result.content.strip()
     if not content:
         # 局部导入避开 ports→generation 的运行时契约环；空输出按 LLM 失败交由管线静默处理。
         from quanta_bot.pipeline.ports import LLMClientError
 
-        raise LLMClientError("生成模型返回空内容")
+        raise LLMClientError(
+            "生成模型返回空内容",
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            usage_complete=usage_complete,
+            validation_failed=True,
+        )
+    if sum(content.count(mark) for mark in ("?", "？")) > 1:
+        from quanta_bot.pipeline.ports import LLMClientError
+
+        try:
+            repaired_result = await llm.complete(
+                system=f"{system}\n\n{_FORMAT_REPAIR_INSTRUCTION}",
+                user=user_prompt,
+            )  # 首答问题过多时只做一次通用格式修复，不回灌首答原文
+        except LLMClientError as exc:
+            retry_prompt_tokens = getattr(exc, "prompt_tokens", None)
+            retry_completion_tokens = getattr(exc, "completion_tokens", None)
+            retry_usage_complete = bool(
+                getattr(exc, "usage_complete", False)
+                and retry_prompt_tokens is not None
+                and retry_completion_tokens is not None
+            )
+            retry_usage_partial = (
+                retry_prompt_tokens is not None or retry_completion_tokens is not None
+            )
+            if retry_prompt_tokens is not None:
+                prompt_tokens += retry_prompt_tokens
+            if retry_completion_tokens is not None:
+                completion_tokens += retry_completion_tokens
+            retry_usage_status = (
+                "usage 已知"
+                if retry_usage_complete
+                else "usage 部分已知"
+                if retry_usage_partial
+                else "usage 未知"
+            )
+            raise LLMClientError(
+                f"格式修复第二次调用失败（第二次调用 {retry_usage_status}）：{exc}",
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                usage_complete=bool(usage_complete and retry_usage_complete),
+                validation_failed=getattr(exc, "validation_failed", False),
+            ) from exc
+        prompt_tokens += repaired_result.prompt_tokens
+        completion_tokens += repaired_result.completion_tokens
+        usage_complete = usage_complete and repaired_result.usage_complete
+        content = repaired_result.content.strip()
+        if not content:
+            from quanta_bot.pipeline.ports import LLMClientError
+
+            raise LLMClientError(
+                "格式修复后生成模型返回空内容",
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                usage_complete=usage_complete,
+                validation_failed=True,
+            )
+        if sum(content.count(mark) for mark in ("?", "？")) > 1:
+            from quanta_bot.pipeline.ports import LLMClientError
+
+            raise LLMClientError(
+                "格式修复后生成回复显式问题超过一个",
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                usage_complete=usage_complete,
+                validation_failed=True,
+            )
     if AI_BADGE not in content:
         content = f"{AI_BADGE} {content}"
     parent_floor = event.parent_id if event.parent_id is not None else event.comment_id
@@ -112,6 +188,7 @@ async def generate(
     )
     return GenerationOutput(
         reply=reply,
-        prompt_tokens=result.prompt_tokens,
-        completion_tokens=result.completion_tokens,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        usage_complete=usage_complete,
     )

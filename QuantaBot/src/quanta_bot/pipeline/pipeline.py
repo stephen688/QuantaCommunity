@@ -112,6 +112,8 @@ class _Outcome:
     generated_content: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
+    generation_usage_complete: bool | None = None
+    generation_validation_failed: bool = False
     cost_li: int | None = None
     daily_cost_li_after: int | None = None
     error: str | None = None
@@ -179,6 +181,8 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
             generated_content=outcome.generated_content,
             prompt_tokens=outcome.prompt_tokens,
             completion_tokens=outcome.completion_tokens,
+            generation_usage_complete=outcome.generation_usage_complete,
+            generation_validation_failed=outcome.generation_validation_failed,
             cost_li=outcome.cost_li,
             daily_cost_li_after=outcome.daily_cost_li_after,
             error=outcome.error,
@@ -296,6 +300,10 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
     cost_li: int | None = None
     cost_after: int | None = None
     light_model_used = False
+    generation_input_price = deps.llm_input_price_per_mtok
+    generation_output_price = deps.llm_output_price_per_mtok
+    generation_attempted = False
+    generation_usage_complete: bool | None = None
     health.main_service_used = True
     try:
         # ⑤ 拉取现场（C-2①③ 线程 + C-2② 全量楼层）
@@ -425,8 +433,6 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
         )
         # ⑩ 生成（M5：吃紧档仅切生成——决策/摘要保持主模型保判断质量；轻模型未配置回落主模型）
         generation_llm = deps.llm
-        generation_input_price = deps.llm_input_price_per_mtok
-        generation_output_price = deps.llm_output_price_per_mtok
         light_model_used = False
         if cost_tier == "tight":
             if deps.llm_light is not None:
@@ -437,6 +443,7 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
                 logger.warning("成本吃紧档：生成切换轻模型")
             else:
                 logger.warning("成本吃紧但轻模型未配置，生成沿用主模型")
+        generation_attempted = True
         output = await _timed(
             health.stage_ms,
             "generation",
@@ -444,6 +451,7 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
                 event, decision_result, generation_llm, assembled.user_text, deps.persona
             ),
         )
+        generation_usage_complete = output.usage_complete
         cost_li = budget.estimate_cost_li(
             output.prompt_tokens,
             output.completion_tokens,
@@ -468,6 +476,24 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
         # 无归因，consumer 兜底丢观测）——HTTPCommentTreeFetcher 现统一包装 CommentFetchError。
         if isinstance(exc, LLMClientError):  # M5：LLM 域失败（决策/生成任一）
             health.llm_failed = True
+            if generation_attempted:
+                generation_usage_complete = getattr(exc, "usage_complete", False)
+                known_prompt_tokens = getattr(exc, "prompt_tokens", None)
+                known_completion_tokens = getattr(exc, "completion_tokens", None)
+                if known_prompt_tokens is not None and known_completion_tokens is not None:
+                    cost_li = budget.estimate_cost_li(
+                        known_prompt_tokens,
+                        known_completion_tokens,
+                        generation_input_price,
+                        generation_output_price,
+                    )
+                    try:
+                        cost_after = await budget.add_cost(
+                            deps.kv, cost_li, cost_day, deps.cost_key_ttl_hours
+                        )
+                    except Exception as cost_exc:  # 成本记账失败仍保持静默失败，但留痕
+                        logger.warning("失败生成成本累加失败（对账可见缺口）：%s", cost_exc)
+                        cost_after = None
         else:  # M5：拉取/写库域失败（main_service 承接）
             health.main_service_failed = True
         return _Outcome(
@@ -478,6 +504,22 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
             leak_hits=leak_hits,
             memory_degraded=memory_degraded,
             cost_tier=cost_tier,
+            prompt_tokens=(
+                getattr(exc, "prompt_tokens", None)
+                if isinstance(exc, LLMClientError) and generation_attempted
+                else None
+            ),
+            completion_tokens=(
+                getattr(exc, "completion_tokens", None)
+                if isinstance(exc, LLMClientError) and generation_attempted
+                else None
+            ),
+            generation_usage_complete=generation_usage_complete,
+            generation_validation_failed=(
+                getattr(exc, "validation_failed", False)
+                if isinstance(exc, LLMClientError) and generation_attempted
+                else False
+            ),
             cost_li=cost_li,
             daily_cost_li_after=cost_after,
             light_model_used=light_model_used,
@@ -520,6 +562,7 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
         generated_content=output.reply.content,
         prompt_tokens=output.prompt_tokens,
         completion_tokens=output.completion_tokens,
+        generation_usage_complete=generation_usage_complete,
         cost_li=cost_li,
         daily_cost_li_after=cost_after,
         truncations=(*assembled.truncations, *retrieval_trunc),

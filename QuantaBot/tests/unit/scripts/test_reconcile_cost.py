@@ -173,3 +173,33 @@ def test_replied_decision_wins_over_empty_stage_map() -> None:
     assert stats["generation_sample_count"] == 1
     assert stats["no_generation_sample_count"] == 0
     assert stats["missing_cost_count"] == 1
+
+
+def test_incomplete_generation_usage_keeps_known_cost_but_blocks_reconciliation() -> None:
+    """partial usage 保留已知成本，同时不能被对账误判为完整。"""
+    client = _StubLangfuse()
+    client.api.observations.pages = [
+        _Page(
+            [
+                _Observation(
+                    "pipeline.run",
+                    {
+                        "decision": "failed",
+                        "generated_content": None,
+                        "stage_ms": {"generation": 8},
+                        "cost_li": 8,
+                        "generation_usage_complete": False,
+                    },
+                    is_root_observation=True,
+                )
+            ],
+            None,
+        )
+    ]
+
+    stats = fetch_langfuse_cost_stats(client, date(2026, 9, 25))
+
+    assert stats["total_cost_li"] == 8
+    assert stats["generation_sample_count"] == 1
+    assert stats["missing_cost_count"] == 1
+    assert "generation_usage_complete" in client.api.observations.calls[0]["expand_metadata"]
