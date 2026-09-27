@@ -4,6 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ErrorCause;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.DeleteRequest;
+import co.elastic.clients.elasticsearch.core.DeleteResponse;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -14,6 +16,8 @@ import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import com.github.pagehelper.Page;
 import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.entity.QuestionAnswer;
+import com.quanta.demo0.exception.SearchFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,9 +38,12 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -101,6 +108,67 @@ class ElasticSearchServiceImplTest {
     }
 
     @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void invisibleContentsUseDeleteRequestsInsteadOfIndexRequests() throws Exception {
+        Content pending = visibleContent(101L, LocalDateTime.of(2026, 9, 26, 10, 31));
+        pending.setAuditStatus(0);
+        Content deleted = visibleContent(102L, LocalDateTime.of(2026, 9, 26, 10, 32));
+        deleted.setIsDeleted(1);
+        when(contentMapper.selectById(101L)).thenReturn(pending);
+        when(contentMapper.selectById(102L)).thenReturn(deleted);
+        when(client.delete(any(DeleteRequest.class))).thenReturn(mock(DeleteResponse.class));
+
+        service.upsertByContentId(101L);
+        service.upsertByContentId(102L);
+
+        ArgumentCaptor<DeleteRequest> captor = ArgumentCaptor.forClass(DeleteRequest.class);
+        verify(client, times(2)).delete(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(DeleteRequest::index, DeleteRequest::id)
+                .containsExactly(tuple("content", "101"), tuple("content", "102"));
+        verify(client, never()).index(any(IndexRequest.class));
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void invisibleAnswersOrParentsUseDeleteRequestsInsteadOfIndexRequests() throws Exception {
+        QuestionAnswer pendingAnswer = visibleAnswer(201L, 401L);
+        pendingAnswer.setAuditStatus(0);
+        QuestionAnswer deletedAnswer = visibleAnswer(202L, 402L);
+        deletedAnswer.setIsDeleted(1);
+        QuestionAnswer answerWithPendingQuestion = visibleAnswer(203L, 403L);
+        QuestionAnswer answerWithDeletedQuestion = visibleAnswer(204L, 404L);
+        Content pendingQuestion = visibleContent(403L, LocalDateTime.of(2026, 9, 26, 10, 33));
+        pendingQuestion.setAuditStatus(2);
+        Content deletedQuestion = visibleContent(404L, LocalDateTime.of(2026, 9, 26, 10, 34));
+        deletedQuestion.setIsDeleted(1);
+        when(questionMapper.selectById(201L)).thenReturn(pendingAnswer);
+        when(questionMapper.selectById(202L)).thenReturn(deletedAnswer);
+        when(questionMapper.selectById(203L)).thenReturn(answerWithPendingQuestion);
+        when(questionMapper.selectById(204L)).thenReturn(answerWithDeletedQuestion);
+        when(contentMapper.selectById(403L)).thenReturn(pendingQuestion);
+        when(contentMapper.selectById(404L)).thenReturn(deletedQuestion);
+        when(client.delete(any(DeleteRequest.class))).thenReturn(mock(DeleteResponse.class));
+
+        service.upsertByAnswerId(201L);
+        service.upsertByAnswerId(202L);
+        service.upsertByAnswerId(203L);
+        service.upsertByAnswerId(204L);
+
+        ArgumentCaptor<DeleteRequest> captor = ArgumentCaptor.forClass(DeleteRequest.class);
+        verify(client, times(4)).delete(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(DeleteRequest::index, DeleteRequest::id)
+                .containsExactly(
+                        tuple("answer", "201"),
+                        tuple("answer", "202"),
+                        tuple("answer", "203"),
+                        tuple("answer", "204")
+                );
+        verify(client, never()).index(any(IndexRequest.class));
+    }
+
+    @Test
     void bulkItemFailureRemainsVisibleToSearchReconcileRetry() throws Exception {
         when(contentMapper.selectBatchIds(List.of(9L)))
                 .thenReturn(List.of(visibleContent(9L, LocalDateTime.of(2026, 9, 26, 11, 0))));
@@ -110,12 +178,30 @@ class ElasticSearchServiceImplTest {
         when(response.errors()).thenReturn(true);
         when(response.items()).thenReturn(List.of(item));
         when(item.error()).thenReturn(error);
+        when(item.index()).thenReturn("content");
+        when(item.id()).thenReturn("9");
         when(error.reason()).thenReturn("mapping rejected");
         when(client.bulk(any(BulkRequest.class))).thenReturn(response);
 
         assertThatThrownBy(() -> service.upsertBatchByContentIds(List.of(9L)))
+                .isInstanceOf(SearchFailedException.class)
                 .hasMessageContaining("ES bulk")
+                .hasMessageContaining("index=content")
+                .hasMessageContaining("id=9")
                 .hasMessageContaining("mapping rejected");
+    }
+
+    @Test
+    void transportFailureWithBulkLikeTextIsWrappedByTypeInsteadOfMessagePrefix() throws Exception {
+        when(contentMapper.selectBatchIds(List.of(10L)))
+                .thenReturn(List.of(visibleContent(10L, LocalDateTime.of(2026, 9, 26, 11, 1))));
+        RuntimeException transportFailure = new RuntimeException("ES bulk 同步失败：connection reset");
+        when(client.bulk(any(BulkRequest.class))).thenThrow(transportFailure);
+
+        assertThatThrownBy(() -> service.upsertBatchByContentIds(List.of(10L)))
+                .isNotInstanceOf(SearchFailedException.class)
+                .hasMessage("ES bulk 同步异常")
+                .hasCause(transportFailure);
     }
 
     @Test
@@ -198,6 +284,21 @@ class ElasticSearchServiceImplTest {
                 .commentCount(5)
                 .createTime(createdAt)
                 .isDeleted(0)
+                .build();
+    }
+
+    private QuestionAnswer visibleAnswer(Long answerId, Long questionId) {
+        return QuestionAnswer.builder()
+                .answerId(answerId)
+                .questionId(questionId)
+                .userId(8L)
+                .content("ES8 迁移回答")
+                .likeCount(2)
+                .commentCount(1)
+                .isAccepted(0)
+                .auditStatus(1)
+                .isDeleted(0)
+                .createTime(LocalDateTime.of(2026, 9, 26, 10, 30))
                 .build();
     }
 }

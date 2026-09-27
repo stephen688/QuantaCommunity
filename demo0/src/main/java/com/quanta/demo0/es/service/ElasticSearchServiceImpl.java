@@ -125,16 +125,14 @@ public class ElasticSearchServiceImpl implements ElasticSearchService {
             if (response.errors()) {
                 String failureMessage = bulkFailureMessage(response);
                 log.error("ES bulk 失败：{}", failureMessage);
-                throw new RuntimeException("ES bulk 同步失败：" + failureMessage);
+                throw new SearchFailedException("ES bulk 同步失败：" + failureMessage);
             }
             log.info("upsertBatchByContentIds 成功，upsert={}, delete={}", upsertDocs.size(), deleteIds.size());
+        } catch (SearchFailedException e) {
+            log.error("upsertBatchByContentIds 执行失败", e);
+            throw e;
         } catch (Exception e) {
             log.error("upsertBatchByContentIds 执行异常", e);
-            if (e instanceof RuntimeException runtimeException
-                    && runtimeException.getMessage() != null
-                    && runtimeException.getMessage().startsWith("ES bulk 同步失败")) {
-                throw runtimeException;
-            }
             throw new RuntimeException("ES bulk 同步异常", e);
         }
     }
@@ -555,6 +553,8 @@ public class ElasticSearchServiceImpl implements ElasticSearchService {
 
     private String bulkItemFailureMessage(BulkResponseItem item) {
         String reason = item.error().reason();
-        return reason == null ? "未知 ES bulk 错误" : reason;
+        return "index=" + item.index()
+                + ", id=" + item.id()
+                + ", reason=" + (reason == null ? "未知 ES bulk 错误" : reason);
     }
 }
