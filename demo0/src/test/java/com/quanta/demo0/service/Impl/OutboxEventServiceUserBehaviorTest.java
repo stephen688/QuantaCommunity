@@ -5,7 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 import com.quanta.demo0.platform.mq.enums.OutboxEventStatus;
 import com.quanta.demo0.platform.mq.enums.OutboxEventType;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.OutboxEventMapper;
 import com.quanta.demo0.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;

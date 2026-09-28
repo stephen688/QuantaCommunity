@@ -1,7 +1,7 @@
 package com.quanta.demo0.controller.bot;
 
 import com.quanta.demo0.dto.BotProfileEventDTO;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;

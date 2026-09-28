@@ -1,10 +1,10 @@
 package com.quanta.demo0.mapper;
 
 import com.github.pagehelper.Page;
-import com.quanta.demo0.dto.AnswerAdminQueryDTO;
+import com.quanta.demo0.answer.dto.AnswerAdminQueryDTO;
 import com.quanta.demo0.entity.AnswerLiked;
-import com.quanta.demo0.entity.QuestionAnswer;
-import com.quanta.demo0.vo.AnswerVO;
+import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.answer.vo.AnswerVO;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;

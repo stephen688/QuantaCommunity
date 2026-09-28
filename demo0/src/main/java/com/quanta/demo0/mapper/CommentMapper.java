@@ -1,12 +1,12 @@
 package com.quanta.demo0.mapper;
 
 import com.github.pagehelper.Page;
-import com.quanta.demo0.dto.CommentAdminQueryDTO;
+import com.quanta.demo0.comment.dto.CommentAdminQueryDTO;
 import com.quanta.demo0.dto.CommentReportQueryDTO;
-import com.quanta.demo0.entity.CommentImage;
+import com.quanta.demo0.comment.entity.CommentImage;
 import com.quanta.demo0.entity.CommentReport;
-import com.quanta.demo0.entity.ContentComment;
-import com.quanta.demo0.entity.ReplyCountRow;
+import com.quanta.demo0.comment.entity.ContentComment;
+import com.quanta.demo0.comment.entity.ReplyCountRow;
 import org.apache.ibatis.annotations.*;
 
 import java.util.Collection;

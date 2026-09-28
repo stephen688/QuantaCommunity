@@ -1,8 +1,8 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.controller.bot.vo.BotCommentChainVO;
-import com.quanta.demo0.controller.bot.vo.BotCommentHistoryVO;
-import com.quanta.demo0.controller.bot.vo.BotCommentTreeVO;
+import com.quanta.demo0.comment.vo.BotCommentChainVO;
+import com.quanta.demo0.comment.vo.BotCommentHistoryVO;
+import com.quanta.demo0.comment.vo.BotCommentTreeVO;
 
 /** bot 系统账号使用的只读评论接口（C-2）。 */
 public interface BotCommentService {

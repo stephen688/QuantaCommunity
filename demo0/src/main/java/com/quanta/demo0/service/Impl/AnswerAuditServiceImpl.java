@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.annotation.ModerationTargetType;
-import com.quanta.demo0.entity.QuestionAnswer;
+import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.enums.NotificationType;
 import com.quanta.demo0.mapper.QuestionMapper;

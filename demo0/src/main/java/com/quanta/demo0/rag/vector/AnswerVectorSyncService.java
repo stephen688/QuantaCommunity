@@ -1,6 +1,6 @@
 package com.quanta.demo0.rag.vector;
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.entity.QuestionAnswer;
+import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.rag.properties.RagProperties;

@@ -1,7 +1,7 @@
 package com.quanta.demo0.mapper;
 
-import com.quanta.demo0.controller.bot.vo.BotSyncDocVO;
-import com.quanta.demo0.entity.BotPolicyDoc;
+import com.quanta.demo0.content.vo.BotSyncDocVO;
+import com.quanta.demo0.content.entity.BotPolicyDoc;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

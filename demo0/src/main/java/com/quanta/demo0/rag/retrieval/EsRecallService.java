@@ -1,6 +1,6 @@
 package com.quanta.demo0.rag.retrieval;
 import com.github.pagehelper.Page;
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.es.document.AnswerDocument;
 import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.rag.properties.RagProperties;

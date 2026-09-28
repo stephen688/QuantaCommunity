@@ -4,17 +4,17 @@ import cn.hutool.core.util.BooleanUtil;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.annotation.ModerationTargetType;
-import com.quanta.demo0.dto.ContentDTO;
+import com.quanta.demo0.content.dto.ContentDTO;
 import com.quanta.demo0.dto.ContentReportDTO;
 import com.quanta.demo0.dto.RecommendQueryDTO;
 import com.quanta.demo0.dto.SearchDTO;
 import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.enums.NotificationType;
-import com.quanta.demo0.enums.ContentDetailState;
+import com.quanta.demo0.content.enums.ContentDetailState;
 import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.exception.SearchFailedException;
 import com.quanta.demo0.mapper.*;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
@@ -33,9 +33,9 @@ import com.quanta.demo0.service.RecommendRerankService;
 import com.quanta.demo0.utils.HotScoreCalculator;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.vo.CollectResultVO;
-import com.quanta.demo0.vo.ContentVO;
-import com.quanta.demo0.vo.ContentDetailCacheEntry;
-import com.quanta.demo0.vo.ContentDetailSnapshot;
+import com.quanta.demo0.content.vo.ContentVO;
+import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
+import com.quanta.demo0.content.vo.ContentDetailSnapshot;
 import com.quanta.demo0.vo.LikeResultVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +59,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.quanta.demo0.constant.RedisConstants.*;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.content.entity.ContentImage;
 
 /**
  * 内容域核心服务实现类。

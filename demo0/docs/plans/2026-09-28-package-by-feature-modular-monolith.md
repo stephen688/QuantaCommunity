@@ -912,3 +912,4 @@ git commit -m "docs: record modular monolith refactor evidence"
 - 当前工作树已有用户未提交文件，实施时必须逐项保留；不自动 push、merge 或覆盖。
 - 2026-09-28：Task 0 在 `codex/package-by-feature-refactor` 提交 `9692801`；MyBatis 递归 Mapper 扫描和根包类型别名配置编译通过。
 - 2026-09-28：Task 1 提交 `dff2aec`；11 个公共/安全/Web 类迁包，`mvn -DskipTests compile`、`test-compile`、`git diff --check` 通过，独立审查无 Critical/Important/Minor。
+- 2026-09-28：Task 2 平台支撑类型批提交 `e519684`；28 个 Audit/MQ/Common/Security/Properties/RAG 类型迁包，`mvn -DskipTests compile`、`git diff --check` 通过，独立审查无 Critical/Important/Minor。

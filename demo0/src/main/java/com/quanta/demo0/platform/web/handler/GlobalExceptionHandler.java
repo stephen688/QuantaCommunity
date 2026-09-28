@@ -23,6 +23,8 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import com.quanta.demo0.content.exception.ContentFailedException;
+import com.quanta.demo0.comment.exception.CommentFailedException;
 
 /**
  * 全局异常处理器，处理项目中抛出的业务异常

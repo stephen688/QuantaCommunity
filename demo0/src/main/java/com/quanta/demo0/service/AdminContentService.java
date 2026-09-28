@@ -1,7 +1,7 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.dto.ContentAdminQueryDTO;
-import com.quanta.demo0.dto.ContentAuditDTO;
+import com.quanta.demo0.content.dto.ContentAdminQueryDTO;
+import com.quanta.demo0.content.dto.ContentAuditDTO;
 import com.quanta.demo0.dto.ContentReportHandleDTO;
 import com.quanta.demo0.dto.ContentReportQueryDTO;
 import com.quanta.demo0.platform.common.result.PageResult;

@@ -1,10 +1,10 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.controller.bot.vo.BotSyncDocVO;
-import com.quanta.demo0.controller.bot.vo.BotSyncPageVO;
-import com.quanta.demo0.dto.BotPolicyDocDTO;
-import com.quanta.demo0.entity.BotPolicyDoc;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.vo.BotSyncDocVO;
+import com.quanta.demo0.content.vo.BotSyncPageVO;
+import com.quanta.demo0.content.dto.BotPolicyDocDTO;
+import com.quanta.demo0.content.entity.BotPolicyDoc;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.BotContentSyncMapper;
 import com.quanta.demo0.service.BotContentSyncService;
 import lombok.RequiredArgsConstructor;

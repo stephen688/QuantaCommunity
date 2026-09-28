@@ -1,9 +1,9 @@
 package com.quanta.demo0.controller.bot;
 
 import com.quanta.demo0.annotation.RateLimit;
-import com.quanta.demo0.controller.bot.vo.BotCommentChainVO;
-import com.quanta.demo0.controller.bot.vo.BotCommentHistoryVO;
-import com.quanta.demo0.controller.bot.vo.BotCommentTreeVO;
+import com.quanta.demo0.comment.vo.BotCommentChainVO;
+import com.quanta.demo0.comment.vo.BotCommentHistoryVO;
+import com.quanta.demo0.comment.vo.BotCommentTreeVO;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.BotCommentService;
 import lombok.RequiredArgsConstructor;

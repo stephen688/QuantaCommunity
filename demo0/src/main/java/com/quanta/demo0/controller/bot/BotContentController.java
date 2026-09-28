@@ -2,8 +2,8 @@ package com.quanta.demo0.controller.bot;
 
 import com.quanta.demo0.annotation.RateLimit;
 import com.quanta.demo0.constant.RoleConstants;
-import com.quanta.demo0.controller.bot.vo.BotSyncPageVO;
-import com.quanta.demo0.dto.BotPolicyDocDTO;
+import com.quanta.demo0.content.vo.BotSyncPageVO;
+import com.quanta.demo0.content.dto.BotPolicyDocDTO;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.BotContentSyncService;
 import lombok.RequiredArgsConstructor;

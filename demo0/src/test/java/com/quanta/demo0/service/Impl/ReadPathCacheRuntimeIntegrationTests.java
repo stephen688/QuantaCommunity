@@ -24,7 +24,7 @@ import com.quanta.demo0.service.Impl.ContentDetailCacheServiceImpl;
 import com.quanta.demo0.utils.JwtUtil;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
-import com.quanta.demo0.vo.ContentDetailCacheEntry;
+import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

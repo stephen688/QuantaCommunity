@@ -15,7 +15,7 @@ import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.AuthorProfileCache;
 import com.quanta.demo0.service.FollowService;
 import com.quanta.demo0.service.OutboxEventService;
-import com.quanta.demo0.vo.ContentVO;
+import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.vo.FollowResultVO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -37,6 +37,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.quanta.demo0.constant.RedisConstants.*;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.entity.ContentImage;
 
 /**
  * 关注关系服务实现类。

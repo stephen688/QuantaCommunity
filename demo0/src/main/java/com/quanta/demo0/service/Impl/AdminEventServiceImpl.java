@@ -8,7 +8,7 @@ import com.quanta.demo0.platform.mq.admin.dto.OutboxEventQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.mq.entity.InboxEvent;
 import com.quanta.demo0.platform.mq.entity.OutboxEvent;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.InboxEventMapper;
 import com.quanta.demo0.mapper.OutboxEventMapper;
 import com.quanta.demo0.platform.common.result.PageResult;

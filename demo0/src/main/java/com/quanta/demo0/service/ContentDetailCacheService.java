@@ -1,6 +1,6 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.vo.ContentDetailCacheEntry;
+import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
 
 import java.util.function.Supplier;
 

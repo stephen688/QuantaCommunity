@@ -48,6 +48,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
+import com.quanta.demo0.content.entity.Content;
 
 @MybatisTest
 @Testcontainers

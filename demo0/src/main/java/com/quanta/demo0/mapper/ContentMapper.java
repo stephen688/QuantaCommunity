@@ -1,12 +1,15 @@
 package com.quanta.demo0.mapper;
 
 import com.github.pagehelper.Page;
-import com.quanta.demo0.dto.ContentAdminQueryDTO;
+import com.quanta.demo0.content.dto.ContentAdminQueryDTO;
 import com.quanta.demo0.dto.ContentReportQueryDTO;
 import com.quanta.demo0.entity.*;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.content.entity.ContentImage;
 
 @Mapper
 public interface ContentMapper {

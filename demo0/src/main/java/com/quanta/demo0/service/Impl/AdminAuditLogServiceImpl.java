@@ -4,7 +4,7 @@ import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.platform.audit.dto.AdminAuditLogQueryDTO;
 import com.quanta.demo0.platform.audit.entity.AdminAuditLog;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.AdminAuditLogMapper;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.service.AdminAuditLogService;

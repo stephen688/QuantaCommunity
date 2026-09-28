@@ -1,7 +1,7 @@
 // d:/download/资料/day01/后端初始工程/demo0/src/main/java/com/quanta/demo0/service/ContentExposureService.java
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.entity.Content;
 
 
 /**

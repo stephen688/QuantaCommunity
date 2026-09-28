@@ -12,7 +12,7 @@ import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.controller.bot.BotProfileController;
 import com.quanta.demo0.dto.BotProfileEventDTO;
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mq.consumer.ProfileReconcileConsumer;
 import com.quanta.demo0.mq.message.ProfileReconcileMessage;

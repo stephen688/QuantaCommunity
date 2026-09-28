@@ -1,11 +1,11 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.entity.ContentImage;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.entity.ContentImage;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.enums.ContentDetailState;
-import com.quanta.demo0.vo.ContentDetailCacheEntry;
-import com.quanta.demo0.vo.ContentDetailSnapshot;
+import com.quanta.demo0.content.enums.ContentDetailState;
+import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
+import com.quanta.demo0.content.vo.ContentDetailSnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

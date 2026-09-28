@@ -1,8 +1,8 @@
 package com.quanta.demo0.rag.generation;
 import com.quanta.demo0.rag.exception.RagRetrieveException;
 
-import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.entity.ContentImage;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.entity.ContentImage;
 import com.quanta.demo0.entity.UserAuthInfo;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.UserMapper;
@@ -12,7 +12,7 @@ import com.quanta.demo0.rag.model.RagCandidate;
 import com.quanta.demo0.rag.model.RagSearchRequest;
 import com.quanta.demo0.rag.model.RagSearchResponse;
 import com.quanta.demo0.rag.retrieval.RagRetrieveFacade;
-import com.quanta.demo0.vo.ContentVO;
+import com.quanta.demo0.content.vo.ContentVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;

@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.entity.ContentComment;
+import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;

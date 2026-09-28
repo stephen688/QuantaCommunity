@@ -122,7 +122,7 @@
         delete from tb_comment_like where comment_id in (select comment_id from tb_content_comment
              where content_id = #{contentId})
     </delete>
-    <select id="selectBatchIds" resultType="com.quanta.demo0.entity.Content">
+    <select id="selectBatchIds" resultType="com.quanta.demo0.content.entity.Content">
         SELECT
         c.content_id,
         c.content_type,
@@ -154,7 +154,7 @@
 
     </select>
 
-    <select id="selectApprovedWithoutTags" resultType="com.quanta.demo0.entity.Content">
+    <select id="selectApprovedWithoutTags" resultType="com.quanta.demo0.content.entity.Content">
         SELECT *
         FROM tb_content
         WHERE content_id &gt; #{afterId}
@@ -175,7 +175,7 @@
           AND tags IS NULL
     </update>
 
-    <select id="getMyContentsList" resultType="com.quanta.demo0.entity.Content">
+    <select id="getMyContentsList" resultType="com.quanta.demo0.content.entity.Content">
         SELECT * FROM tb_content
         WHERE publish_user_id = #{userId}
         AND is_deleted = 0
@@ -186,7 +186,7 @@
     </select>
 
 
-    <select id="searchContent" resultType="com.quanta.demo0.entity.Content">
+    <select id="searchContent" resultType="com.quanta.demo0.content.entity.Content">
         select * from tb_content
         where is_deleted = 0
         AND audit_status=1
@@ -198,7 +198,7 @@
         order by create_time desc
     </select>
     <!-- 管理端 - 分页查询内容列表 -->
-    <select id="pageAdmin" resultType="com.quanta.demo0.entity.Content">
+    <select id="pageAdmin" resultType="com.quanta.demo0.content.entity.Content">
         SELECT * FROM tb_content
         <where>
             is_deleted = 0
@@ -223,7 +223,7 @@
         ORDER BY create_time DESC
     </select>
     <!-- C 端 - 分页查询用户公开帖子列表 -->
-    <select id="pageUserPublicContents" resultType="com.quanta.demo0.entity.Content">
+    <select id="pageUserPublicContents" resultType="com.quanta.demo0.content.entity.Content">
         SELECT * FROM tb_content
         WHERE publish_user_id = #{userId}
           AND is_deleted = 0

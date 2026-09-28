@@ -1,14 +1,14 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.dto.CommentAddDTO;
+import com.quanta.demo0.comment.dto.CommentAddDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.entity.ContentComment;
-import com.quanta.demo0.exception.CommentFailedException;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.comment.entity.ContentComment;
+import com.quanta.demo0.comment.exception.CommentFailedException;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.policy.CommentZonePolicy;
+import com.quanta.demo0.comment.policy.CommentZonePolicy;
 import com.quanta.demo0.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.service.CommentAuditService;

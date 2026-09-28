@@ -2,12 +2,12 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.annotation.ModerationTargetType;
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.dto.AnswerDTO;
+import com.quanta.demo0.answer.dto.AnswerDTO;
 import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.enums.NotificationType;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.mapper.UserMapper;
@@ -18,7 +18,7 @@ import com.quanta.demo0.service.AnswerAuditService;
 import com.quanta.demo0.service.AnswerService;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.utils.SensitiveWordChecker;
-import com.quanta.demo0.vo.AnswerVO;
+import com.quanta.demo0.answer.vo.AnswerVO;
 import com.quanta.demo0.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -37,6 +37,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.quanta.demo0.constant.RedisConstants.ANSWER_LIKED_KEY;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.answer.entity.QuestionAnswer;
 
 /**
  * 回答主服务实现类。

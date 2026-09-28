@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.dto.ContentAuditDTO;
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.dto.ContentAuditDTO;
+import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;

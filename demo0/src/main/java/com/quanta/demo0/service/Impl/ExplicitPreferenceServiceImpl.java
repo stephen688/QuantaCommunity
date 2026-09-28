@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.dto.BotProfileEventDTO;
 import com.quanta.demo0.entity.UserProfileSignal;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.UserProfileSignalMapper;
 import com.quanta.demo0.properties.RecommendProperties;
 import com.quanta.demo0.service.ExplicitPreferenceService;

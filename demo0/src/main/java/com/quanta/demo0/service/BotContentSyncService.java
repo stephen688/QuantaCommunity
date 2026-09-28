@@ -1,7 +1,7 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.controller.bot.vo.BotSyncPageVO;
-import com.quanta.demo0.dto.BotPolicyDocDTO;
+import com.quanta.demo0.content.vo.BotSyncPageVO;
+import com.quanta.demo0.content.dto.BotPolicyDocDTO;
 
 /** bot 内容源同步与政策文档管理（C-3）。 */
 public interface BotContentSyncService {

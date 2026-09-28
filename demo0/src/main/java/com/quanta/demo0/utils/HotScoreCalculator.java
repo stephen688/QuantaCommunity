@@ -1,6 +1,6 @@
 package com.quanta.demo0.utils;
 
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.entity.Content;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

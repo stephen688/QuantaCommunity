@@ -1,6 +1,6 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.entity.Content;
 
 import java.util.List;
 import java.util.Map;

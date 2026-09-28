@@ -3,7 +3,7 @@ package com.quanta.demo0.service.Impl;
 import com.quanta.demo0.constant.AdminAuditActionConstants;
 import com.quanta.demo0.constant.RoleConstants;
 import com.quanta.demo0.entity.User;
-import com.quanta.demo0.exception.ContentFailedException;
+import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;

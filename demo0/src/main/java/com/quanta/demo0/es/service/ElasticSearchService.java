@@ -1,10 +1,10 @@
 package com.quanta.demo0.es.service;
 
 import com.github.pagehelper.Page;
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.es.document.AnswerDocument;
 import com.quanta.demo0.result.ReindexResult;
-import com.quanta.demo0.vo.ContentVO;
+import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 import org.springframework.stereotype.Service;
 

@@ -1,6 +1,6 @@
 package com.quanta.demo0.utils;
 
-import com.quanta.demo0.entity.Content;
+import com.quanta.demo0.content.entity.Content;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;

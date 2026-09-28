@@ -1,14 +1,14 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.controller.bot.vo.BotCommentChainVO;
-import com.quanta.demo0.controller.bot.vo.BotCommentHistoryVO;
-import com.quanta.demo0.controller.bot.vo.BotCommentNodeVO;
-import com.quanta.demo0.controller.bot.vo.BotCommentTreeVO;
-import com.quanta.demo0.controller.bot.vo.BotPostVO;
-import com.quanta.demo0.entity.CommentImage;
-import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.entity.ContentComment;
-import com.quanta.demo0.exception.CommentFailedException;
+import com.quanta.demo0.comment.vo.BotCommentChainVO;
+import com.quanta.demo0.comment.vo.BotCommentHistoryVO;
+import com.quanta.demo0.comment.vo.BotCommentNodeVO;
+import com.quanta.demo0.comment.vo.BotCommentTreeVO;
+import com.quanta.demo0.content.vo.BotPostVO;
+import com.quanta.demo0.comment.entity.CommentImage;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.comment.entity.ContentComment;
+import com.quanta.demo0.comment.exception.CommentFailedException;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.service.BotCommentService;

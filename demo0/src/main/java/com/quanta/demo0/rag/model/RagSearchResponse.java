@@ -1,6 +1,6 @@
 package com.quanta.demo0.rag.model;
 
-import com.quanta.demo0.vo.ContentVO;
+import com.quanta.demo0.content.vo.ContentVO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
