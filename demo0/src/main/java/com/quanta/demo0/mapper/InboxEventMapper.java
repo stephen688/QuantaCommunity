@@ -1,9 +1,9 @@
 package com.quanta.demo0.mapper;
 
 import com.github.pagehelper.Page;
-import com.quanta.demo0.dto.InboxEventQueryDTO;
-import com.quanta.demo0.entity.InboxEvent;
-import com.quanta.demo0.vo.EventStatusCountVO;
+import com.quanta.demo0.platform.mq.admin.dto.InboxEventQueryDTO;
+import com.quanta.demo0.platform.mq.entity.InboxEvent;
+import com.quanta.demo0.platform.mq.admin.vo.EventStatusCountVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

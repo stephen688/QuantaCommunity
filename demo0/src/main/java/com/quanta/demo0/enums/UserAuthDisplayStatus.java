@@ -1,4 +1,6 @@
 package com.quanta.demo0.enums;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
+
 
 /**
  * tb_user.auth_status 展示态（与 tb_user_auth.audit_status / {@link AuditStatus} 不同）。

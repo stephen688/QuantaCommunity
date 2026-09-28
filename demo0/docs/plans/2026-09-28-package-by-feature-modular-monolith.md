@@ -68,7 +68,7 @@
 
 | 顶层域 | 保留/新增的内部包 | 关键文件 |
 |---|---|---|
-| `content` | `controller/user,admin,bot`、`service/impl`、`mapper`、`entity`、`dto`、`vo`、`enums`、`exception`、`mq`、`properties` | `ContentController`、`AdminContentController`、`BotContentController`、`ContentCommandService`、`ContentQueryService`、`ContentCounterService`、`ContentAuditService`、`ContentTopicTagService`、`ContentDetailCacheService`、`BotContentSyncService`、对应 Impl 与 Mapper |
+| `content` | `controller/user,admin,bot`、`service/impl`、`mapper`、`entity`、`dto`、`vo`、`exception`、`mq`、`properties` | `ContentController`、`AdminContentController`、`BotContentController`、`ContentCommandService`、`ContentQueryService`、`ContentCounterService`、`ContentAuditService`、`ContentTopicTagService`、`ContentDetailCacheService`、`BotContentSyncService`、对应 Impl 与 Mapper |
 | `answer` | 同上 | `AnswerController`、`AdminAnswerController`、`AnswerCommandService`、`AnswerQueryService`、`AnswerCounterService`、`AnswerAuditService`、对应 Impl 与 Mapper |
 | `comment` | 同上，另有 `policy` | `CommentController`、`AdminCommentController`、`BotCommentController`、`CommentCommandService`、`CommentQueryService`、`CommentCounterService`、`CommentAuditService`、`BotCommentService`、`CommentZonePolicy` |
 | `interaction` | `controller/user`、`service/impl`、`mapper`、`entity`、`dto`、`vo`、`mq` | 内容/评论/回答互动 Service，赞藏举报和浏览历史 Mapper；现有 Controller 的 URL 不改变 |
@@ -94,6 +94,7 @@
 | `platform/mq/admin/controller|service|service.impl|dto|vo` | `AdminEventController`、`AdminEventService` 及 Outbox/Inbox 管理模型 |
 | `platform/audit` | 沿用 `controller/service/impl/mapper/entity/dto/annotation/aop/constant` |
 | `platform/common/result|exception|constant` | `Result`、`PageResult`、`PageVO`、`ScrollResult`、真正通用异常和常量 |
+| `platform/common/enums` | `AuditStatus.java`；内容、回答、评论和身份认证共同使用的既有审核状态码 |
 | `platform/web/controller|handler|config` | `CommonController`、`GlobalExceptionHandler`、Web MVC、OpenAPI |
 | `platform/websocket/config` | `WebSocketConfig` |
 | `platform/oss/service|service.impl|config|properties` | OSS 访问封装；不保留全局 `utils.AliOssUtil` |
@@ -289,7 +290,7 @@ git commit -m "refactor: prepare feature package resource scanning"
 **Interfaces:**
 - Produces: stable common `Result/PageResult/PageVO/ScrollResult` imports and corrected `security.model` / `security.context` packages consumed by every later task.
 
-- [ ] **Step 1: Record the move-only baseline**
+- [x] **Step 1: Record the move-only baseline**
 
 ```powershell
 git status --short
@@ -298,11 +299,11 @@ mvn -DskipTests compile
 
 Expected: compile exits `0`; record unrelated working-tree files and do not stage them.
 
-- [ ] **Step 2: Move the listed files and update package/import declarations**
+- [x] **Step 2: Move the listed files and update package/import declarations**
 
 Use `git mv` from the repository root. Preserve class bodies except package/import changes.
 
-- [ ] **Step 3: Compile once for the complete move batch**
+- [x] **Step 3: Compile once for the complete move batch**
 
 ```powershell
 mvn -DskipTests compile
@@ -310,7 +311,7 @@ mvn -DskipTests compile
 
 Expected: `BUILD SUCCESS`; no test execution in this move-only task.
 
-- [ ] **Step 4: Commit the coherent package move**
+- [x] **Step 4: Commit the coherent package move**
 
 ```powershell
 git add demo0/src/main/java demo0/src/test/java
@@ -320,25 +321,41 @@ git commit -m "refactor: move common results and security context"
 ### Task 2: 迁移业务域的小型 DTO、VO、Entity、Enum、Exception 和 Properties
 
 **Files:**
-- Move to `content/{dto,vo,entity,enums,exception,properties}`: `ContentDTO`、`ContentAdminQueryDTO`、`ContentAuditDTO`、`BotPolicyDocDTO`、`ContentVO`、`ContentDetailSnapshot`、`ContentDetailCacheEntry`、`BotPostVO`、`BotSyncDocVO`、`BotSyncPageVO`、`Content`、`ContentImage`、`BotPolicyDoc`、`AuditStatus`、`ContentDetailState`、`ContentFailedException`、`ContentTopicProperties`.
+- Move to `content/{dto,vo,entity,enums,exception,properties}`: `ContentDTO`、`ContentAdminQueryDTO`、`ContentAuditDTO`、`BotPolicyDocDTO`、`ContentVO`、`ContentDetailSnapshot`、`ContentDetailCacheEntry`、`BotPostVO`、`BotSyncDocVO`、`BotSyncPageVO`、`Content`、`ContentImage`、`BotPolicyDoc`、`ContentDetailState`、`ContentFailedException`、`ContentTopicProperties`.
 - Move to `answer/{dto,vo,entity}`: `AnswerDTO`、`AnswerAdminQueryDTO`、`AnswerVO`、`QuestionAnswer`.
 - Move to `comment/{dto,vo,entity,exception,policy}`: `CommentAddDTO`、`CommentPageDTO`、`ReplyPageDTO`、`CommentAdminQueryDTO`、`CommentAuditDTO`、`CommentPageVO`、所有 `BotComment*VO`、`ContentComment`、`CommentImage`、`ReplyCountRow`、`CommentFailedException`、`CommentZonePolicy`.
 - Move to `interaction/{dto,vo,entity}`: `LikeStateDTO`、`CollectStateDTO`、内容/评论举报 DTO、`LikeResultVO`、`CollectResultVO`、`ContentLiked`、`ContentCollect`、`ContentReport`、`CommentLiked`、`CommentReport`、`AnswerLiked`、`BrowseHistory`.
 - Move to `feed/{dto,entity,properties}`: `RecommendQueryDTO`、`FollowFeedQueryDTO`、`BotProfileEventDTO`、`UserProfileSignal`、`RecommendProperties`.
 - Move to `follow/{dto,vo,entity,exception}`: `FollowStateDTO`、`FollowResultVO`、`Follow`、`FollowException`.
-- Move to `user/{dto,vo,entity,exception,properties}`: 用户登录/资料/管理 DTO、用户相关 VO、`User`、`UserAuthInfo`、用户异常、`WeChatProperties`.
+- Move to `user/{dto,vo,entity,exception,properties}`: 用户登录/资料/管理 DTO、用户相关 VO、`User`、用户异常、`WeChatProperties`; rename the joined projection `UserAuthInfo` to `user.vo.UserAuthInfoVO`.
 - Move to `identity/{dto,vo,entity,enums}`: `UserAuthDTO`、`IdentityAuditDTO`、`IdentityExamDTO`、认证 VO、`UserAuth`、`UserAuthDisplayStatus`.
 - Move to `notification/{vo,entity,enums}`: `NotificationVO`、`Notification`、`NotificationType`.
 - Move to `moderation/{dto,vo,entity,enums,result,properties,policy}`: 审核 DTO/VO/Record、`ModerationDecision`、`ModerationTargetType`、`ModerationResult`、`AliyunModerationProperties`、`ModerationDisabledPolicy`.
 - Move to `search/{dto,vo,entity,properties,constant}`: `SearchDTO`、搜索热门 VO、`EsPageResult`、`ReindexResult`、`SearchHistory`、`SearchTrendingProperties`、`EsIndexConstant`.
+- Move to `platform/audit/{dto,entity}`: `AdminAuditLogQueryDTO`、`AdminAuditLog`.
+- Move to `platform/mq/admin/{dto,vo}`: `InboxEventQueryDTO`、`OutboxEventQueryDTO`、`EventOverviewVO`、`EventRetryDistributionVO`、`EventStatusCountVO`.
+- Move to `platform/mq/{entity,enums,properties}`: `InboxEvent`、`OutboxEvent`、`InboxAcquireResult`、`InboxEventStatus`、`OutboxEventStatus`、`OutboxEventType`、`OutboxDispatchProperties`、`OutboxMaintenanceProperties`.
+- Move to `platform/common/{exception,enums}`: `BaseException`、`NoFoundException`、`AuditStatus`.
+- Move to `platform/security/{exception,vo,properties}`: `AuthFailedException`、`RateLimitExceededException`、`SecurityContextVO`、`JwtProperties`、`SecurityProperties`、`QuantabotProperties`.
+- Move to `platform/redis/properties`: `ReadPathCacheProperties`.
+- Move to `platform/oss/properties`: `AliOssProperties`.
+- Move to `rag/{properties,exception}`: `RagProperties`、`RagRetrieveException`.
 - Modify: all production/test imports only; preserve Lombok、Jackson、Validation annotations and field names.
 
 **Interfaces:**
 - Produces: every data type has one owning domain; later Service/Mapper migration imports these owning packages.
 
+Ownership notes:
+
+- `UserAuthInfoVO` is a user-owned joined read projection. Feed、Content、Comment、Answer and RAG may temporarily import this VO until their dedicated snapshot boundaries land; they must never import it as a user Entity. `UserMapper.xml` result types and batch author queries change package/class only, not SQL or batching.
+- `UserAuthStatusVO` belongs to `identity/vo` even while the legacy `UserController` temporarily returns it.
+- `ContentAuditDTO` temporarily belongs to `content/dto`; Task 7 creates `AnswerAuditDTO` for the answer admin boundary with the same JSON fields.
+- Bot content/comment VO files currently under `controller/bot/vo` move to their owning domain `vo` packages.
+- `ModerationDecision`、`ModerationTargetType`、`ModerationDisabledPolicy` currently live under `annotation`; move them with their consumers and update `ModerationTaskMessage` in the same batch.
+
 - [ ] **Step 1: Move by domain, not by old technical package**
 
-Complete one domain's package declarations and imports before moving to the next. Do not rename fields or convert Entity to record.
+Move platform support types first, then content → answer → comment → interaction → follow/user/identity → feed/search → notification/moderation/rag. Complete one group’s package declarations and imports before the next. Do not rename fields or convert Entity to record; `UserAuthInfo` → `UserAuthInfoVO` is the single approved class rename in this task.
 
 - [ ] **Step 2: Compile once after all leaf models are moved**
 
@@ -856,7 +873,7 @@ git commit -m "docs: record modular monolith refactor evidence"
 
 为避免过度测试，本计划固定测试预算：
 
-1. 阶段一三个 move-only Task：每个 Task 最多一次 `mvn -DskipTests compile`，不跑测试。
+1. 阶段一 move-only Task：Task 1、Task 3 各最多一次编译；Task 2 允许在平台支持类型完成后和全部业务 leaf 完成后各编译一次，不跑测试。
 2. 阶段二完成大多数迁移后：一次 `mvn test`。
 3. 阶段三每个大类组：只运行该 Task 列出的定向测试一次；失败修复后只重跑失败集合。
 4. ArchUnit：独立运行到通过一次。
@@ -893,3 +910,5 @@ git commit -m "docs: record modular monolith refactor evidence"
 
 - 2026-09-28：完成 grill-me 设计讨论并生成本计划；本轮只写计划，尚未迁移业务代码、修改 `pom.xml` 或运行重构测试。
 - 当前工作树已有用户未提交文件，实施时必须逐项保留；不自动 push、merge 或覆盖。
+- 2026-09-28：Task 0 在 `codex/package-by-feature-refactor` 提交 `9692801`；MyBatis 递归 Mapper 扫描和根包类型别名配置编译通过。
+- 2026-09-28：Task 1 提交 `dff2aec`；11 个公共/安全/Web 类迁包，`mvn -DskipTests compile`、`test-compile`、`git diff --check` 通过，独立审查无 Critical/Important/Minor。

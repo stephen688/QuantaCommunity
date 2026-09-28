@@ -2,8 +2,8 @@ package com.quanta.demo0.mq.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.config.RabbitMQConfig;
-import com.quanta.demo0.entity.OutboxEvent;
-import com.quanta.demo0.enums.OutboxEventType;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
+import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 import com.quanta.demo0.mq.message.BotMentionMessage;
 import com.quanta.demo0.mq.message.OutboxRoute;
 import org.junit.jupiter.api.Test;

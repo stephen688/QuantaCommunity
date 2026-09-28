@@ -2,7 +2,7 @@ package com.quanta.demo0.aop;
 
 import com.quanta.demo0.annotation.RateLimit;
 import com.quanta.demo0.constant.RoleConstants;
-import com.quanta.demo0.exception.RateLimitExceededException;
+import com.quanta.demo0.platform.security.exception.RateLimitExceededException;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.security.RateLimitDecision;
 import com.quanta.demo0.service.RateLimitService;

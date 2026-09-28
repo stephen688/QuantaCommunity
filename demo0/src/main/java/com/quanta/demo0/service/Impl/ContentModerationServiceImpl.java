@@ -23,7 +23,7 @@ import com.quanta.demo0.modertion.client.AliyunTextModerationClient;
 import com.quanta.demo0.modertion.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.properties.AliyunModerationProperties;
-import com.quanta.demo0.properties.QuantabotProperties;
+import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.service.ContentModerationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

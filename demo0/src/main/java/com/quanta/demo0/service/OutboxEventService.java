@@ -2,7 +2,7 @@ package com.quanta.demo0.service;
 
 import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.entity.ContentComment;
-import com.quanta.demo0.entity.OutboxEvent;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 import com.quanta.demo0.entity.QuestionAnswer;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 

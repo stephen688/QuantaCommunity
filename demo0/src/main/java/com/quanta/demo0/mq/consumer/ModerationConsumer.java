@@ -2,7 +2,7 @@ package com.quanta.demo0.mq.consumer;
 
 import com.quanta.demo0.annotation.ModerationDecision;
 import com.quanta.demo0.config.RabbitMQConfig;
-import com.quanta.demo0.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.modertion.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.mq.producer.ModerationProducer;

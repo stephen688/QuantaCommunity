@@ -2,8 +2,8 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.mapper.InboxEventMapper;
 import com.quanta.demo0.mapper.OutboxEventMapper;
-import com.quanta.demo0.properties.OutboxMaintenanceProperties;
-import com.quanta.demo0.vo.EventStatusCountVO;
+import com.quanta.demo0.platform.mq.properties.OutboxMaintenanceProperties;
+import com.quanta.demo0.platform.mq.admin.vo.EventStatusCountVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

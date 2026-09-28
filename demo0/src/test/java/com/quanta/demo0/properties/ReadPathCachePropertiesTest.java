@@ -1,4 +1,6 @@
 package com.quanta.demo0.properties;
+import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
+
 
 import org.junit.jupiter.api.Test;
 

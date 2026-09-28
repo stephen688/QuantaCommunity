@@ -5,7 +5,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.enums.ContentDetailState;
-import com.quanta.demo0.properties.ReadPathCacheProperties;
+import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.service.ContentDetailCacheService;
 import com.quanta.demo0.vo.ContentDetailCacheEntry;
 import lombok.extern.slf4j.Slf4j;

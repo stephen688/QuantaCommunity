@@ -1,6 +1,6 @@
 package com.quanta.demo0.mq.consumer;
 
-import com.quanta.demo0.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.mq.producer.UserBehaviorProducer;
 import com.quanta.demo0.properties.RecommendProperties;

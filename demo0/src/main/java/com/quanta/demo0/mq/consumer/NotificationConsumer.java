@@ -3,7 +3,7 @@ package com.quanta.demo0.mq.consumer;
 import com.alibaba.fastjson.JSON;
 import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.entity.Notification;
-import com.quanta.demo0.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.enums.NotificationType;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.mq.producer.NotificationProducer;

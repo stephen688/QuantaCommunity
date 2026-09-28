@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.properties.AliyunModerationProperties;
-import com.quanta.demo0.properties.QuantabotProperties;
+import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.service.UserProfileService;
 import com.quanta.demo0.service.TopicCatalog;

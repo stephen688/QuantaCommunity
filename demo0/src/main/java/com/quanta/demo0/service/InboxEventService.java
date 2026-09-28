@@ -1,6 +1,6 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.*;
 
 import java.time.LocalDateTime;

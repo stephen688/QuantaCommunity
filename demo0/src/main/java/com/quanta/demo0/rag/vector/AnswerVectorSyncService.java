@@ -3,7 +3,7 @@ import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.entity.QuestionAnswer;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagContextDocument;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;

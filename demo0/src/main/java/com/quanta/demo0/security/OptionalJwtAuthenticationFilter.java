@@ -2,7 +2,7 @@ package com.quanta.demo0.security;
 
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
-import com.quanta.demo0.properties.JwtProperties;
+import com.quanta.demo0.platform.security.properties.JwtProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

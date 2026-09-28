@@ -36,7 +36,7 @@
         </where>
     </sql>
 
-    <select id="pageQuery" resultType="com.quanta.demo0.entity.AdminAuditLog">
+    <select id="pageQuery" resultType="com.quanta.demo0.platform.audit.entity.AdminAuditLog">
         select *
         from admin_audit_log
         <include refid="query_condition"/>

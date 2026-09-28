@@ -1,10 +1,12 @@
 package com.quanta.demo0.rag.generation;
+import com.quanta.demo0.rag.exception.RagRetrieveException;
+
 import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.entity.ContentImage;
 import com.quanta.demo0.entity.UserAuthInfo;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagAnswer;
 import com.quanta.demo0.rag.model.RagCandidate;
 import com.quanta.demo0.rag.model.RagSearchRequest;

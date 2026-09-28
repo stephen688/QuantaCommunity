@@ -1,7 +1,7 @@
 package com.quanta.demo0.security;
 
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
-import com.quanta.demo0.properties.JwtProperties;
+import com.quanta.demo0.platform.security.properties.JwtProperties;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

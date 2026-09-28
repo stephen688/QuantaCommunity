@@ -1,6 +1,8 @@
 package com.quanta.demo0.mq.consumer;
+import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 
-import com.quanta.demo0.enums.InboxAcquireResult;
+
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.ProfileReconcileMessage;
 import com.quanta.demo0.mq.producer.ProfileReconcileProducer;
 import com.quanta.demo0.service.ExplicitPreferenceService;
@@ -33,7 +35,7 @@ class ProfileReconcileConsumerTest {
         var producer = mock(ProfileReconcileProducer.class);
         var channel = mock(Channel.class);
         var event = new ProfileReconcileMessage(); event.setEventId("test-profile-event"); event.setUserId(123L);
-        event.setEventType(com.quanta.demo0.enums.OutboxEventType.USER_PROFILE_UPDATED.getCode());
+        event.setEventType(com.quanta.demo0.platform.mq.enums.OutboxEventType.USER_PROFILE_UPDATED.getCode());
         var properties = new MessageProperties(); properties.setDeliveryTag(9L);
         when(inbox.acquire(anyString(),anyString(),eq(event))).thenReturn(InboxAcquireResult.ACQUIRED);
         if (leaseLost) {

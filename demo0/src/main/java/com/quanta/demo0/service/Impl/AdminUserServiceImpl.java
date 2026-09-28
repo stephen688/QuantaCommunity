@@ -5,7 +5,7 @@ import com.quanta.demo0.constant.AdminAuditActionConstants;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.dto.UserAdminQueryDTO;
 import com.quanta.demo0.entity.User;
-import com.quanta.demo0.exception.NoFoundException;
+import com.quanta.demo0.platform.common.exception.NoFoundException;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.service.AdminAuditRecorder;

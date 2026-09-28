@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.entity.AdminAuditLog;
+import com.quanta.demo0.platform.audit.entity.AdminAuditLog;
 import com.quanta.demo0.mapper.AdminAuditLogMapper;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.service.AdminAuditRecorder;

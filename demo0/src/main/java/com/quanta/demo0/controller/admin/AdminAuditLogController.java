@@ -1,8 +1,8 @@
 package com.quanta.demo0.controller.admin;
 
 import com.quanta.demo0.constant.PermissionConstants;
-import com.quanta.demo0.dto.AdminAuditLogQueryDTO;
-import com.quanta.demo0.entity.AdminAuditLog;
+import com.quanta.demo0.platform.audit.dto.AdminAuditLogQueryDTO;
+import com.quanta.demo0.platform.audit.entity.AdminAuditLog;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.AdminAuditLogService;

@@ -3,7 +3,7 @@ package com.quanta.demo0.service.Impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.mapper.OutboxEventMapper;
-import com.quanta.demo0.properties.OutboxDispatchProperties;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

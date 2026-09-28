@@ -1,4 +1,6 @@
 package com.quanta.demo0.service.Impl;
+import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
+
 
 import com.quanta.demo0.dto.FollowFeedQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
@@ -179,9 +181,9 @@ class FollowServiceImplAuthorCacheTest {
                 .build();
     }
 
-    private com.quanta.demo0.properties.ReadPathCacheProperties newReadPathProperties() {
-        com.quanta.demo0.properties.ReadPathCacheProperties properties =
-                new com.quanta.demo0.properties.ReadPathCacheProperties();
+    private com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties newReadPathProperties() {
+        com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties properties =
+                new com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties();
         properties.getAuthor().setMaximumSize(10L);
         properties.getAuthor().setTtlSeconds(180L);
         return properties;

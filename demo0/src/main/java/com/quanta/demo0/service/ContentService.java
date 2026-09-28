@@ -6,7 +6,7 @@ import com.quanta.demo0.dto.ContentReportDTO;
 import com.quanta.demo0.dto.RecommendQueryDTO;
 import com.quanta.demo0.dto.SearchDTO;
 import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.vo.CollectResultVO;
 import com.quanta.demo0.vo.ContentVO;

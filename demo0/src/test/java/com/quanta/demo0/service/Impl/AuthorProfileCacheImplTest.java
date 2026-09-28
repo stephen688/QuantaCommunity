@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.entity.UserAuthInfo;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.properties.ReadPathCacheProperties;
+import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.enums.ContentDetailState;
-import com.quanta.demo0.properties.ReadPathCacheProperties;
+import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.vo.ContentDetailCacheEntry;
 import com.quanta.demo0.vo.ContentDetailSnapshot;
 import org.junit.jupiter.api.BeforeEach;

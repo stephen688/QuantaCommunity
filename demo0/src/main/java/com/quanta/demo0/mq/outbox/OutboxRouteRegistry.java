@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.config.TopicTagMQConfig;
 import com.quanta.demo0.config.ProfileMQConfig;
-import com.quanta.demo0.entity.OutboxEvent;
-import com.quanta.demo0.enums.OutboxEventType;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
+import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 
 import com.quanta.demo0.mq.message.*;
 import lombok.RequiredArgsConstructor;

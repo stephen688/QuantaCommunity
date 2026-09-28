@@ -11,7 +11,7 @@ import com.quanta.demo0.dto.CommentReportQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.entity.CommentReport;
 import com.quanta.demo0.entity.ContentComment;
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.enums.NotificationType;
 import com.quanta.demo0.exception.ContentFailedException;
 import com.quanta.demo0.mapper.CommentMapper;

@@ -1,4 +1,6 @@
 package com.quanta.demo0.controller.user;
+import com.quanta.demo0.platform.security.vo.SecurityContextVO;
+
 
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.dto.UserAuthDTO;
@@ -7,10 +9,10 @@ import com.quanta.demo0.dto.UserLoginDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.entity.User;
 import com.quanta.demo0.entity.UserAuth;
-import com.quanta.demo0.enums.AuditStatus;
-import com.quanta.demo0.exception.AuthFailedException;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
+import com.quanta.demo0.platform.security.exception.AuthFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.properties.JwtProperties;
+import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.PageVO;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;

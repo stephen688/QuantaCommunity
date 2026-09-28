@@ -1,8 +1,8 @@
 package com.quanta.demo0.devtools;
 
 import com.quanta.demo0.constant.JwtClaimsConstant;
-import com.quanta.demo0.properties.JwtProperties;
-import com.quanta.demo0.properties.QuantabotProperties;
+import com.quanta.demo0.platform.security.properties.JwtProperties;
+import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.utils.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;

@@ -1,4 +1,6 @@
 package com.quanta.demo0.reliability;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
+
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;

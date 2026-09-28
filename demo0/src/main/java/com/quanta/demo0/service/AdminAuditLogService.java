@@ -1,7 +1,7 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.dto.AdminAuditLogQueryDTO;
-import com.quanta.demo0.entity.AdminAuditLog;
+import com.quanta.demo0.platform.audit.dto.AdminAuditLogQueryDTO;
+import com.quanta.demo0.platform.audit.entity.AdminAuditLog;
 import com.quanta.demo0.platform.common.result.PageResult;
 
 /**

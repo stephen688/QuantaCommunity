@@ -1,6 +1,6 @@
 package com.quanta.demo0.mq.producer;
 
-import com.quanta.demo0.properties.OutboxDispatchProperties;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.connection.CorrelationData;

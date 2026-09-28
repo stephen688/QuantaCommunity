@@ -1,6 +1,6 @@
 package com.quanta.demo0.security;
 
-import com.quanta.demo0.exception.AuthFailedException;
+import com.quanta.demo0.platform.security.exception.AuthFailedException;
 
 /**
  * Token 认证异常。

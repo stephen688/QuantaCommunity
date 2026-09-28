@@ -1,6 +1,6 @@
 package com.quanta.demo0.config.rag;
 
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.properties.RagProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;

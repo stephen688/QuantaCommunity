@@ -1,8 +1,8 @@
 package com.quanta.demo0.mq.outbox;
 
-import com.quanta.demo0.entity.OutboxEvent;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 import com.quanta.demo0.mq.message.OutboxRoute;
-import com.quanta.demo0.properties.OutboxDispatchProperties;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import com.quanta.demo0.service.OutboxEventService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.connection.CorrelationData;

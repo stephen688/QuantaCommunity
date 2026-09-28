@@ -1,6 +1,6 @@
 package com.quanta.demo0.controller.user;
 
-import com.quanta.demo0.exception.RagRetrieveException;
+import com.quanta.demo0.rag.exception.RagRetrieveException;
 import com.quanta.demo0.rag.generation.RagSearchService;
 import com.quanta.demo0.rag.model.RagSearchRequest;
 import com.quanta.demo0.rag.model.RagSearchResponse;

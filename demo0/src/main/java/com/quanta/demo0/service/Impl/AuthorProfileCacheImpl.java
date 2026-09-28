@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.quanta.demo0.entity.UserAuthInfo;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.properties.ReadPathCacheProperties;
+import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.service.AuthorProfileCache;
 import org.springframework.stereotype.Service;
 

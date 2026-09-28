@@ -3,7 +3,7 @@ import com.github.pagehelper.Page;
 import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.es.document.AnswerDocument;
 import com.quanta.demo0.es.service.ElasticSearchService;
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagCandidate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

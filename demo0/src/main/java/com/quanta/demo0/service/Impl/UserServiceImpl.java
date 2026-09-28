@@ -1,4 +1,7 @@
 package com.quanta.demo0.service.Impl;
+import com.quanta.demo0.platform.common.exception.NoFoundException;
+import com.quanta.demo0.platform.security.exception.AuthFailedException;
+
 
 
 import cn.hutool.core.bean.BeanUtil;
@@ -14,7 +17,7 @@ import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.entity.User;
 import com.quanta.demo0.entity.UserAuth;
 import com.quanta.demo0.entity.UserAuthInfo;
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.enums.UserAuthDisplayStatus;
 import com.quanta.demo0.exception.*;
 import com.quanta.demo0.mapper.ContentMapper;

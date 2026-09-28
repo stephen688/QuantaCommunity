@@ -2,9 +2,9 @@ package com.quanta.demo0.rag.vector;
 
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagContextDocument;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;

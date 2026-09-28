@@ -1,16 +1,18 @@
 package com.quanta.demo0.reliability;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
+
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.entity.*;
-import com.quanta.demo0.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
 import com.quanta.demo0.mapper.InboxEventMapper;
 import com.quanta.demo0.mapper.OutboxEventMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.properties.OutboxDispatchProperties;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.service.InboxEventService;
 import com.quanta.demo0.service.NotificationConsumeService;

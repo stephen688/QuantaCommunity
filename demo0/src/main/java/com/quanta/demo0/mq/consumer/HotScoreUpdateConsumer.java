@@ -1,7 +1,7 @@
 package com.quanta.demo0.mq.consumer;
 
 import com.quanta.demo0.config.RabbitMQConfig;
-import com.quanta.demo0.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.HotScoreMessage;
 import com.quanta.demo0.mq.producer.HotScoreUpdateProducer;
 import com.quanta.demo0.service.ContentService;

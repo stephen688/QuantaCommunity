@@ -5,7 +5,7 @@ import com.quanta.demo0.dto.FollowFeedQueryDTO;
 import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.security.context.BaseContext;
 
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.enums.NotificationType;
 import com.quanta.demo0.exception.FollowException;
 import com.quanta.demo0.mapper.ContentMapper;

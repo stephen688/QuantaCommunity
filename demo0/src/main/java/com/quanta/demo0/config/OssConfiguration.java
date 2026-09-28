@@ -3,7 +3,7 @@ package com.quanta.demo0.config;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.common.comm.Protocol;
-import com.quanta.demo0.properties.AliOssProperties;
+import com.quanta.demo0.platform.oss.properties.AliOssProperties;
 import com.quanta.demo0.utils.AliOssUtil;
 import com.aliyun.oss.ClientBuilderConfiguration;
 import lombok.extern.slf4j.Slf4j;

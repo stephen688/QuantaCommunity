@@ -13,7 +13,7 @@ import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.enums.NotificationType;
 import com.quanta.demo0.enums.ContentDetailState;
 import com.quanta.demo0.es.service.ElasticSearchService;
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.exception.ContentFailedException;
 import com.quanta.demo0.exception.SearchFailedException;
 import com.quanta.demo0.mapper.*;

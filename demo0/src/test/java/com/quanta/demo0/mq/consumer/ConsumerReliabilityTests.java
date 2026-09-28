@@ -2,7 +2,7 @@ package com.quanta.demo0.mq.consumer;
 
 import com.quanta.demo0.annotation.ModerationDecision;
 import com.quanta.demo0.annotation.ModerationTargetType;
-import com.quanta.demo0.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.modertion.result.ModerationResult;
 import com.quanta.demo0.mq.message.FeedDeleteMessage;

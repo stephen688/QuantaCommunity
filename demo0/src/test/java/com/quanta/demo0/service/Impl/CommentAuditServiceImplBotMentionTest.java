@@ -1,11 +1,11 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.entity.ContentComment;
-import com.quanta.demo0.enums.AuditStatus;
+import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.properties.QuantabotProperties;
+import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;

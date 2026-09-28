@@ -1,8 +1,8 @@
 package com.quanta.demo0.mq.consumer;
 
 import com.quanta.demo0.config.ProfileMQConfig;
-import com.quanta.demo0.enums.InboxAcquireResult;
-import com.quanta.demo0.enums.OutboxEventType;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 import com.quanta.demo0.mq.message.ProfileReconcileMessage;
 import com.quanta.demo0.mq.producer.ProfileReconcileProducer;
 import com.quanta.demo0.service.ExplicitPreferenceService;

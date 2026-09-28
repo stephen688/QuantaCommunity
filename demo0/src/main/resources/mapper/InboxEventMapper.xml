@@ -6,7 +6,7 @@
 <mapper namespace="com.quanta.demo0.mapper.InboxEventMapper">
 
     <insert id="insertIfAbsent"
-            parameterType="com.quanta.demo0.entity.InboxEvent">
+            parameterType="com.quanta.demo0.platform.mq.entity.InboxEvent">
 
         INSERT INTO tb_inbox_event (
             event_id,
@@ -37,7 +37,7 @@
     </insert>
 
     <select id="selectByConsumerAndEvent"
-            resultType="com.quanta.demo0.entity.InboxEvent">
+            resultType="com.quanta.demo0.platform.mq.entity.InboxEvent">
 
         SELECT
             id,
@@ -136,7 +136,7 @@
 
 
 
-    <select id="pageAdmin" resultType="com.quanta.demo0.entity.InboxEvent">
+    <select id="pageAdmin" resultType="com.quanta.demo0.platform.mq.entity.InboxEvent">
         SELECT
         id, event_id, consumer_name, outbox_event_id, event_type,
         aggregate_type, aggregate_id, status, retry_count,
@@ -194,7 +194,7 @@
           AND status = 'DEAD'
     </update>
 
-    <select id="countByStatus" resultType="com.quanta.demo0.vo.EventStatusCountVO">
+    <select id="countByStatus" resultType="com.quanta.demo0.platform.mq.admin.vo.EventStatusCountVO">
         SELECT status, COUNT(*) AS count
         FROM tb_inbox_event
         GROUP BY status

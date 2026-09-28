@@ -1,9 +1,9 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.entity.InboxEvent;
-import com.quanta.demo0.entity.OutboxEvent;
-import com.quanta.demo0.enums.InboxAcquireResult;
-import com.quanta.demo0.enums.InboxEventStatus;
+import com.quanta.demo0.platform.mq.entity.InboxEvent;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
+import com.quanta.demo0.platform.mq.enums.InboxEventStatus;
 import com.quanta.demo0.mapper.InboxEventMapper;
 import com.quanta.demo0.mapper.OutboxEventMapper;
 import com.quanta.demo0.mq.message.*;
