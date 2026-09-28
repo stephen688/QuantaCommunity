@@ -1,13 +1,13 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.dto.FollowFeedQueryDTO;
-import com.quanta.demo0.entity.BaseContext;
+import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.entity.UserAuthInfo;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.result.ScrollResult;
+import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.AuthorProfileCache;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.vo.ContentVO;

@@ -4,7 +4,7 @@ import com.quanta.demo0.annotation.RateLimit;
 import com.quanta.demo0.constant.RoleConstants;
 import com.quanta.demo0.controller.bot.vo.BotSyncPageVO;
 import com.quanta.demo0.dto.BotPolicyDocDTO;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.BotContentSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;

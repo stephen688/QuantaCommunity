@@ -1,5 +1,7 @@
 package com.quanta.demo0.security;
 
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
+
 /**
  * HTTP 和 WebSocket 共用的 Token 认证服务。
  */

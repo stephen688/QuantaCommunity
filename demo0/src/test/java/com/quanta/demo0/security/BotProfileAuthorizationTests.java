@@ -2,8 +2,9 @@ package com.quanta.demo0.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.controller.bot.BotProfileController;
-import com.quanta.demo0.entity.BaseContext;
-import com.quanta.demo0.handler.GlobalExceptionHandler;
+import com.quanta.demo0.platform.security.context.BaseContext;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
+import com.quanta.demo0.platform.web.handler.GlobalExceptionHandler;
 import com.quanta.demo0.service.ExplicitPreferenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

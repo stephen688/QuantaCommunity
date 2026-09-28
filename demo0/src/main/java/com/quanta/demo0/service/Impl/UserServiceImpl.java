@@ -10,7 +10,7 @@ import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.dto.UserAuthDTO;
 import com.quanta.demo0.dto.UserInfoDTO;
 import com.quanta.demo0.dto.UserLoginDTO;
-import com.quanta.demo0.entity.BaseContext;
+import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.entity.User;
 import com.quanta.demo0.entity.UserAuth;
 import com.quanta.demo0.entity.UserAuthInfo;

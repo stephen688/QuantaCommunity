@@ -2,7 +2,7 @@ package com.quanta.demo0.service;
 
 import com.quanta.demo0.dto.AdminAuditLogQueryDTO;
 import com.quanta.demo0.entity.AdminAuditLog;
-import com.quanta.demo0.result.PageResult;
+import com.quanta.demo0.platform.common.result.PageResult;
 
 /**
  * 管理端审计日志查询服务。

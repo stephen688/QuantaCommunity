@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.dto.CommentAddDTO;
-import com.quanta.demo0.entity.BaseContext;
+import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.entity.ContentComment;
 import com.quanta.demo0.exception.CommentFailedException;

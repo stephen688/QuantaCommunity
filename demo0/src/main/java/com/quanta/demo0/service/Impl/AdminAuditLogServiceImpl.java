@@ -6,7 +6,7 @@ import com.quanta.demo0.dto.AdminAuditLogQueryDTO;
 import com.quanta.demo0.entity.AdminAuditLog;
 import com.quanta.demo0.exception.ContentFailedException;
 import com.quanta.demo0.mapper.AdminAuditLogMapper;
-import com.quanta.demo0.result.PageResult;
+import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.service.AdminAuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

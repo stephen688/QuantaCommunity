@@ -8,6 +8,7 @@ import com.quanta.demo0.entity.UserAuth;
 import com.quanta.demo0.enums.AuditStatus;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;
+import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.properties.ReadPathCacheProperties;
 import lombok.extern.slf4j.Slf4j;

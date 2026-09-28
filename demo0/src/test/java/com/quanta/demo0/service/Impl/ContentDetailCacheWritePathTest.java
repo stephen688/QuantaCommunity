@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.dto.ContentAuditDTO;
 import com.quanta.demo0.dto.ContentDTO;
-import com.quanta.demo0.entity.BaseContext;
+import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.entity.ContentComment;
 import com.quanta.demo0.enums.AuditStatus;

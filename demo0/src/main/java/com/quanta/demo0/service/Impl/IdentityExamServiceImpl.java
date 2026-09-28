@@ -15,7 +15,7 @@ import com.quanta.demo0.exception.AuthFailedException;
 import com.quanta.demo0.mapper.IdentityExamMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
-import com.quanta.demo0.result.PageResult;
+import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.service.UserReadCacheInvalidator;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.IdentityExamService;

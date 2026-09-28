@@ -1,6 +1,6 @@
-package com.quanta.demo0.handler;
+package com.quanta.demo0.platform.web.handler;
 
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;

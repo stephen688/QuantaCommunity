@@ -2,7 +2,8 @@ package com.quanta.demo0.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.config.SecurityConfiguration;
-import com.quanta.demo0.entity.BaseContext;
+import com.quanta.demo0.platform.security.context.BaseContext;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.properties.JwtProperties;
 import com.quanta.demo0.properties.SecurityProperties;
 import org.junit.jupiter.api.BeforeEach;

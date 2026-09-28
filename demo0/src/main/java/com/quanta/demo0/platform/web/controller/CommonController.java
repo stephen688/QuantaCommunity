@@ -1,7 +1,7 @@
-package com.quanta.demo0.controller.user;
+package com.quanta.demo0.platform.web.controller;
 
 import com.quanta.demo0.annotation.RateLimit;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.utils.AliOssUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

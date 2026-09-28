@@ -7,7 +7,7 @@ import com.quanta.demo0.dto.UserAdminQueryDTO;
 import com.quanta.demo0.entity.User;
 import com.quanta.demo0.exception.NoFoundException;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.result.PageResult;
+import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminUserService;
 import com.quanta.demo0.service.UserReadCacheInvalidator;

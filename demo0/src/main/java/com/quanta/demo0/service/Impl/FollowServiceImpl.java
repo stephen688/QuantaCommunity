@@ -3,6 +3,7 @@ package com.quanta.demo0.service.Impl;
 import cn.hutool.core.util.BooleanUtil;
 import com.quanta.demo0.dto.FollowFeedQueryDTO;
 import com.quanta.demo0.entity.*;
+import com.quanta.demo0.platform.security.context.BaseContext;
 
 import com.quanta.demo0.enums.AuditStatus;
 import com.quanta.demo0.enums.NotificationType;
@@ -10,7 +11,7 @@ import com.quanta.demo0.exception.FollowException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
-import com.quanta.demo0.result.ScrollResult;
+import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.AuthorProfileCache;
 import com.quanta.demo0.service.FollowService;
 import com.quanta.demo0.service.OutboxEventService;

@@ -4,7 +4,7 @@ import com.quanta.demo0.dto.CommentAdminQueryDTO;
 import com.quanta.demo0.dto.CommentAuditDTO;
 import com.quanta.demo0.dto.CommentReportHandleDTO;
 import com.quanta.demo0.dto.CommentReportQueryDTO;
-import com.quanta.demo0.result.PageResult;
+import com.quanta.demo0.platform.common.result.PageResult;
 
 public interface AdminCommentService {
     PageResult pageQuery(CommentAdminQueryDTO query);

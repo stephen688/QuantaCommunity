@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.config.SecurityConfiguration;
 import com.quanta.demo0.constant.RoleConstants;
 import com.quanta.demo0.controller.user.ContentController;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.properties.JwtProperties;
 import com.quanta.demo0.properties.SecurityProperties;
 import com.quanta.demo0.service.ContentService;

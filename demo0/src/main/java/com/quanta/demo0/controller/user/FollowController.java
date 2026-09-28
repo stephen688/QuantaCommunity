@@ -2,8 +2,8 @@ package com.quanta.demo0.controller.user;
 
 import com.quanta.demo0.dto.FollowStateDTO;
 import com.quanta.demo0.dto.FollowFeedQueryDTO;
-import com.quanta.demo0.result.Result;
-import com.quanta.demo0.result.ScrollResult;
+import com.quanta.demo0.platform.common.result.Result;
+import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.FollowService;
 import com.quanta.demo0.vo.FollowResultVO;
 import lombok.AllArgsConstructor;

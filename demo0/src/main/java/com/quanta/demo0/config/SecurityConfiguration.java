@@ -2,7 +2,7 @@ package com.quanta.demo0.config;
 
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.properties.SecurityProperties;
-import com.quanta.demo0.security.AuthenticatedUser;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.security.OptionalJwtAuthenticationFilter;
 import com.quanta.demo0.security.SecurityAccessDeniedHandler;
 import com.quanta.demo0.security.SecurityAuthenticationEntryPoint;

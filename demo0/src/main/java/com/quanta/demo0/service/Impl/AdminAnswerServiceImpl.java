@@ -13,7 +13,7 @@ import com.quanta.demo0.exception.ContentFailedException;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.rag.vector.AnswerVectorSyncService;
-import com.quanta.demo0.result.PageResult;
+import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.service.AdminAnswerService;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.OutboxEventService;

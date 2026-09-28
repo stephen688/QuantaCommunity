@@ -1,7 +1,7 @@
 package com.quanta.demo0.service;
 
 import com.quanta.demo0.vo.NotificationVO;
-import com.quanta.demo0.vo.PageVO;
+import com.quanta.demo0.platform.common.result.PageVO;
 
 public interface NotificationService {
     PageVO<NotificationVO> pageNotifications(Integer page, Integer pageSize);

@@ -1,5 +1,7 @@
 package com.quanta.demo0.security;
 
+import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
+
 /**
  * Short-lived local cache for the database-backed portion of authentication.
  */

@@ -7,11 +7,11 @@ import com.quanta.demo0.dto.RecommendQueryDTO;
 import com.quanta.demo0.dto.SearchDTO;
 import com.quanta.demo0.entity.Content;
 import com.quanta.demo0.enums.AuditStatus;
-import com.quanta.demo0.result.ScrollResult;
+import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.vo.CollectResultVO;
 import com.quanta.demo0.vo.ContentVO;
 import com.quanta.demo0.vo.LikeResultVO;
-import com.quanta.demo0.vo.PageVO;
+import com.quanta.demo0.platform.common.result.PageVO;
 
 import java.time.LocalDateTime;
 import java.util.Map;

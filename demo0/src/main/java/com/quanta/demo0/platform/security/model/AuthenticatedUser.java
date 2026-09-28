@@ -1,4 +1,4 @@
-package com.quanta.demo0.security;
+package com.quanta.demo0.platform.security.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

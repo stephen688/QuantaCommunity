@@ -1,8 +1,8 @@
 package com.quanta.demo0.controller.user;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.NotificationService;
 import com.quanta.demo0.vo.NotificationVO;
-import com.quanta.demo0.vo.PageVO;
+import com.quanta.demo0.platform.common.result.PageVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;

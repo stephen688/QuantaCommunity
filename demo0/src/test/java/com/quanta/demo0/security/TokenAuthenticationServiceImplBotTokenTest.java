@@ -2,6 +2,8 @@ package com.quanta.demo0.security;
 
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
+import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.properties.JwtProperties;
 import com.quanta.demo0.properties.QuantabotProperties;
 import com.quanta.demo0.utils.JwtUtil;

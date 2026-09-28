@@ -6,7 +6,7 @@ import com.quanta.demo0.entity.User;
 import com.quanta.demo0.exception.ContentFailedException;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;
-import com.quanta.demo0.security.AuthenticatedUser;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminRoleService;
 import com.quanta.demo0.service.UserReadCacheInvalidator;

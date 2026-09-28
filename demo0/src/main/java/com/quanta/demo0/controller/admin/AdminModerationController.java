@@ -2,7 +2,7 @@ package com.quanta.demo0.controller.admin;
 
 import com.quanta.demo0.constant.PermissionConstants;
 import com.quanta.demo0.dto.ModerationTargetQueryDTO;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.AdminModerationService;
 import com.quanta.demo0.vo.ModerationRecordVO;
 import lombok.extern.slf4j.Slf4j;

@@ -1,6 +1,6 @@
 package com.quanta.demo0.exception;
 
-import com.quanta.demo0.entity.BaseContext;
+import com.quanta.demo0.platform.security.context.BaseContext;
 
 public class ContentFailedException extends BaseException {
     public ContentFailedException(String message) {

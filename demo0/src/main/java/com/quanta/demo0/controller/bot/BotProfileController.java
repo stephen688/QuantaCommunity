@@ -5,7 +5,7 @@ import com.quanta.demo0.exception.ContentFailedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.ExplicitPreferenceService;
 import com.quanta.demo0.service.TopicCatalog;
 import jakarta.validation.Valid;

@@ -4,7 +4,7 @@ import com.quanta.demo0.annotation.RateLimit;
 import com.quanta.demo0.constant.RoleConstants;
 import com.quanta.demo0.dto.AnswerDTO;
 import com.quanta.demo0.dto.LikeStateDTO;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.AnswerService;
 import com.quanta.demo0.vo.AnswerVO;
 import com.quanta.demo0.vo.LikeResultVO;

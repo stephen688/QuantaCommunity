@@ -1,7 +1,7 @@
 package com.quanta.demo0.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

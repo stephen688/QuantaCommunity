@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.entity.AdminAuditLog;
 import com.quanta.demo0.mapper.AdminAuditLogMapper;
-import com.quanta.demo0.security.AuthenticatedUser;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.service.AdminAuditRecorder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

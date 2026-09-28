@@ -4,7 +4,7 @@ import com.quanta.demo0.exception.RagRetrieveException;
 import com.quanta.demo0.rag.generation.RagSearchService;
 import com.quanta.demo0.rag.model.RagSearchRequest;
 import com.quanta.demo0.rag.model.RagSearchResponse;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

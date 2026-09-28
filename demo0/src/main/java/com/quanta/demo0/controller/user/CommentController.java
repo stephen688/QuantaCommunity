@@ -7,7 +7,7 @@ import com.quanta.demo0.dto.CommentPageDTO;
 import com.quanta.demo0.dto.CommentReportDTO;
 import com.quanta.demo0.dto.LikeStateDTO;
 import com.quanta.demo0.dto.ReplyPageDTO;
-import com.quanta.demo0.result.Result;
+import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.CommentService;
 import com.quanta.demo0.vo.CommentPageVO;
 import com.quanta.demo0.vo.LikeResultVO;

@@ -2,7 +2,7 @@ package com.quanta.demo0.config;
 
 import com.quanta.demo0.properties.JwtProperties;
 import com.quanta.demo0.properties.SecurityProperties;
-import com.quanta.demo0.security.AuthenticatedUser;
+import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.security.TokenAuthenticationException;
 import com.quanta.demo0.security.TokenAuthenticationService;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package com.quanta.demo0.vo;
+package com.quanta.demo0.platform.common.result;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

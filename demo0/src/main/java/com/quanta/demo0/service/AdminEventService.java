@@ -4,7 +4,7 @@ import com.quanta.demo0.dto.InboxEventQueryDTO;
 import com.quanta.demo0.dto.OutboxEventQueryDTO;
 import com.quanta.demo0.entity.InboxEvent;
 import com.quanta.demo0.entity.OutboxEvent;
-import com.quanta.demo0.result.PageResult;
+import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.vo.EventOverviewVO;
 
 public interface AdminEventService {

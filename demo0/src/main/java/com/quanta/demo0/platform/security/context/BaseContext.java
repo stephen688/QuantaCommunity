@@ -1,4 +1,4 @@
-package com.quanta.demo0.entity;
+package com.quanta.demo0.platform.security.context;
 
 public class BaseContext {
 
