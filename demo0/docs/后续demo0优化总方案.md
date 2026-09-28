@@ -18,15 +18,15 @@
 | 7 | 真实压测（JMeter） | 点赞/Feed/详情改造前后各压一轮，所有改造项的数字证据链 | 高 |
 | 8 | 接口防重复提交（幂等 Token） | HTTP 入口侧幂等空白（现有幂等全在 MQ 消费侧），Redis SETNX 原子占位 | 高 |
 | 9 | 私信 + 群聊 | WebSocket/Outbox 基建已就绪的填空；**待定**——小程序场景用户少聊天，后续再决策 | 待定 |
-| 10 | 定时任务多实例防重 | 现有任务（对账/热度重算）多实例重复跑的真 bug；轻量锁 + 幂等语义，**不做框架** | 中 |
+| 10 | 定时任y务多实例防重 | 现有任务（对账/热度重算）多实例重复跑的真 bug；轻量锁 + 幂等语义，**不做框架** | 中 |
 | 11 | 慢 SQL 治理 + 索引优化 | 搭压测的车：slow log 找慢查询，EXPLAIN 前后对比 | 中 |
 | 12 | 按域分包重构（package-by-feature） | 模块化单体：按业务域分包 + 拆 1983 行 ContentServiceImpl；**不做 DDD 战术模式**；整体顺序待定 | 中 |
 
-### 当前实施状态（2026-09-20）
+### 当前实施状态（2026-09-28）
 
 - 第 1 项中的“热榜聚合”已完成代码、真实 Redis 竞态、事务提交后失效、接口运行和全量回归；详细实现与证据见 `docs/plans/2026-09-20-trending-multilevel-cache.md` 和 `docs/api-test/RESULTS.md` 的 S-05 扩展小节。
 - 性能验收暂记 `PARTIAL`：候选三轮吞吐中位数未优于基线，用户决定本轮跳过性能优化与复测；不得在简历或说明中写成“QPS 提升”。
-- 帖子详情、Feed 作者信息和认证链路尚未实施，仍按既定顺序后续单独立项。
+- 帖子详情、Feed 作者信息和认证链路代码已落地，统一计划见 [认证、帖子详情与 Feed 作者读路径缓存](plans/2026-09-20-auth-detail-feed-read-cache.md)。非压测功能验收已完成，状态为 `PASS`，分层证据、全量回归与限制统一见 [RESULTS.md 的 S-RC 小节](api-test/RESULTS.md#read-path-cache)；性能按用户 2026-09-28 指示移入 [第 7 项后续压测计划](#jmeter-load-testing)，保持 `PENDING`，不再阻塞本项功能收口。
 - 第 3 项推荐流个性化的 ①画像 Hash+行为信号、②重排进 recommend() 已完成（2026-09-24，scene 语义按流形态决策收敛：latest→画像流、新增 recommend 显式参数、hot 纯热度序取消曝光去重），真栈验收/全量回归/独立审查证据见 `docs/api-test/RESULTS.md` 的「推荐流个性化（S-PF）」小节；③LLM 主题标签、④Agent 显式信号仍待立项。
 
 明确排除：网关/注册中心（单体上微服务组件是负面信号）、DDD、秒杀（原计划已论证）、主服务堆 AI 功能（模糊 Java 后端定位）。
@@ -37,14 +37,14 @@
 
 ## 1. 全站读路径多级缓存
 
-**是什么**：四个真实读路径加 Caffeine（本地）+ Redis（共享）两级缓存，按 QPS 收益排序。
+**是什么**：四个真实读路径按各自一致性边界缓存：认证安全快照、Feed 作者信息采用 Caffeine 本地缓存；帖子详情和热榜聚合采用 Caffeine + Redis 两级缓存。实现与验收分别以专项计划、`docs/api-test/RESULTS.md` 为准。
 
-**为什么**：缓存必须挂在真实读路径上，不为加而加。Caffeine 挡住最热的共享读（微秒级、不出 JVM），Redis 保实例间一致，MySQL 兜底——相当于"桌上便签 / 部门资料柜 / 档案室"三层。**只用 Redis**：再快也要走网络，热榜级 QPS 全打给它会成为瓶颈；**只用 Caffeine**：多实例各看各的便签，改了标题另一实例永远不知道，必须有共享层保证"过期后大家读到至少是同一份"。边界（不加，含理由）：限流/曝光去重/Inbox 状态机（要跨实例精确或事务一致，"各看各的"会出错）、ES 搜索结果（ES 本身就是检索层，再叠缓存收益小复杂度高）、管理端列表（QPS 低不值得）。
+**为什么**：缓存减少真实读路径中重复的稳定信息查询。认证命中后仍逐次校验 JWT、Redis 会话和封禁标记；详情命中后仍处理访问者高亮和浏览历史；Feed 只缓存作者信息，不缓存整页结果。MySQL 保持事实源地位，本地缓存通过短 TTL 与当前实例失效限制陈旧窗口，详情 Redis 通过条件回填与失效墓碑阻止旧 Loader 回填。边界（不加，含理由）：限流/曝光去重/Inbox 状态机（需要跨实例精确或事务一致）、ES 搜索结果（重复缓存收益小、复杂度高）、管理端列表（QPS 低）。
 
 **怎么做（要点，按优先级）**：
-- 落点④ **认证链路用户信息**（收益最大，每次 HTTP 请求 + WebSocket CONNECT 都走）：`TokenAuthenticationServiceImpl` 现在每次认证查 3 次 MySQL（getById / getUserAuthByUserId / findRoleCodesByUserId）；角色权限低频变更、可容忍秒级陈旧，封禁即时失效由 Redis 登录态层兜底不受影响。Caffeine 30-60s；认证校友标识随它一起缓存（低频变更、高频读）；
-- 落点① 帖子详情：Caffeine 30s + Redis 5-10min，写路径复用现有 `afterCommit` 双驱逐惯例（与 `likeContent` 模式一致）；读压力被 `FeedPushConsumer.reconcile()`、`SearchReconcileService` 等 MQ 消费放大；
-- 落点② Feed 装配作者信息：Caffeine 1-5min（20 条 Feed 查 20 次用户信息，同作者热帖反复查；改昵称延迟一分钟可见可接受）；
+- 落点④ **认证链路用户信息（已实现）**：`TokenAuthenticationServiceImpl` 使用 `AuthenticationSnapshotCacheImpl` 缓存用户、身份与角色安全快照；普通/Service Token 按 Key 隔离，命中后不再查询这三类 MySQL 信息，JWT、会话与封禁判断仍逐次执行。用户安全信息变更后由统一失效器在事务提交后清理当前实例；其他实例陈旧边界见专项计划。
+- 落点① **帖子详情（已实现）**：`ContentDetailCacheServiceImpl` 缓存与访问者无关的内容/图片快照；正常值 TTL 抖动、负缓存、Lua 条件回填与唯一墓碑均已落地。内容、审核与计数写路径通过 `ContentDetailCacheInvalidatorImpl` 在事务提交后清 L1、写 Redis 墓碑；访问者高亮和浏览历史仍逐次处理。
+- 落点② **Feed 装配作者信息（已实现）**：`AuthorProfileCacheImpl.getAll()` 批量读取作者，本地全命中不查作者 Mapper，部分未命中合并为一次批量 SQL。改造前本就一页一次批量作者查询，收益是跨请求复用，不能写成“20 次 SQL 降为 0”；作者资料变更由统一失效器清理当前实例。
 - 落点③ 热榜聚合：Caffeine 5-10s，全站一个 key 命中率极高，顺带把聚合计算挡掉；不担心实例间不一致——各算各的最多差几秒；
 - 三件套对应本项目的真实场景（不是教科书假设）：
   - 穿透 = Feed ZSET 与 MySQL 的**异步删除时间差窗口**：`hideRejectedContent` 走 MQ，删除消息还在重试队列时 ZSET 里留着已删的 contentId，用户点进必然 null——爬虫遍历或 Feed 积压时这些 null 请求全打 DB；方案：空值缓存（null 也写缓存，TTL 60s），防的是自己链路的时差不是黑客；
@@ -145,13 +145,30 @@
 
 ---
 
+<a id="jmeter-load-testing"></a>
+
 ## 7. 真实压测（JMeter）
 
 **是什么**：对点赞接口、Feed 拉取、帖子详情跑真实压测，记录 QPS / P99；改造项完成前后各压一轮留对比数据。
 
 **为什么**：工具已装但上次没跑出数据；它不是独立项，是**其他所有项的证据链**——多级缓存（前后对比）、大 V pipeline（扇出耗时对比）、ES 升级（迁移前后延迟）都靠它出数字。简历上"引入多级缓存"是句干话，"P99 从 X 降到 Y、命中率 Z%"才是亮点。半天到一天。
 
-**怎么做（要点）**：JMeter 线程组模拟登录态（JWT）+ 混合场景（读为主、点赞写入混入）；先压当前基线；每完成一个改造项复压同场景；数据落进简历和本文档。
+**怎么做（要点）**：JMeter 线程组模拟登录态（JWT）+ 混合场景（读为主、点赞写入混入）；使用可比基线与候选留对比数据。执行结果统一落在 `docs/api-test/RESULTS.md`，本索引不复制指标；简历只引用已验证结论。
+
+**认证/详情/Feed 作者缓存压测（2026-09-28 从第 1 项迁入，后续执行）**：本轮先完成缓存功能验收，以下性能任务保持 `PENDING`，不阻塞第 1 项功能收口，也不表示性能提升已获验证。
+
+| 场景 | 请求 | 默认负载 | 关键断言 |
+|---|---|---:|---|
+| auth | `GET /user/security-context` | 30 线程，10 秒启动，60 秒持续 | HTTP 200、业务码 200、userId/roles 存在 |
+| detail | `GET /content/detail/${contentId}` | 20 线程，10 秒启动，60 秒持续 | HTTP 200、业务码 200、contentId 匹配 |
+| feed | `GET /follow/feed?offset=0&pageSize=20` | 20 线程，10 秒启动，60 秒持续 | HTTP 200、业务码 200、list 存在 |
+
+- [ ] 创建 `perf/read-path-cache.jmx` 与 `perf/summarize-read-path-results.ps1`；JMX 支持 `host`、`port`、`token`、`contentId`、`threads`、`ramp`、`duration`、`runAuth`、`runDetail`、`runFeed`，连接/响应超时均为 3000 ms。Token 仅通过命令行属性传入，不写 JMX、报告、脚本或 Git。
+- [ ] 冻结可比基线与候选：同机器、JDK、JMeter、数据规模、用户/contentId、依赖与负载条件；缓存代码已经落地，不能把当前版本冒充改造前基线。以隔离检出的原始版本采样，无法重建可比条件则只报告当前容量，不宣称缓存收益。
+- [ ] auth/detail/feed 各先预热 30 秒，再执行三轮 60 秒基线与三轮候选，轮次间等待 15 秒；每轮错误率为零，比较三轮中位数。
+- [ ] 从 HTML 报告 `statistics.json` 的 `Total` 节点汇总环境、提交 SHA、工作树状态、样本数、错误率、吞吐、min/max/mean/median/P90/P95/P99、收发速率与实际时长；原始 JTL/报告放入已忽略的 `perf/results/`，RESULTS 保留路径和 SHA-256。
+- [ ] 归档基线/候选明细、中位数、绝对与百分比变化，并核对查询调用证据：认证仍查会话/封禁，详情仍读访问者状态/写浏览历史，Feed 改造前已是一页一次批量作者 SQL。不写“详情零数据库访问”或“Feed 20 次 SQL 降为 0”。
+- [ ] 独立抽查每个场景至少一轮基线与候选原始报告、JTL 哈希与 RESULTS 数字，再判定性能门禁；热榜已有性能 `PARTIAL` 与本项分别记录。
 
 ---
 

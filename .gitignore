@@ -48,3 +48,14 @@ resume.html
 *.pdf
 artifacts/
 .trae/
+
+# ---- 本地工具/构建目录（不入库） ----
+.atomcode/
+.codex-build/
+.codex-finalizer/
+.codex-ppt-build/
+docx-qa-v2/
+output/
+resume-v2.html
+resume-v3.html
+build_resume_docx.py

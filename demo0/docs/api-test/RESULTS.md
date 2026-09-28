@@ -22,6 +22,114 @@
 
 ---
 
+<a id="read-path-cache"></a>
+
+## 认证、详情与 Feed 作者缓存（S-RC，2026-09-28）
+
+总体状态：`PASS`（非压测功能门禁）。三条缓存读路径、事务提交后失效、分层故障验收、全量回归与独立复核已完成；性能另项仍为 `PENDING`。本节不覆盖上方历史接口统计。专项设计与门禁见 [统一缓存计划](../plans/2026-09-20-auth-detail-feed-read-cache.md) §7 Task 12～15、§8。
+
+范围调整（用户 2026-09-28 指示）：本轮补齐非压测功能验收；auth/detail/feed 性能脚本、三轮基线/候选与指标比较统一转入 [后续压测计划（总方案第 7 项）](../后续demo0优化总方案.md#jmeter-load-testing)，不再阻塞本项功能验收。迁移不代表性能门禁已通过。
+
+### 当前实现核对
+
+核对版本：`150d6ce88cc692dad1d4bba65d31a43247c84069` + 本轮未提交的测试与文档补充；生产实现未变更。
+
+已核对实现提交：认证 `6341d9b` / `724356d`；详情 `addc4ee` / `363302f` / `2f895fd`；作者与 Feed `5eeab3f` / `e7954fd`；用户提交后失效 `4de66c0` / `bd58e8a`。
+
+| 范围 | 当前实现与边界 | 实现入口 |
+|---|---|---|
+| 认证安全快照 | Caffeine 本地缓存；普通/Service Token Key 隔离；每次仍检查 JWT、会话与封禁 | `AuthenticationSnapshotCacheImpl`、`TokenAuthenticationServiceImpl` |
+| 详情稳定快照 | Caffeine L1 + Redis L2；条件回填、负缓存、TTL 抖动与唯一墓碑；高亮和浏览历史逐请求处理 | `ContentDetailCacheServiceImpl`、`ContentDetailDataLoader`、`ContentServiceImpl.getContentDetail()` |
+| Feed 作者装配 | Caffeine 批量作者缓存；全命中不查作者 Mapper，未命中合并为一次批量查询；改造前本就一页一次批量作者 SQL | `AuthorProfileCacheImpl`、`FollowServiceImpl.getFollowFeed()` |
+| 写后失效 | 有事务时提交后执行、回滚不执行；无事务时立即执行；详情清当前 L1 并写 Redis 墓碑 | `UserReadCacheInvalidatorImpl`、`ContentDetailCacheInvalidatorImpl` |
+
+运行配置以 `src/main/resources/application.yml` 的 `quanta.cache.read-path` 与 `ReadPathCacheProperties` 为权威；认证、作者缓存不做跨实例广播。该表只确认代码落点，不代表 HTTP/STOMP、多实例与故障演练已验收。
+
+### 历史证据检索
+
+本轮核对现有 `docs/`、`perf/`、`target/surefire-reports/` 及上述实现提交。实现提交含代码和测试，未归档三条链路的专项真栈或性能结果；本次检索范围内未找到完整验收记录，不能据此判断历史上从未执行。
+
+本文件并非只有热榜回归证据：2026-09-24「推荐流个性化（S-PF）」已记录全量 `mvn test`：318 tests、0 failures、0 errors、1 skipped。它是历史总回归记录，未保留缓存测试类清单或报告 manifest，不能替代本计划的缓存专项矩阵。2026-05-19 的 `/user/info`、身份状态/详情、`/content/detail`、`/follow/feed` 历史 `PASS` 早于本次缓存改造，同样不能证明缓存命中、失效或故障行为。热榜 S-05 的真实 Redis 与三轮压测只覆盖热榜。
+
+### 本轮定向回归（真实执行）
+
+状态：`PASS`。执行时间为 2026-09-28 09:20:06～09:20:55（Asia/Shanghai），Java 21.0.8、Maven 3.9.11；Docker Desktop Server 29.6.1 的 `docker info` 成功。工作目录为 `demo0/`，执行命令：
+
+```powershell
+mvn -Dtest=ReadPathCachePropertiesTest,AuthenticationSnapshotCacheImplTest,TokenAuthenticationServiceImplTests,TokenAuthenticationServiceImplBotTokenTest,WebSocketAuthenticationTests,AuthorProfileCacheImplTest,FollowServiceImplAuthorCacheTest,UserReadCacheInvalidatorImplTest,UserReadCacheWritePathTest,ContentDetailDataLoaderTest,ContentDetailCacheServiceImplTest,ContentServiceImplDetailCacheTest,ContentDetailCacheInvalidatorImplTest test
+```
+
+退出码 `0`，`BUILD SUCCESS`，Maven 总耗时 `46.878 s`；13 类合计 **69 tests，0 failures，0 errors，0 skipped**。
+
+| 测试范围 | 测试数 | 状态 |
+|---|---|---|
+| 配置校验 | 3 | `PASS` |
+| 认证快照、普通/Service Token 与 WebSocket 认证 | 26 | `PASS` |
+| 作者缓存与 Feed 装配 | 11 | `PASS` |
+| 详情 Loader、缓存、读路径与失效器 | 23 | `PASS` |
+| 用户缓存失效器与资料更新写路径 | 6 | `PASS` |
+
+原始报告：`target/surefire-reports/` 中对应上述 13 类的 `TEST-*.xml` 与 `*.txt`；本机 Maven 日志：`C:/Users/dwc12/AppData/Local/Temp/quanta-cache-targeted-20260928.log`。这些是本机可重生成的构建产物，未纳入版本控制。09:20 阶段日志中的坏 JSON、Redis unavailable 来自 mock 故障注入，不是实际暂停共享 Redis；该轮未执行全量、HTTP/STOMP 真栈故障演练或 JMeter，不能作为真实 Redis 集成证据。后续新增真栈结果单列如下。
+
+### 本轮新增验收与最终回归
+
+2026-09-28 15:14，恢复发布写路径的人工变异后执行：
+
+```powershell
+mvn -Dtest=ContentDetailCacheWritePathTest,UserReadCacheWritePathTest,ReadPathCacheLocalExpiryTests test
+```
+
+`BUILD SUCCESS`，退出码 0，39 tests、0 failures、0 errors、0 skipped，Maven 16.492 s；其中详情写路径 21、用户写路径 16、本地跨实例 TTL 2。日志：`C:/Users/dwc12/AppData/Local/Temp/quanta-cache-writepaths-restored-20260928.log`。
+
+写路径测试调用真实业务 Service、真实失效器及 Caffeine，数据库/Redis/MQ 的外围交互使用 mock；手动触发 Spring 事务同步的提交/回滚，因此不作为真实 MySQL 回滚证据。原有 `UserReadCacheWritePathTest` 两个资料更新测试保留并加强为缓存状态断言，未删除或放宽既有测试。两实例 TTL 测试将配置缩至 1 秒，证明当前实例立即驱逐、另一实例按 TTL 收敛；不宣称实际等待了默认 45/180 秒，也不宣称跨实例广播。
+
+人工变异抽查：发布提交后故意断言旧缓存，单测实际 1 failure；已恢复为新值断言，并由上述 39 项复跑确认恢复。Redis 集成的 CAS/负 TTL 变异及真栈测试结果在最终收口时归档，不能把人为变异结果算作产品失败。
+
+15:20 完成现有缓存测试与新增写路径/Redis/TTL 的 16 类联合定向回归：117 tests、0 failures、0 errors、0 skipped，退出码 0，Maven 31.185 s。命令为上方 09:20 的 13 类，加上 `ContentDetailCacheRedisIntegrationTests,ContentDetailCacheWritePathTest,ReadPathCacheLocalExpiryTests`；日志：`C:/Users/dwc12/AppData/Local/Temp/quanta-cache-functional-targeted-20260928.log`。该轮 Redis 集成为 11 项；随后新增的详情远端 L1 TTL 用例由最终回归另验，不能计入这 117 项。
+
+本地 TTL 作者刷新断言故意改为错误昵称，15:15 的单测产生预期 1 failure、退出码 1（日志 `C:/Users/dwc12/AppData/Local/Temp/quanta-cache-local-mutation-20260928.log`）；恢复后上述联合定向回归为 GREEN。
+
+15:22 最终详情 Redis 单类定向：`mvn -Dtest=ContentDetailCacheRedisIntegrationTests test`，12 tests、0 failures、0 errors、0 skipped，退出码 0，Maven 23.251 s；日志 `C:/Users/dwc12/AppData/Local/Temp/quanta-cache-redis-final-20260928.log`。覆盖真实 JSON/负结果、正常/负 TTL 与墓碑 TTL、坏 JSON 修复、独立实例 L2 回填 L1、回填前后失效及两次不同墓碑竞态、同一隔离 Redis 暂停/恢复、详情远端 L1 的配置 TTL 陈旧窗口。
+
+最终全量：2026-09-28 15:43～15:46，在 `demo0/` 执行 `mvn test`，退出码 0、`BUILD SUCCESS`，**389 tests、0 failures、0 errors、1 skipped**，Maven `03:11 min`。唯一跳过项为既有 `BotServiceTokenGeneratorTest`：默认未启用手工 Token 生成开关，本轮未新增跳过、未修改 POM/CI/生产实现。缓存专项 17 类在同一次全量中合计 **132 tests、0 failures、0 errors、0 skipped**。
+
+最终日志：`C:/Users/dwc12/AppData/Local/Temp/quanta-cache-full-final-20260928.log`，SHA-256：`6C6661D883B9054D96F3D4065DD4AD7376B26615E2DE312FD93722E30E8A3C0F`。最终新增/加强测试报告位于 `target/surefire-reports/TEST-com.quanta.demo0.service.Impl.<类名>.xml`；它们是本机可重生成产物，下表为本次快照，不代表后续重跑的哈希。
+
+| 测试类（源码均在 `src/test/java/com/quanta/demo0/service/Impl/`） | 最终 tests / seconds | 报告 SHA-256 |
+|---|---:|---|
+| `ContentDetailCacheRedisIntegrationTests`（新增） | 12 / 10.325 | `495A5113399EDD54C2C1CBCA942317359E12AC935E6FD01B0BB92A931E270EC9` |
+| `ContentDetailCacheWritePathTest`（新增） | 24 / 0.140 | `EA04F5523B96AF0F56CE378483087D66F4483A38B73B2971B2C083537F0E2E1B` |
+| `UserReadCacheWritePathTest`（加强） | 16 / 0.030 | `B692E899F78DB887D01B5CEA27F523F89141F65E35F47D08A53F22E59F75D03C` |
+| `ReadPathCacheLocalExpiryTests`（新增） | 2 / 2.009 | `373237974B66DC637F30F412E2FC1088EA5A97CBC61C9C3365E0C7E82E81D9D4` |
+| `ReadPathCacheRuntimeIntegrationTests`（新增） | 11 / 60.116 | `44696849D26105B45DA9E02B6E0417AB152BF5D8C46535CE325CBE9285D93F83` |
+
+另新增隔离 schema：`src/test/resources/db/read-path-cache-runtime-schema.sql`；文档改动为本文件、`TEST_PLAN.md`、统一缓存计划及总方案。没有新生产代码、外部依赖、压测脚本或业务数据迁移。
+
+变异闭环：详情 Redis CAS 模式错误导致合法回填断言 RED，负结果误用正常 TTL 导致 4 项 RED；发布提交后错误断言旧值、本地 TTL 错误昵称均各 1 failure。运行时详情标题临时改为 `故意RED-详情` 后执行 `mvn -Dtest=ReadPathCacheRuntimeIntegrationTests#detailUsesL1L2AndRealAuthorAndBrowseHistoryPaths test`，1 failure、退出码 1；恢复后单例通过，最终全量再次确认全部恢复。生产实现、测试断言均无变异残留。
+
+独立复核：第一遍要求补取消点赞/收藏、管理员删除失败和根评论单次失效，以及真实 MySQL 故障与回滚缓存身份断言；均已补齐并由最终全量验证。终审无未解决 Critical/Important；STOMP timeout 的 Minor 表述建议已按下方边界记录。`git diff --check` 通过，未改无关用户文件。
+
+### 最终功能门禁矩阵
+
+| 门禁 | 状态 | 待补证据 |
+|---|---|---|
+| 详情真实 Redis 集成与写路径测试 | `PASS` | 真实 Redis 12 项、详情写路径 24 项、用户写路径 16 项，最终全量全部通过；含审查补充的取消点赞/收藏、管理员删除失败与根评论单次失效 |
+| HTTP / STOMP 认证真栈 | `PASS` | `ReadPathCacheRuntimeIntegrationTests`：缓存命中后会话替换、封禁、退出登录、过期 Token 即时拒绝；普通 BOT 身份 Token 无 BOT 权限，合法服务 Token 通过、其他用户服务 Token 拒绝；STOMP 正例连接成功，负例在 3 秒内未建立连接 |
+| 详情与作者真栈 | `PASS` | 生产 HTTP + 真实 MySQL/Redis；访问者高亮隔离、浏览历史时间逐次更新、资料修改后 Feed 昵称更新；真实 Mapper spy 记录认证热命中不调用三个 Loader、作者全命中零批量查询/部分命中一次只含未命中 ID 的批量查询、详情 L1 命中与独立实例 L2 命中 |
+| 写事务与故障分层矩阵 | `PASS` | HTTP 点赞提交 MySQL、Outbox、Redis 用户态与详情墓碑；真实 TransactionTemplate 验证详情提交/回滚；实际治理 Service 验证角色授予/撤销、身份审核、封禁/解封与角色/身份回滚。Redis 暂停后暖认证仍拒绝，生产详情 Loader 回源真实 MySQL、只入 L1、恢复后原墓碑未被覆盖；真实 Redis 两类并发竞态及配置 TTL 的三类跨实例窗口另由集成/本地测试覆盖 |
+| 当前版本全量回归与专项独立复核 | `PASS` | 全量 389 tests、0 failures、0 errors、既有手工工具 1 skipped；专项 132 项无跳过。独立审查无未解决 Critical/Important，所有临时变异已恢复 |
+| auth / detail / feed 性能比较（已移出本轮） | `SKIP` | 用户明确后移，性能脚本、三轮可比数据与报告核对统一交给总方案第 7 项；该后续计划仍为 `PENDING` |
+
+运行时单类收口为 11 tests、0 failures、0 errors、0 skipped（71.67 s）；最终全量同类 11 项再次通过（60.116 s）。补强过程中两项 Feed 用例曾因夹具使用 UTC 将本地时间转换成未来 score 而失败，已改为过去的毫秒时间并保留原断言，生产逻辑未修改。
+
+证据边界：只有运行时集成中的代表性写操作使用真实 MySQL 事务；完整写路径分支矩阵使用真实业务 Service/缓存与外围 mock，不宣称每个分支均执行了真库故障。治理 Service 的直接调用设置测试管理员上下文，不冒充管理员 HTTP 权限验收；普通/服务 Token 的 HTTP/STOMP 认证未 mock。微信登录采用项目已有测试 code，不代表微信上游验收。Feed ZSET 是隔离测试夹具，真实 HTTP 验证读侧作者装配，不冒充 MQ 扇出验收。运行时只替换无关推荐/ES/向量启动器，RabbitMQ listener 自动启动关闭，未验收机审、AI 或消息消费最终一致性。STOMP 负例因生产拦截器可丢弃 CONNECT，断言为限定时间内未建立连接，不保证服务端立即关闭 WebSocket。
+
+明确限制：认证/作者不做跨实例广播；默认陈旧窗口分别 45/180 秒。共享详情墓碑也不主动驱逐其他实例的 L1，正常默认最多 30 秒；Redis 故障时墓碑写入失败，旧 L2 仍可能存活到剩余 TTL（当前默认上限 360 秒）。两实例测试使用 1 秒隔离配置证明过期机制，不宣称实际等待了默认时长。
+
+热榜 S-05 的真栈与压测仅覆盖热榜；本轮不运行 JMeter、不宣称性能提升，后续性能门禁仍为 `PENDING`。
+
+---
+
 ## Elasticsearch 8 客户端迁移（2026-09-26）
 
 本节只记录本轮已执行证据，不覆盖上方历史接口汇总。代码迁移与三项业务级真栈验收均已完成，本节总状态为 `PASS`。运行窗口为 2026-09-26 21:04～21:08（Asia/Shanghai），验收节点为 Elasticsearch 8.18.8 + analysis-ik 8.18.8、demo0 `:19191`、RabbitMQ `:5674`。
