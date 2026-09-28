@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.properties.RecommendProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

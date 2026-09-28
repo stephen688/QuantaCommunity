@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.properties.RecommendProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.Cursor;

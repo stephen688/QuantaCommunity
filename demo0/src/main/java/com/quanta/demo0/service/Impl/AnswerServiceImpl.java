@@ -19,7 +19,7 @@ import com.quanta.demo0.service.AnswerService;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.answer.vo.AnswerVO;
-import com.quanta.demo0.vo.LikeResultVO;
+import com.quanta.demo0.interaction.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import static com.quanta.demo0.constant.RedisConstants.ANSWER_LIKED_KEY;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.interaction.entity.AnswerLiked;
 
 /**
  * 回答主服务实现类。

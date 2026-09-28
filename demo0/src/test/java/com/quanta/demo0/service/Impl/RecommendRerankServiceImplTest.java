@@ -3,7 +3,7 @@ package com.quanta.demo0.service.Impl;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.properties.RecommendProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.service.RecommendRerankService;
 import com.quanta.demo0.service.UserProfileService;
 import org.junit.jupiter.api.BeforeEach;

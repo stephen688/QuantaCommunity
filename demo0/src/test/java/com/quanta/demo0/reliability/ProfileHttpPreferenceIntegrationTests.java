@@ -11,7 +11,7 @@ import com.quanta.demo0.config.ProfileMQConfig;
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.controller.bot.BotProfileController;
-import com.quanta.demo0.dto.BotProfileEventDTO;
+import com.quanta.demo0.feed.dto.BotProfileEventDTO;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mq.consumer.ProfileReconcileConsumer;
@@ -80,6 +80,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 
 /**
  * 一条有界的真实边界证明：HTTP service-token 鉴权 → MySQL 事实/Outbox → RabbitMQ → Inbox/Redis → 推荐排序。

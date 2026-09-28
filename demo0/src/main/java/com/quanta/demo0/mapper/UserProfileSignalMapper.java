@@ -1,6 +1,6 @@
 package com.quanta.demo0.mapper;
 
-import com.quanta.demo0.entity.UserProfileSignal;
+import com.quanta.demo0.feed.entity.UserProfileSignal;
 import org.apache.ibatis.annotations.*;
 import java.util.List;
 

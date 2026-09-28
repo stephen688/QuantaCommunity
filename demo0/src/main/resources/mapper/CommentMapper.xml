@@ -227,7 +227,7 @@
         ORDER BY create_time DESC
     </select>
     <!-- 管理端 - 分页查询评论举报列表 -->
-    <select id="pageReport" resultType="com.quanta.demo0.entity.CommentReport">
+    <select id="pageReport" resultType="com.quanta.demo0.interaction.entity.CommentReport">
         SELECT * FROM tb_comment_report
         <where>
             is_deleted = 0

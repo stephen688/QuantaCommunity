@@ -5,7 +5,7 @@ import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.properties.RecommendProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.service.RecommendRerankService;
 import com.quanta.demo0.service.UserProfileService;
 import com.quanta.demo0.utils.HotScoreCalculator;

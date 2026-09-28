@@ -2,8 +2,8 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.entity.ContentCollect;
-import com.quanta.demo0.entity.ContentLiked;
+import com.quanta.demo0.interaction.entity.ContentCollect;
+import com.quanta.demo0.interaction.entity.ContentLiked;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;

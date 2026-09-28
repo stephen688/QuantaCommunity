@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.dto.RecommendQueryDTO;
+import com.quanta.demo0.feed.dto.RecommendQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.entity.UserAuthInfo;

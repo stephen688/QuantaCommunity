@@ -1,8 +1,8 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.dto.FollowFeedQueryDTO;
+import com.quanta.demo0.feed.dto.FollowFeedQueryDTO;
 import com.quanta.demo0.platform.common.result.ScrollResult;
-import com.quanta.demo0.vo.FollowResultVO;
+import com.quanta.demo0.follow.vo.FollowResultVO;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;

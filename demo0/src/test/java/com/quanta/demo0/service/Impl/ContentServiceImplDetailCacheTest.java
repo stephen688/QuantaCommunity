@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.entity.BrowseHistory;
+import com.quanta.demo0.interaction.entity.BrowseHistory;
 import com.quanta.demo0.entity.UserAuthInfo;
 import com.quanta.demo0.content.enums.ContentDetailState;
 import com.quanta.demo0.mapper.BrowseHistoryMapper;

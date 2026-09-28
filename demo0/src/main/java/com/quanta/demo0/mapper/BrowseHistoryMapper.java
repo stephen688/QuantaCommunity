@@ -1,7 +1,7 @@
 package com.quanta.demo0.mapper;
 
 import com.github.pagehelper.Page;
-import com.quanta.demo0.entity.BrowseHistory;
+import com.quanta.demo0.interaction.entity.BrowseHistory;
 import com.quanta.demo0.content.entity.Content;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

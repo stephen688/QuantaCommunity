@@ -49,6 +49,10 @@ import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.interaction.entity.ContentLiked;
+import com.quanta.demo0.interaction.entity.ContentCollect;
+import com.quanta.demo0.interaction.entity.AnswerLiked;
+import com.quanta.demo0.follow.entity.Follow;
 
 @MybatisTest
 @Testcontainers

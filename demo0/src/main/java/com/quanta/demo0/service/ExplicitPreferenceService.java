@@ -1,6 +1,6 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.dto.BotProfileEventDTO;
+import com.quanta.demo0.feed.dto.BotProfileEventDTO;
 
 /** 显式画像业务边界：认证在 HTTP 门面，事实与 Outbox 同事务，异步校准派生 Redis。 */
 public interface ExplicitPreferenceService {

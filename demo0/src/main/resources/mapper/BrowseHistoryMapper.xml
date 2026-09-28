@@ -26,7 +26,7 @@
 
     <!-- 浏览对账增量查询（D11）：NOT EXISTS 过滤同一 (user_id, content_id) 的更早行，
          只保留首看行，封死"刷详情页刷画像"；按 id 升序分批，配合 watermark 增量消费 -->
-    <select id="selectIncrementalFirstViews" resultType="com.quanta.demo0.entity.BrowseHistory">
+    <select id="selectIncrementalFirstViews" resultType="com.quanta.demo0.interaction.entity.BrowseHistory">
         SELECT bh.id,
                bh.user_id,
                bh.content_id,

@@ -1,6 +1,6 @@
 package com.quanta.demo0.config;
 
-import com.quanta.demo0.properties.RecommendProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.service.ContentExposureService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -5,8 +5,8 @@ import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.annotation.ModerationTargetType;
 import com.quanta.demo0.content.dto.ContentDTO;
-import com.quanta.demo0.dto.ContentReportDTO;
-import com.quanta.demo0.dto.RecommendQueryDTO;
+import com.quanta.demo0.interaction.dto.ContentReportDTO;
+import com.quanta.demo0.feed.dto.RecommendQueryDTO;
 import com.quanta.demo0.dto.SearchDTO;
 import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.security.context.BaseContext;
@@ -32,11 +32,11 @@ import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.service.RecommendRerankService;
 import com.quanta.demo0.utils.HotScoreCalculator;
 import com.quanta.demo0.utils.SensitiveWordChecker;
-import com.quanta.demo0.vo.CollectResultVO;
+import com.quanta.demo0.interaction.vo.CollectResultVO;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
 import com.quanta.demo0.content.vo.ContentDetailSnapshot;
-import com.quanta.demo0.vo.LikeResultVO;
+import com.quanta.demo0.interaction.vo.LikeResultVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -62,6 +62,10 @@ import static com.quanta.demo0.constant.RedisConstants.*;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.content.entity.ContentImage;
+import com.quanta.demo0.interaction.entity.BrowseHistory;
+import com.quanta.demo0.interaction.entity.ContentLiked;
+import com.quanta.demo0.interaction.entity.ContentReport;
+import com.quanta.demo0.interaction.entity.ContentCollect;
 
 /**
  * 内容域核心服务实现类。

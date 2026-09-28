@@ -1,11 +1,11 @@
 package com.quanta.demo0.service.Impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.quanta.demo0.dto.BotProfileEventDTO;
-import com.quanta.demo0.entity.UserProfileSignal;
+import com.quanta.demo0.feed.dto.BotProfileEventDTO;
+import com.quanta.demo0.feed.entity.UserProfileSignal;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.UserProfileSignalMapper;
-import com.quanta.demo0.properties.RecommendProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.service.OutboxEventService;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;

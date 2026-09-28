@@ -212,7 +212,7 @@
         ORDER BY create_time DESC
     </select>
     <!-- 管理端 - 分页查询帖子举报列表 -->
-    <select id="pageReport" resultType="com.quanta.demo0.entity.ContentReport">
+    <select id="pageReport" resultType="com.quanta.demo0.interaction.entity.ContentReport">
         SELECT * FROM tb_content_report
         <where>
             is_deleted = 0

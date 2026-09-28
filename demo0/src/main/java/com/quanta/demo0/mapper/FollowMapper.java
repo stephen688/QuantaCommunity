@@ -1,6 +1,6 @@
 package com.quanta.demo0.mapper;
 
-import com.quanta.demo0.entity.Follow;
+import com.quanta.demo0.follow.entity.Follow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;

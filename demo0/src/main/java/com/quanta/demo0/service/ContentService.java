@@ -2,15 +2,15 @@ package com.quanta.demo0.service;
 
 
 import com.quanta.demo0.content.dto.ContentDTO;
-import com.quanta.demo0.dto.ContentReportDTO;
-import com.quanta.demo0.dto.RecommendQueryDTO;
+import com.quanta.demo0.interaction.dto.ContentReportDTO;
+import com.quanta.demo0.feed.dto.RecommendQueryDTO;
 import com.quanta.demo0.dto.SearchDTO;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.common.result.ScrollResult;
-import com.quanta.demo0.vo.CollectResultVO;
+import com.quanta.demo0.interaction.vo.CollectResultVO;
 import com.quanta.demo0.content.vo.ContentVO;
-import com.quanta.demo0.vo.LikeResultVO;
+import com.quanta.demo0.interaction.vo.LikeResultVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 
 import java.time.LocalDateTime;

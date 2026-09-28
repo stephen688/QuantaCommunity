@@ -6,9 +6,9 @@ import com.quanta.demo0.dto.*;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.ContentService;
-import com.quanta.demo0.vo.CollectResultVO;
+import com.quanta.demo0.interaction.vo.CollectResultVO;
 import com.quanta.demo0.content.vo.ContentVO;
-import com.quanta.demo0.vo.LikeResultVO;
+import com.quanta.demo0.interaction.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,6 +17,10 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.dto.ContentDTO;
+import com.quanta.demo0.feed.dto.RecommendQueryDTO;
+import com.quanta.demo0.interaction.dto.CollectStateDTO;
+import com.quanta.demo0.interaction.dto.ContentReportDTO;
+import com.quanta.demo0.interaction.dto.LikeStateDTO;
 
 /**
  * 内容接口

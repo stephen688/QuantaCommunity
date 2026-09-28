@@ -3,7 +3,7 @@ package com.quanta.demo0.mq.consumer;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.mq.producer.UserBehaviorProducer;
-import com.quanta.demo0.properties.RecommendProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.service.InboxEventService;
 import com.quanta.demo0.service.UserProfileService;
 import com.rabbitmq.client.Channel;

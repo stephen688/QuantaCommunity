@@ -2,10 +2,10 @@ package com.quanta.demo0.service;
 
 import com.quanta.demo0.comment.dto.CommentAddDTO;
 import com.quanta.demo0.comment.dto.CommentPageDTO;
-import com.quanta.demo0.dto.CommentReportDTO;
+import com.quanta.demo0.interaction.dto.CommentReportDTO;
 import com.quanta.demo0.comment.dto.ReplyPageDTO;
 import com.quanta.demo0.comment.vo.CommentPageVO;
-import com.quanta.demo0.vo.LikeResultVO;
+import com.quanta.demo0.interaction.vo.LikeResultVO;
 
 public interface CommentService {
     Long sendComment(CommentAddDTO commentAddDTO);

@@ -1,11 +1,11 @@
 package com.quanta.demo0.controller.user;
 
-import com.quanta.demo0.dto.FollowStateDTO;
-import com.quanta.demo0.dto.FollowFeedQueryDTO;
+import com.quanta.demo0.follow.dto.FollowStateDTO;
+import com.quanta.demo0.feed.dto.FollowFeedQueryDTO;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.FollowService;
-import com.quanta.demo0.vo.FollowResultVO;
+import com.quanta.demo0.follow.vo.FollowResultVO;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

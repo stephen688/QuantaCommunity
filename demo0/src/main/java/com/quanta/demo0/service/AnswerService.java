@@ -2,7 +2,7 @@ package com.quanta.demo0.service;
 
 import com.quanta.demo0.answer.dto.AnswerDTO;
 import com.quanta.demo0.answer.vo.AnswerVO;
-import com.quanta.demo0.vo.LikeResultVO;
+import com.quanta.demo0.interaction.vo.LikeResultVO;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

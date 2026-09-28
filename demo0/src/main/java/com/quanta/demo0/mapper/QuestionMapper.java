@@ -2,7 +2,7 @@ package com.quanta.demo0.mapper;
 
 import com.github.pagehelper.Page;
 import com.quanta.demo0.answer.dto.AnswerAdminQueryDTO;
-import com.quanta.demo0.entity.AnswerLiked;
+import com.quanta.demo0.interaction.entity.AnswerLiked;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.answer.vo.AnswerVO;
 import org.apache.ibatis.annotations.*;
