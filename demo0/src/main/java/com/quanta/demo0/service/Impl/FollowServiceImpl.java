@@ -2,11 +2,10 @@ package com.quanta.demo0.service.Impl;
 
 import cn.hutool.core.util.BooleanUtil;
 import com.quanta.demo0.feed.dto.FollowFeedQueryDTO;
-import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.security.context.BaseContext;
 
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.follow.exception.FollowException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
@@ -42,6 +41,7 @@ import com.quanta.demo0.content.entity.ContentImage;
 import com.quanta.demo0.follow.entity.Follow;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.notification.entity.Notification;
 
 /**
  * 关注关系服务实现类。

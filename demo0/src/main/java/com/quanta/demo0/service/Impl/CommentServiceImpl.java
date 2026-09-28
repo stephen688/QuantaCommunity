@@ -1,16 +1,15 @@
 package com.quanta.demo0.service.Impl;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.comment.dto.CommentAddDTO;
 import com.quanta.demo0.comment.dto.CommentPageDTO;
 import com.quanta.demo0.interaction.dto.CommentReportDTO;
 import com.quanta.demo0.comment.dto.ReplyPageDTO;
-import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.comment.exception.CommentFailedException;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
@@ -18,7 +17,7 @@ import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.comment.policy.CommentZonePolicy;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.service.CommentAuditService;
 import com.quanta.demo0.service.CommentService;
@@ -46,6 +45,7 @@ import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.entity.ReplyCountRow;
 import com.quanta.demo0.interaction.entity.CommentReport;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
+import com.quanta.demo0.notification.entity.Notification;
 
 /**
  * 评论主服务实现类。

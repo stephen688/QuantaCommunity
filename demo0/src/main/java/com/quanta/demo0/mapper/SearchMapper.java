@@ -1,6 +1,6 @@
 package com.quanta.demo0.mapper;
 
-import com.quanta.demo0.entity.SearchHistory;
+import com.quanta.demo0.search.entity.SearchHistory;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;

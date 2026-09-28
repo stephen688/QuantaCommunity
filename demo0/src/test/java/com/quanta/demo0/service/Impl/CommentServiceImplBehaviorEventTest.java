@@ -9,7 +9,7 @@ import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.comment.policy.CommentZonePolicy;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.service.CommentAuditService;
 import com.quanta.demo0.service.ContentDetailCacheInvalidator;

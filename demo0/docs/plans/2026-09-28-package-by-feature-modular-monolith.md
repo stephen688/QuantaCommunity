@@ -353,11 +353,11 @@ Ownership notes:
 - Bot content/comment VO files currently under `controller/bot/vo` move to their owning domain `vo` packages.
 - `ModerationDecision`、`ModerationTargetType`、`ModerationDisabledPolicy` currently live under `annotation`; move them with their consumers and update `ModerationTaskMessage` in the same batch.
 
-- [ ] **Step 1: Move by domain, not by old technical package**
+- [x] **Step 1: Move by domain, not by old technical package**
 
 Move platform support types first, then content → answer → comment → interaction → follow/user/identity → feed/search → notification/moderation/rag. Complete one group’s package declarations and imports before the next. Do not rename fields or convert Entity to record; `UserAuthInfo` → `UserAuthInfoVO` is the single approved class rename in this task.
 
-- [ ] **Step 2: Compile once after all leaf models are moved**
+- [x] **Step 2: Compile once after all leaf models are moved**
 
 ```powershell
 mvn -DskipTests compile
@@ -365,7 +365,7 @@ mvn -DskipTests compile
 
 Expected: `BUILD SUCCESS`.
 
-- [ ] **Step 3: Check that old leaf packages are empty**
+- [x] **Step 3: Check that old leaf packages are empty**
 
 ```powershell
 rg --files src/main/java/com/quanta/demo0/dto src/main/java/com/quanta/demo0/vo src/main/java/com/quanta/demo0/entity src/main/java/com/quanta/demo0/enums
@@ -373,7 +373,7 @@ rg --files src/main/java/com/quanta/demo0/dto src/main/java/com/quanta/demo0/vo 
 
 Expected: no remaining files except files explicitly deferred by a later task; empty directories are not committed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add demo0/src/main/java demo0/src/test/java
@@ -915,3 +915,4 @@ git commit -m "docs: record modular monolith refactor evidence"
 - 2026-09-28：Task 2 平台支撑类型批提交 `e519684`；28 个 Audit/MQ/Common/Security/Properties/RAG 类型迁包，`mvn -DskipTests compile`、`git diff --check` 通过，独立审查无 Critical/Important/Minor。
 - 2026-09-28：Task 2 的 Content/Answer/Comment 叶子模型批提交 `8b78ee1`；35 个数据模型迁包，`git diff --check` 通过，独立审查无 Critical/Important/Minor；按测试预算留待业务 leaf 全部迁移后统一编译。
 - 2026-09-28：Task 2 的 Interaction/Follow/Feed 叶子模型批提交 `fe8b74f`；26 个数据模型迁包，`git diff --check` 通过，独立审查无 Critical/Important/Minor；未改变既有 UserBehavior/ProfileReconcile 消息契约。
+- 2026-09-28：Task 2 的 User/Identity 叶子模型批提交 `b0659e4`；20 个数据模型迁包，联表投影重命名为 `UserAuthInfoVO`，Mapper 方法名、SQL 和批量查询语义保持不变；`git diff --check` 与独立审查通过。

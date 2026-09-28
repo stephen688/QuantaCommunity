@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.alibaba.fastjson.JSON;
-import com.quanta.demo0.entity.Notification;
+import com.quanta.demo0.notification.entity.Notification;
 import com.quanta.demo0.mapper.NotificationMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.service.InboxEventService;

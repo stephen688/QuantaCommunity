@@ -4,7 +4,7 @@ package com.quanta.demo0.service;
 import com.quanta.demo0.content.dto.ContentDTO;
 import com.quanta.demo0.interaction.dto.ContentReportDTO;
 import com.quanta.demo0.feed.dto.RecommendQueryDTO;
-import com.quanta.demo0.dto.SearchDTO;
+import com.quanta.demo0.search.dto.SearchDTO;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.common.result.ScrollResult;

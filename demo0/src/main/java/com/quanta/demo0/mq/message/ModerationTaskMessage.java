@@ -1,7 +1,7 @@
 // d:/download/资料/day01/后端初始工程/demo0/src/main/java/com/quanta/demo0/mq/message/ModerationTaskMessage.java
 package com.quanta.demo0.mq.message;
 
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

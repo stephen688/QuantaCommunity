@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.constant.AdminAuditActionConstants;
 import com.quanta.demo0.comment.dto.CommentAdminQueryDTO;
 import com.quanta.demo0.comment.dto.CommentAuditDTO;
@@ -12,7 +12,7 @@ import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.interaction.entity.CommentReport;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;

@@ -1,18 +1,17 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.answer.dto.AnswerDTO;
-import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.rag.vector.AnswerVectorSyncService;
 import com.quanta.demo0.service.AnswerAuditService;
 import com.quanta.demo0.service.AnswerService;
@@ -41,6 +40,7 @@ import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.interaction.entity.AnswerLiked;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
+import com.quanta.demo0.notification.entity.Notification;
 
 /**
  * 回答主服务实现类。

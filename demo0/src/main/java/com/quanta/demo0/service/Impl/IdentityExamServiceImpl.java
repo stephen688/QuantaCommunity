@@ -9,7 +9,7 @@ import com.quanta.demo0.identity.dto.IdentityExamDTO;
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.identity.enums.UserAuthDisplayStatus;
 import com.quanta.demo0.platform.security.exception.AuthFailedException;
 import com.quanta.demo0.mapper.IdentityExamMapper;

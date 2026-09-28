@@ -1,11 +1,11 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.dto.ModerationTargetQueryDTO;
-import com.quanta.demo0.entity.ModerationRecord;
+import com.quanta.demo0.moderation.dto.ModerationTargetQueryDTO;
+import com.quanta.demo0.moderation.entity.ModerationRecord;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ModerationRecordMapper;
 import com.quanta.demo0.service.AdminModerationService;
-import com.quanta.demo0.vo.ModerationRecordVO;
+import com.quanta.demo0.moderation.vo.ModerationRecordVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;

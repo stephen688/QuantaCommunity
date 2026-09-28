@@ -1,7 +1,7 @@
 package com.quanta.demo0.service;
 
 
-import com.quanta.demo0.vo.SearchTrendingVO;
+import com.quanta.demo0.search.vo.SearchTrendingVO;
 
 import java.util.List;
 

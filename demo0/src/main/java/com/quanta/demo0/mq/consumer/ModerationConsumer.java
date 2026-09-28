@@ -1,12 +1,12 @@
 package com.quanta.demo0.mq.consumer;
 
-import com.quanta.demo0.annotation.ModerationDecision;
+import com.quanta.demo0.moderation.enums.ModerationDecision;
 import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
-import com.quanta.demo0.modertion.result.ModerationResult;
+import com.quanta.demo0.moderation.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.mq.producer.ModerationProducer;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.service.ContentModerationService;
 import com.quanta.demo0.service.InboxEventService;
 import com.quanta.demo0.service.ModerationResultService;

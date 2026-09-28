@@ -1,8 +1,8 @@
 package com.quanta.demo0.service.Impl;
 
 import com.alibaba.fastjson.JSON;
-import com.quanta.demo0.properties.SearchTrendingProperties;
-import com.quanta.demo0.vo.SearchTrendingVO;
+import com.quanta.demo0.search.properties.SearchTrendingProperties;
+import com.quanta.demo0.search.vo.SearchTrendingVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

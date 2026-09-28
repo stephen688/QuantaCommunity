@@ -13,16 +13,16 @@ package com.quanta.demo0.service.Impl;
  */
 
 import com.alibaba.fastjson.JSON;
-import com.quanta.demo0.annotation.ModerationDecision;
-import com.quanta.demo0.annotation.ModerationTargetType;
-import com.quanta.demo0.entity.ModerationRecord;
+import com.quanta.demo0.moderation.enums.ModerationDecision;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
+import com.quanta.demo0.moderation.entity.ModerationRecord;
 import com.quanta.demo0.mapper.ModerationRecordMapper;
 
 import com.quanta.demo0.modertion.client.AliyunImageModerationClient;
 import com.quanta.demo0.modertion.client.AliyunTextModerationClient;
-import com.quanta.demo0.modertion.result.ModerationResult;
+import com.quanta.demo0.moderation.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.service.ContentModerationService;
 import lombok.extern.slf4j.Slf4j;

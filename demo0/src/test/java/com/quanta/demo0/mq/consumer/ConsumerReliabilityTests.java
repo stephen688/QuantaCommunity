@@ -1,10 +1,10 @@
 package com.quanta.demo0.mq.consumer;
 
-import com.quanta.demo0.annotation.ModerationDecision;
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationDecision;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.es.service.ElasticSearchService;
-import com.quanta.demo0.modertion.result.ModerationResult;
+import com.quanta.demo0.moderation.result.ModerationResult;
 import com.quanta.demo0.mq.message.FeedDeleteMessage;
 import com.quanta.demo0.mq.message.FeedPushMessage;
 import com.quanta.demo0.mq.message.HotScoreMessage;
@@ -15,7 +15,7 @@ import com.quanta.demo0.mq.producer.NotificationProducer;
 import com.quanta.demo0.mq.producer.FeedDeleteProducer;
 import com.quanta.demo0.mq.producer.FeedPushProducer;
 import com.quanta.demo0.mq.producer.HotScoreUpdateProducer;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.service.ContentModerationService;
 import com.quanta.demo0.service.ContentService;
 import com.quanta.demo0.service.FollowService;

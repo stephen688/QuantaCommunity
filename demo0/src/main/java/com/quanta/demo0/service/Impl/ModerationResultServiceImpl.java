@@ -1,8 +1,8 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.annotation.ModerationDecision;
-import com.quanta.demo0.annotation.ModerationTargetType;
-import com.quanta.demo0.modertion.result.ModerationResult;
+import com.quanta.demo0.moderation.enums.ModerationDecision;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
+import com.quanta.demo0.moderation.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.service.AnswerAuditService;
 import com.quanta.demo0.service.CommentAuditService;

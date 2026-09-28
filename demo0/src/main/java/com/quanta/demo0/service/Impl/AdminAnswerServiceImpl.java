@@ -2,13 +2,13 @@ package com.quanta.demo0.service.Impl;
 
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.constant.AdminAuditActionConstants;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.answer.dto.AnswerAdminQueryDTO;
 import com.quanta.demo0.content.dto.ContentAuditDTO;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;

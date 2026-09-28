@@ -20,7 +20,6 @@ import com.quanta.demo0.mq.outbox.OutboxDispatcher;
 import com.quanta.demo0.mq.outbox.OutboxRouteRegistry;
 import com.quanta.demo0.mq.producer.ProfileReconcileProducer;
 import com.quanta.demo0.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.properties.*;
 import com.quanta.demo0.security.*;
 import com.quanta.demo0.service.ExplicitPreferenceService;
 import com.quanta.demo0.service.InboxEventService;

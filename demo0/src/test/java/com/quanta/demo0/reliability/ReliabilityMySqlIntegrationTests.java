@@ -4,7 +4,6 @@ import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.quanta.demo0.entity.*;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
@@ -53,6 +52,7 @@ import com.quanta.demo0.interaction.entity.ContentLiked;
 import com.quanta.demo0.interaction.entity.ContentCollect;
 import com.quanta.demo0.interaction.entity.AnswerLiked;
 import com.quanta.demo0.follow.entity.Follow;
+import com.quanta.demo0.notification.entity.Notification;
 
 @MybatisTest
 @Testcontainers

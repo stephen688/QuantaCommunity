@@ -3,7 +3,7 @@
 <mapper namespace="com.quanta.demo0.mapper.ModerationRecordMapper">
 
     <!-- 插入或更新（审核完成后落库） -->
-    <insert id="insertOrUpdate" parameterType="com.quanta.demo0.entity.ModerationRecord">
+    <insert id="insertOrUpdate" parameterType="com.quanta.demo0.moderation.entity.ModerationRecord">
         INSERT INTO tb_moderation_record (
             target_type, target_id, provider, decision, risk_level, labels,
             reject_reason, raw_response, content_fingerprint, task_status, retry_count, create_time, update_time
@@ -24,7 +24,7 @@
     </insert>
 
     <!-- 查询最新记录 -->
-    <select id="selectLatest" resultType="com.quanta.demo0.entity.ModerationRecord">
+    <select id="selectLatest" resultType="com.quanta.demo0.moderation.entity.ModerationRecord">
         SELECT * FROM tb_moderation_record
         WHERE target_type = #{targetType} AND target_id = #{targetId}
         ORDER BY update_time DESC

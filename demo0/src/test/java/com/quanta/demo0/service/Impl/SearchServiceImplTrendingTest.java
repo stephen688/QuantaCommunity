@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.service.TrendingCacheService;
-import com.quanta.demo0.vo.SearchTrendingVO;
+import com.quanta.demo0.search.vo.SearchTrendingVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 

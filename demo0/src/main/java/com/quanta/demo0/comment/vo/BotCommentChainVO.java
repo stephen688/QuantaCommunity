@@ -1,5 +1,7 @@
 package com.quanta.demo0.comment.vo;
 
+import com.quanta.demo0.content.vo.BotPostVO;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

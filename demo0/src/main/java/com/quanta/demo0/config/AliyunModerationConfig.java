@@ -3,7 +3,7 @@ package com.quanta.demo0.config;
 
 import com.aliyun.green20220302.Client;
 import com.aliyun.teaopenapi.models.Config;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

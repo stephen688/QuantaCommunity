@@ -1,6 +1,6 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.modertion.result.ModerationResult;
+import com.quanta.demo0.moderation.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 
 public interface ModerationResultService {

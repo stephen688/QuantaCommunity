@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.platform.mq.entity.OutboxEvent;

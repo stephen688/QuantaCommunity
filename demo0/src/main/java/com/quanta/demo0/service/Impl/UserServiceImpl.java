@@ -19,7 +19,6 @@ import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.identity.enums.UserAuthDisplayStatus;
-import com.quanta.demo0.exception.*;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;

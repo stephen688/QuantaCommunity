@@ -17,7 +17,7 @@ import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import com.github.pagehelper.Page;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
-import com.quanta.demo0.exception.SearchFailedException;
+import com.quanta.demo0.search.exception.SearchFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,7 +1,7 @@
 // d:/download/资料/day01/后端初始工程/demo0/src/main/java/com/quanta/demo0/mapper/ModerationRecordMapper.java
 package com.quanta.demo0.mapper;
 
-import com.quanta.demo0.entity.ModerationRecord;
+import com.quanta.demo0.moderation.entity.ModerationRecord;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.service.SearchReconcileService;
 import lombok.RequiredArgsConstructor;

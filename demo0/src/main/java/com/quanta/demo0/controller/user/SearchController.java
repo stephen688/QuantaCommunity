@@ -1,12 +1,12 @@
 package com.quanta.demo0.controller.user;
 
-import com.quanta.demo0.dto.SearchDTO;
+import com.quanta.demo0.search.dto.SearchDTO;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.ContentService;
 import com.quanta.demo0.service.SearchService;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.platform.common.result.PageVO;
-import com.quanta.demo0.vo.SearchTrendingVO;
+import com.quanta.demo0.search.vo.SearchTrendingVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

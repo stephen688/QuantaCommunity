@@ -1,6 +1,6 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.entity.Notification;
+import com.quanta.demo0.notification.entity.Notification;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 
 public interface NotificationConsumeService {

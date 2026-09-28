@@ -1,7 +1,7 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.dto.ModerationTargetQueryDTO;
-import com.quanta.demo0.vo.ModerationRecordVO;
+import com.quanta.demo0.moderation.dto.ModerationTargetQueryDTO;
+import com.quanta.demo0.moderation.vo.ModerationRecordVO;
 
 import java.util.List;
 import java.util.Map;

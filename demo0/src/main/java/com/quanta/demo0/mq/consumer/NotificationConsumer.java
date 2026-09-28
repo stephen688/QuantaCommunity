@@ -2,15 +2,15 @@ package com.quanta.demo0.mq.consumer;
 
 import com.alibaba.fastjson.JSON;
 import com.quanta.demo0.config.RabbitMQConfig;
-import com.quanta.demo0.entity.Notification;
+import com.quanta.demo0.notification.entity.Notification;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.mq.producer.NotificationProducer;
 import com.quanta.demo0.service.InboxEventService;
 import com.quanta.demo0.service.NotificationConsumeService;
 import com.quanta.demo0.service.UserAccessStateService;
-import com.quanta.demo0.vo.NotificationVO;
+import com.quanta.demo0.notification.vo.NotificationVO;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;

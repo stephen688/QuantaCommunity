@@ -3,26 +3,25 @@ package com.quanta.demo0.service.Impl;
 import cn.hutool.core.util.BooleanUtil;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.quanta.demo0.annotation.ModerationTargetType;
+import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.content.dto.ContentDTO;
 import com.quanta.demo0.interaction.dto.ContentReportDTO;
 import com.quanta.demo0.feed.dto.RecommendQueryDTO;
-import com.quanta.demo0.dto.SearchDTO;
-import com.quanta.demo0.entity.*;
+import com.quanta.demo0.search.dto.SearchDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.enums.NotificationType;
+import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.enums.ContentDetailState;
 import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.exception.SearchFailedException;
+import com.quanta.demo0.search.exception.SearchFailedException;
 import com.quanta.demo0.mapper.*;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.mq.producer.ModerationProducer;
-import com.quanta.demo0.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.service.ContentAuditService;
 import com.quanta.demo0.service.AuthorProfileCache;
 import com.quanta.demo0.service.ContentDetailCacheInvalidator;
@@ -67,6 +66,8 @@ import com.quanta.demo0.interaction.entity.ContentLiked;
 import com.quanta.demo0.interaction.entity.ContentReport;
 import com.quanta.demo0.interaction.entity.ContentCollect;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
+import com.quanta.demo0.search.entity.SearchHistory;
+import com.quanta.demo0.notification.entity.Notification;
 
 /**
  * 内容域核心服务实现类。
@@ -2012,5 +2013,4 @@ public class ContentServiceImpl implements ContentService {
         }
     }
 }
-
 

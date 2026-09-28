@@ -7,7 +7,6 @@ import com.quanta.demo0.platform.security.exception.RateLimitExceededException;
 
 
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.exception.*;
 import com.quanta.demo0.platform.common.result.Result;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +26,7 @@ import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.comment.exception.CommentFailedException;
 import com.quanta.demo0.user.exception.UserInfoFailedException;
 import com.quanta.demo0.user.exception.LoginFailedException;
+import com.quanta.demo0.search.exception.SearchFailedException;
 
 /**
  * 全局异常处理器，处理项目中抛出的业务异常

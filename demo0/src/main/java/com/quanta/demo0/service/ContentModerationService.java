@@ -1,6 +1,6 @@
 // d:/download/资料/day01/后端初始工程/demo0/src/main/java/com/quanta/demo0/service/ContentModerationService.java
 package com.quanta.demo0.service;
-import com.quanta.demo0.modertion.result.ModerationResult;
+import com.quanta.demo0.moderation.result.ModerationResult;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 
 public interface ContentModerationService {
