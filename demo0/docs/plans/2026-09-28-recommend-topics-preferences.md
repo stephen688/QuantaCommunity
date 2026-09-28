@@ -12,7 +12,8 @@
 
 ## 需求结论与 Global Constraints
 
-- ③每帖 2–3 个主题标签，来自 20–50 个固定主题；结构化 contentType 标签保留，唯一扩展入口为 `UserProfileServiceImpl.resolveContentTags`。
+- ③每帖可有多个主题标签，最多 3 个，按相关性取最相关者，不强凑两三个；来自已确认的下述 26 项词表。结构化 contentType 标签保留，不计入主题标签上限；唯一扩展入口为 `UserProfileServiceImpl.resolveContentTags`。
+- 无主题命中的内容允许返回空数组并标记为已处理，不编造标签、不让合法空结果无限重试。未知 ID、超限、非法 JSON 属无效模型输出，拒绝并进入重试；重复 ID 去重。
 - ③仅给当前审核通过且未删除内容打标。先完成增量链路、可限量/可续跑工具与小批真实验证，工具跑通后的全量存量回填是一次独立批量执行，不在本次偷偷执行。
 - ④仅同步未来发生的明确主题喜好/厌恶，兼容 user、feedback 记忆。学院、年级等个人事实不当作兴趣；不回填历史记忆或行为。
 - ④未来 ADD、UPDATE、DELETE 均支持；替换/撤销旧贡献，重复投递不重复加权，乱序旧事件不能复活已撤销的偏好。负偏好强降权、不硬屏蔽。
@@ -24,6 +25,39 @@
 - 工作区：`C:/Users/dwc12/.codex/worktrees/recommend-topics-preferences/QuantaCommunity`，分支 `codex/recommend-topics-preferences`，基线 `f023c770701c2dff45d9bf02c3e544b993b20726`。不覆盖原工作区未提交修改，不自动 push/merge。
 
 ## 契约与迁移边界
+
+### 已确认的完整词表（26 项）
+
+| ID | 标签 | 归类边界 |
+|---|---|---|
+| course_study | 课程学业 | 课程、作业、期末考试 |
+| software_technology | 软件技术 | 编程、开发工具、AI 应用，不另设同层人工智能标签 |
+| experience_sharing | 经验分享 | 学习、工作或实习经验；可与领域标签共存，替换电子硬件 |
+| research_project | 科研项目 | 实验、论文、科研方法；竞赛按实际领域归类，不设泛竞赛标签 |
+| further_education | 升学规划 | 考研、保研、留学 |
+| career_internship | 求职实习 | 简历、面试、招聘、实习 |
+| campus_policy | 校务政策 | 校园规则及政策解读 |
+| campus_services | 校园办事 | 校园办事流程、材料、服务 |
+| housing | 宿舍住宿 | 宿舍、租住及住宿事项 |
+| dining | 食堂餐饮 | 食堂、餐饮及吃饭讨论 |
+| transport | 出行交通 | 公交、通勤及出行 |
+| saving | 消费省钱 | 消费选择、优惠及省钱 |
+| second_hand | 二手闲置 | 二手交易及闲置物品 |
+| basketball | 篮球 | 篮球运动 |
+| football | 足球 | 足球运动 |
+| badminton | 羽毛球 | 羽毛球运动 |
+| table_tennis | 乒乓球 | 乒乓球运动 |
+| running | 跑步 | 跑步运动 |
+| swimming | 游泳 | 游泳运动 |
+| strength_training | 力量训练 | 器械、抗阻及力量训练；不设笼统运动标签 |
+| gaming | 游戏娱乐 | 游戏及相关娱乐 |
+| music_arts | 音乐文艺 | 音乐及文艺活动 |
+| reading_film | 阅读影视 | 阅读、影视作品讨论 |
+| club_activity | 社团活动 | 社团、组织及社团活动 |
+| relationships | 人际交往 | 人际沟通及交往 |
+| psychological_adjustment | 心理调适 | 压力应对及心理调适内容；不根据个人情绪事实推断兴趣 |
+
+经验分享是内容性质而非互斥分类：学习经验可为 `experience_sharing + course_study`，实习经验可为 `experience_sharing + career_internship`。偏好别名不得把窄范围厌恶扩成整类厌恶；运动七项独立映射，不再映射到笼统“运动健身”。
 
 主服务词表接口 `GET /bot/profile/topics` 返回 Result 包裹的主题数组，每项 `{id,label,aliases}`，20–50 项且 id 唯一；主服务资源文件是唯一词表来源。
 
@@ -100,3 +134,4 @@ uv run --project QuantaBot pytest QuantaBot/tests/unit -q
 
 - 2026-09-28：用户已确认简单计划及所有范围选择，并明确要求“写一个计划，然后开始执行”；无需重复等待执行方式选择。计划采用两个实现任务并行、一个验证收尾任务。
 - 基线 Docker ServerVersion 29.6.1 可读；尚未运行本次功能测试或真实调用，后续记录不得把此前 M5 证据当成本次证据。
+- 用户补充后已暂停并完成词表对齐：26 项已确认；电子硬件替换为经验分享；每帖最多三个主题标签，可同时命中多个领域。现在恢复两个实现任务。
