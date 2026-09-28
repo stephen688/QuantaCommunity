@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.config.ProfileMQConfig;
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.controller.bot.BotProfileController;
+import com.quanta.demo0.feed.controller.bot.BotProfileController;
 import com.quanta.demo0.feed.dto.BotProfileEventDTO;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;

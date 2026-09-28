@@ -917,3 +917,4 @@ git commit -m "docs: record modular monolith refactor evidence"
 - 2026-09-28：Task 2 的 Interaction/Follow/Feed 叶子模型批提交 `fe8b74f`；26 个数据模型迁包，`git diff --check` 通过，独立审查无 Critical/Important/Minor；未改变既有 UserBehavior/ProfileReconcile 消息契约。
 - 2026-09-28：Task 2 的 User/Identity 叶子模型批提交 `b0659e4`；20 个数据模型迁包，联表投影重命名为 `UserAuthInfoVO`，Mapper 方法名、SQL 和批量查询语义保持不变；`git diff --check` 与独立审查通过。
 - 2026-09-28：Task 2 最后一批 Notification/Moderation/Search 叶子模型提交 `9897900`；21 个类型迁包，旧顶层 `dto/vo/entity/enums` 包清空，统一 `mvn -DskipTests compile` 与 `git diff --check` 通过，独立审查无 Critical/Important/Minor。
+- 2026-09-28：Task 3 提交 `b4d185a`；8 组 Mapper/XML 成对迁移，Audit、Event Admin、OSS、WebSocket 归位，`AliOssUtil` 收口为 `AliOssService`；最终增量编译、`git diff --check` 与独立审查通过。
