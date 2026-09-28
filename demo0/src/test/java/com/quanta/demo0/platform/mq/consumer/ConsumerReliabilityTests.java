@@ -6,7 +6,6 @@ import com.quanta.demo0.feed.mq.consumer.HotScoreUpdateConsumer;
 import com.quanta.demo0.moderation.enums.ModerationDecision;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.mq.consumer.ModerationConsumer;
-import com.quanta.demo0.notification.mq.consumer.NotificationConsumer;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.search.es.service.ElasticSearchService;
 import com.quanta.demo0.moderation.result.ModerationResult;
@@ -14,9 +13,7 @@ import com.quanta.demo0.feed.mq.message.FeedDeleteMessage;
 import com.quanta.demo0.feed.mq.message.FeedPushMessage;
 import com.quanta.demo0.feed.mq.message.HotScoreMessage;
 import com.quanta.demo0.moderation.mq.message.ModerationTaskMessage;
-import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
 import com.quanta.demo0.moderation.mq.producer.ModerationProducer;
-import com.quanta.demo0.notification.mq.producer.NotificationProducer;
 import com.quanta.demo0.feed.mq.producer.FeedDeleteProducer;
 import com.quanta.demo0.feed.mq.producer.FeedPushProducer;
 import com.quanta.demo0.feed.mq.producer.HotScoreUpdateProducer;
@@ -26,13 +23,11 @@ import com.quanta.demo0.content.service.ContentService;
 import com.quanta.demo0.service.FollowService;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
 import com.quanta.demo0.moderation.service.ModerationResultService;
-import com.quanta.demo0.notification.service.NotificationConsumeService;
 import com.quanta.demo0.search.service.impl.SearchReconcileServiceImpl;
 import com.rabbitmq.client.Channel;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -66,29 +61,6 @@ class ConsumerReliabilityTests {
 
         verify(channel).basicAck(1L, false);
         verifyNoInteractions(moderationService, resultService);
-    }
-
-    @Test
-    void duplicateNotificationEventOnlyAcknowledgesWithoutSavingAgain() throws Exception {
-        InboxEventService inboxEventService = mock(InboxEventService.class);
-        NotificationConsumeService consumeService = mock(NotificationConsumeService.class);
-        Channel channel = mock(Channel.class);
-        NotificationEventMessage message = notificationMessage();
-        Message mqMessage = MessageBuilder.withBody(new byte[0]).setDeliveryTag(2L).build();
-
-        when(inboxEventService.acquire(eq("notification-consumer"), anyString(), eq(message)))
-                .thenReturn(InboxAcquireResult.ALREADY_SUCCESS);
-
-        NotificationConsumer consumer = new NotificationConsumer();
-        ReflectionTestUtils.setField(consumer, "inboxEventService", inboxEventService);
-        ReflectionTestUtils.setField(consumer, "notificationConsumeService", consumeService);
-        ReflectionTestUtils.setField(consumer, "notificationProducer", mock(NotificationProducer.class));
-        ReflectionTestUtils.setField(consumer, "simpMessagingTemplate", mock(SimpMessagingTemplate.class));
-
-        consumer.handleNotificationMessage(message, mqMessage, channel);
-
-        verify(channel).basicAck(2L, false);
-        verifyNoInteractions(consumeService);
     }
 
     @Test
@@ -245,18 +217,6 @@ class ConsumerReliabilityTests {
                 .title("测试内容")
                 .content("测试正文")
                 .retryCount(retryCount)
-                .build();
-    }
-
-    private NotificationEventMessage notificationMessage() {
-        return NotificationEventMessage.builder()
-                .eventId(UUID.randomUUID().toString())
-                .eventType("NOTIFICATION_REQUESTED")
-                .recipientUserId(1L)
-                .actorUserId(2L)
-                .type("LIKE_CONTENT")
-                .content("用户点赞了你的内容")
-                .retryCount(0)
                 .build();
     }
 

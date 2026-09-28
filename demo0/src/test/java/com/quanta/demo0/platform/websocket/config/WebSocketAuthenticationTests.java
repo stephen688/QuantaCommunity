@@ -1,4 +1,4 @@
-package com.quanta.demo0.config;
+package com.quanta.demo0.platform.websocket.config;
 
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.SecurityProperties;

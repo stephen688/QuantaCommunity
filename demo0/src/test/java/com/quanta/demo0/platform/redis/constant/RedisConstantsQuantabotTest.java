@@ -1,4 +1,4 @@
-package com.quanta.demo0.constant;
+package com.quanta.demo0.platform.redis.constant;
 
 import org.junit.jupiter.api.Test;
 

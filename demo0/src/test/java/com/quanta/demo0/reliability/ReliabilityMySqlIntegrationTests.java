@@ -80,7 +80,7 @@ class ReliabilityMySqlIntegrationTests {
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
         registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
-        registry.add("mybatis.mapper-locations", () -> "classpath:mapper/*.xml");
+        registry.add("mybatis.mapper-locations", () -> "classpath*:/mapper/**/*.xml");
     }
 
     @Autowired

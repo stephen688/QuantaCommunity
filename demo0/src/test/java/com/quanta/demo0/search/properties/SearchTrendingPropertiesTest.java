@@ -1,4 +1,4 @@
-package com.quanta.demo0.properties;
+package com.quanta.demo0.search.properties;
 
 import org.junit.jupiter.api.Test;
 

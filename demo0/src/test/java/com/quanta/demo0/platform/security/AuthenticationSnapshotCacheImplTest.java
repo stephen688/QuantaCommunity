@@ -1,5 +1,8 @@
 package com.quanta.demo0.platform.security;
 
+import com.quanta.demo0.platform.security.service.impl.AuthenticationSnapshotCacheImpl;
+
+
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;

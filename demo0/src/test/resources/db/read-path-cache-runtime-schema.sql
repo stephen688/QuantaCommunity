@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS tb_content (
     content_type INT,
     title VARCHAR(255),
     content TEXT,
+    tags JSON DEFAULT NULL,
     publish_user_id BIGINT,
     audit_status INT DEFAULT 0,
     liked INT DEFAULT 0,

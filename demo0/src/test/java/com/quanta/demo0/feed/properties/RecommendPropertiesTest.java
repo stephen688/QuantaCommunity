@@ -1,4 +1,4 @@
-package com.quanta.demo0.properties;
+package com.quanta.demo0.feed.properties;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;

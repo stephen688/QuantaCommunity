@@ -1,5 +1,8 @@
 package com.quanta.demo0.platform.security;
 
+import com.quanta.demo0.platform.security.constant.RolePermissionMapping;
+
+
 import com.quanta.demo0.platform.security.constant.RoleConstants;
 import org.junit.jupiter.api.Test;
 

@@ -89,7 +89,7 @@ rag:
     max-chunks-per-doc: 64
 mybatis:
   #mapper配置文件
-  mapper-locations: classpath:mapper/**/*.xml
+  mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.quanta.demo0
   configuration:
     #开启驼峰命名

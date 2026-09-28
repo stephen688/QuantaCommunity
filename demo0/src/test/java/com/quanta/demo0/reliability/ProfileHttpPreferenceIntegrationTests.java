@@ -102,7 +102,7 @@ import com.quanta.demo0.user.entity.User;
         "spring.ai.openai.api-key=test-only-no-network",
         "spring.ai.qwen-openai.api-key=test-only-no-network",
         "mybatis.configuration.map-underscore-to-camel-case=true",
-        "mybatis.type-aliases-package=com.quanta.demo0.entity"
+        "mybatis.type-aliases-package=com.quanta.demo0"
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ProfileHttpPreferenceIntegrationTests {
@@ -121,7 +121,7 @@ class ProfileHttpPreferenceIntegrationTests {
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
         registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
-        registry.add("mybatis.mapper-locations", () -> "classpath:mapper/*.xml");
+        registry.add("mybatis.mapper-locations", () -> "classpath*:/mapper/**/*.xml");
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }
@@ -317,7 +317,12 @@ class ProfileHttpPreferenceIntegrationTests {
     @EnableMethodSecurity
     @EnableTransactionManagement
     @EnableAspectJAutoProxy
-    @MapperScan("com.quanta.demo0.mapper")
+    @MapperScan({
+            "com.quanta.demo0.mapper",
+            "com.quanta.demo0.feed.mapper",
+            "com.quanta.demo0.platform.mq.mapper",
+            "com.quanta.demo0.platform.security.mapper"
+    })
     @Import({
             ExplicitPreferenceServiceImpl.class,
             OutboxEventServiceImpl.class,

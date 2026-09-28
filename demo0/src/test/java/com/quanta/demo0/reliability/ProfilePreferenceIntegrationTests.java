@@ -1,4 +1,8 @@
 package com.quanta.demo0.reliability;
+
+import com.quanta.demo0.platform.mq.service.InboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
+
 import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 
 
@@ -72,7 +76,8 @@ import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.user.entity.User;
 
 /** 真 MySQL/RabbitMQ/Redis 定向闭环；隔离容器，不修改真实用户。付费标签 smoke 显式开启，仅一帖。 */
-@MybatisTest @Testcontainers
+@MybatisTest
+@Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({ExplicitPreferenceServiceImpl.class, OutboxEventServiceImpl.class, InboxEventServiceImpl.class,
@@ -89,7 +94,7 @@ class ProfilePreferenceIntegrationTests {
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
         registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
-        registry.add("mybatis.mapper-locations", () -> "classpath:mapper/*.xml");
+        registry.add("mybatis.mapper-locations", () -> "classpath*:/mapper/**/*.xml");
     }
     @Autowired JdbcTemplate jdbc;
     @Autowired ExplicitPreferenceService preferences;
