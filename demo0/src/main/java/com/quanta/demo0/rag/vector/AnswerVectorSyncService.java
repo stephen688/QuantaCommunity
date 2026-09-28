@@ -1,5 +1,5 @@
 package com.quanta.demo0.rag.vector;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;

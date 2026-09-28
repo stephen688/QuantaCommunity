@@ -23,8 +23,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.quanta.demo0.constant.RedisConstants.RECOMMEND_HOT_ALL_KEY;
-import static com.quanta.demo0.constant.RedisConstants.USER_FOLLOWER_RANK_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.RECOMMEND_HOT_ALL_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.USER_FOLLOWER_RANK_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;

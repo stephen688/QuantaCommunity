@@ -2,7 +2,7 @@ package com.quanta.demo0.user.controller.user;
 import com.quanta.demo0.platform.security.vo.SecurityContextVO;
 
 
-import com.quanta.demo0.constant.JwtClaimsConstant;
+import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
 import com.quanta.demo0.identity.dto.UserAuthDTO;
 import com.quanta.demo0.user.dto.UserInfoDTO;
 import com.quanta.demo0.user.dto.UserLoginDTO;
@@ -18,7 +18,7 @@ import com.quanta.demo0.platform.common.result.PageVO;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.service.ContentService;
 import com.quanta.demo0.service.UserService;
-import com.quanta.demo0.utils.JwtUtil;
+import com.quanta.demo0.platform.security.utils.JwtUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,8 +31,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.quanta.demo0.constant.RedisConstants.LOGIN_USER_KEY;
-import static com.quanta.demo0.constant.RedisConstants.LOGIN_USER_TTL;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER_TTL;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.interaction.entity.BrowseHistory;

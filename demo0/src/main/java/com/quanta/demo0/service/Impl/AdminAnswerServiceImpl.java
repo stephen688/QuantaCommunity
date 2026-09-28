@@ -4,7 +4,7 @@ import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.answer.dto.AnswerAdminQueryDTO;
 import com.quanta.demo0.content.dto.ContentAuditDTO;
 import com.quanta.demo0.answer.entity.QuestionAnswer;

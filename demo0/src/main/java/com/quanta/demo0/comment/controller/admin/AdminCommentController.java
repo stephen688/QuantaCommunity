@@ -2,7 +2,7 @@ package com.quanta.demo0.comment.controller.admin;
 
 import com.quanta.demo0.platform.audit.annotation.AdminAudit;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
-import com.quanta.demo0.constant.PermissionConstants;
+import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.comment.dto.CommentAdminQueryDTO;
 import com.quanta.demo0.comment.dto.CommentAuditDTO;
 import com.quanta.demo0.interaction.dto.CommentReportHandleDTO;

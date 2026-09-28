@@ -1,6 +1,6 @@
 package com.quanta.demo0.comment.controller.bot;
 
-import com.quanta.demo0.annotation.RateLimit;
+import com.quanta.demo0.platform.security.annotation.RateLimit;
 import com.quanta.demo0.comment.vo.BotCommentChainVO;
 import com.quanta.demo0.comment.vo.BotCommentHistoryVO;
 import com.quanta.demo0.comment.vo.BotCommentTreeVO;

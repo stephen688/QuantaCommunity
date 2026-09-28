@@ -1,6 +1,6 @@
 package com.quanta.demo0.platform.security.model;
 
-import com.quanta.demo0.security.TokenAuthenticationServiceImpl;
+import com.quanta.demo0.platform.security.service.impl.TokenAuthenticationServiceImpl;
 
 import java.util.Set;
 

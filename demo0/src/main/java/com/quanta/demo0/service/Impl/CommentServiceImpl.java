@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.comment.dto.CommentAddDTO;
 import com.quanta.demo0.comment.dto.CommentPageDTO;
 import com.quanta.demo0.interaction.dto.CommentReportDTO;

@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.quanta.demo0.constant.RedisConstants.FEED_ALL_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.FEED_ALL_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;

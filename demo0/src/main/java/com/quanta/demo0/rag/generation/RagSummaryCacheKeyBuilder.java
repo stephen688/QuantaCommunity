@@ -1,6 +1,6 @@
 package com.quanta.demo0.rag.generation;
 
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagCandidate;
 import lombok.extern.slf4j.Slf4j;

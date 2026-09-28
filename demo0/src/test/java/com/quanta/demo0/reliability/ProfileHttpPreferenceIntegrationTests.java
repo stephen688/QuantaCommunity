@@ -8,8 +8,8 @@ import com.quanta.demo0.platform.security.properties.SecurityProperties;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.config.ProfileMQConfig;
-import com.quanta.demo0.constant.JwtClaimsConstant;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.feed.controller.bot.BotProfileController;
 import com.quanta.demo0.feed.dto.BotProfileEventDTO;
 import com.quanta.demo0.content.entity.Content;
@@ -20,7 +20,11 @@ import com.quanta.demo0.mq.outbox.OutboxDispatcher;
 import com.quanta.demo0.mq.outbox.OutboxRouteRegistry;
 import com.quanta.demo0.mq.producer.ProfileReconcileProducer;
 import com.quanta.demo0.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.security.*;
+import com.quanta.demo0.platform.security.filter.OptionalJwtAuthenticationFilter;
+import com.quanta.demo0.platform.security.handler.SecurityAccessDeniedHandler;
+import com.quanta.demo0.platform.security.handler.SecurityAuthenticationEntryPoint;
+import com.quanta.demo0.platform.security.service.impl.AuthenticationSnapshotCacheImpl;
+import com.quanta.demo0.platform.security.service.impl.TokenAuthenticationServiceImpl;
 import com.quanta.demo0.service.ExplicitPreferenceService;
 import com.quanta.demo0.service.InboxEventService;
 import com.quanta.demo0.service.OutboxEventService;
@@ -29,7 +33,7 @@ import com.quanta.demo0.service.Impl.InboxEventServiceImpl;
 import com.quanta.demo0.service.Impl.OutboxEventServiceImpl;
 import com.quanta.demo0.service.Impl.RecommendRerankServiceImpl;
 import com.quanta.demo0.service.Impl.UserProfileServiceImpl;
-import com.quanta.demo0.utils.JwtUtil;
+import com.quanta.demo0.platform.security.utils.JwtUtil;
 import com.rabbitmq.client.GetResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -329,7 +333,7 @@ class ProfileHttpPreferenceIntegrationTests {
             OptionalJwtAuthenticationFilter.class,
             SecurityAuthenticationEntryPoint.class,
             SecurityAccessDeniedHandler.class,
-            com.quanta.demo0.config.SecurityConfiguration.class,
+            com.quanta.demo0.platform.security.config.SecurityConfiguration.class,
             BotProfileController.class
     })
     static class TestConfig {

@@ -1,10 +1,10 @@
 package com.quanta.demo0.aop;
 
-import com.quanta.demo0.annotation.RateLimit;
-import com.quanta.demo0.constant.RoleConstants;
+import com.quanta.demo0.platform.security.annotation.RateLimit;
+import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
-import com.quanta.demo0.security.RateLimitDecision;
-import com.quanta.demo0.service.RateLimitService;
+import com.quanta.demo0.platform.security.model.RateLimitDecision;
+import com.quanta.demo0.platform.security.service.RateLimitService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

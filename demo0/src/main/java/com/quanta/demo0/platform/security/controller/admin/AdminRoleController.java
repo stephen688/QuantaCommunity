@@ -2,9 +2,9 @@ package com.quanta.demo0.platform.security.controller.admin;
 
 import com.quanta.demo0.platform.audit.annotation.AdminAudit;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
-import com.quanta.demo0.constant.PermissionConstants;
+import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.AdminRoleService;
+import com.quanta.demo0.platform.security.service.AdminRoleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;

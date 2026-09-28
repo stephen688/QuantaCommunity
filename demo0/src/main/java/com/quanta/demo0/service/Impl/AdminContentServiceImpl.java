@@ -35,7 +35,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static com.quanta.demo0.constant.RedisConstants.*;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.*;
 
 /**
  * 管理端内容服务实现类。

@@ -8,8 +8,8 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.alibaba.fastjson.JSONObject;
 
-import com.quanta.demo0.constant.JwtClaimsConstant;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.identity.dto.UserAuthDTO;
 import com.quanta.demo0.user.dto.UserInfoDTO;
 import com.quanta.demo0.user.dto.UserLoginDTO;
@@ -26,7 +26,7 @@ import com.quanta.demo0.user.properties.WeChatProperties;
 import com.quanta.demo0.service.UserService;
 import com.quanta.demo0.service.UserReadCacheInvalidator;
 import com.quanta.demo0.utils.HttpClientUtil;
-import com.quanta.demo0.utils.JwtUtil;
+import com.quanta.demo0.platform.security.utils.JwtUtil;
 import com.quanta.demo0.utils.SensitiveWordChecker;
 import com.quanta.demo0.identity.vo.UserAuthStatusVO;
 import com.quanta.demo0.user.vo.UserInfoVO;
@@ -43,8 +43,8 @@ import java.util.Map;
 import java.util.Objects;
 
 
-import static com.quanta.demo0.constant.RedisConstants.LOGIN_USER_KEY;
-import static com.quanta.demo0.constant.SystemConstant.USER_NICK_NAME_PREFIX;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER_KEY;
+import static com.quanta.demo0.platform.common.constant.SystemConstant.USER_NICK_NAME_PREFIX;
 import com.quanta.demo0.user.exception.UserInfoFailedException;
 import com.quanta.demo0.user.exception.LoginFailedException;
 

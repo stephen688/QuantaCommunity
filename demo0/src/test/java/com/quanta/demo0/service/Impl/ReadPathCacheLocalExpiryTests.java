@@ -1,13 +1,13 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.constant.RoleConstants;
+import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
-import com.quanta.demo0.security.AuthenticationSnapshotCacheImpl;
+import com.quanta.demo0.platform.security.service.impl.AuthenticationSnapshotCacheImpl;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

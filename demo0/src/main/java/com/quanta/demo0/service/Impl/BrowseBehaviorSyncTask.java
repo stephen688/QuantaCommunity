@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.interaction.entity.BrowseHistory;
 import com.quanta.demo0.mapper.BrowseHistoryMapper;
 import com.quanta.demo0.service.OutboxEventService;

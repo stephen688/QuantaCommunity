@@ -1,7 +1,7 @@
 package com.quanta.demo0.content.controller.user;
 
-import com.quanta.demo0.annotation.RateLimit;
-import com.quanta.demo0.constant.RoleConstants;
+import com.quanta.demo0.platform.security.annotation.RateLimit;
+import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.ContentService;

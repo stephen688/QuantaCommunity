@@ -2,7 +2,7 @@ package com.quanta.demo0.user.controller.admin;
 
 import com.quanta.demo0.platform.audit.annotation.AdminAudit;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
-import com.quanta.demo0.constant.PermissionConstants;
+import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.user.dto.UserAdminQueryDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;

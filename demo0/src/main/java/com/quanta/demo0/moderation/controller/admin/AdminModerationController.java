@@ -1,6 +1,6 @@
 package com.quanta.demo0.moderation.controller.admin;
 
-import com.quanta.demo0.constant.PermissionConstants;
+import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.moderation.dto.ModerationTargetQueryDTO;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.service.AdminModerationService;

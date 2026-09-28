@@ -1,6 +1,6 @@
 package com.quanta.demo0.platform.web.controller;
 
-import com.quanta.demo0.annotation.RateLimit;
+import com.quanta.demo0.platform.security.annotation.RateLimit;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.oss.service.AliOssService;
 import lombok.extern.slf4j.Slf4j;

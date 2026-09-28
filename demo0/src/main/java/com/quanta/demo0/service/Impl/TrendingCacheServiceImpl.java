@@ -3,7 +3,7 @@ package com.quanta.demo0.service.Impl;
 import com.alibaba.fastjson.JSON;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.search.properties.SearchTrendingProperties;
 import com.quanta.demo0.service.TrendingCacheService;
 import com.quanta.demo0.search.vo.SearchTrendingVO;

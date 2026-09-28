@@ -9,8 +9,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import static com.quanta.demo0.constant.RedisConstants.RECOMMEND_ALL_KEY;
-import static com.quanta.demo0.constant.RedisConstants.RECOMMEND_HOT_ALL_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.RECOMMEND_ALL_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.RECOMMEND_HOT_ALL_KEY;
 
 /**
  * 应用启动后检查推荐流 Redis；若为空则从 MySQL 已通过内容预热。

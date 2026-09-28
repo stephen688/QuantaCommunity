@@ -19,7 +19,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.util.List;
 
-import static com.quanta.demo0.constant.RedisConstants.RECOMMEND_HOT_ALL_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.RECOMMEND_HOT_ALL_KEY;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;

@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.config.ProfileMQConfig;
 import com.quanta.demo0.config.TopicTagMQConfig;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.feed.dto.BotProfileEventDTO;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;

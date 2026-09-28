@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.answer.dto.AnswerDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.quanta.demo0.constant.RedisConstants.ANSWER_LIKED_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.ANSWER_LIKED_KEY;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.interaction.entity.AnswerLiked;

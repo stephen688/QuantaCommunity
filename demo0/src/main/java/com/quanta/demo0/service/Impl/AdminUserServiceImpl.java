@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.user.dto.UserAdminQueryDTO;
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.platform.common.exception.NoFoundException;
@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-import static com.quanta.demo0.constant.RedisConstants.LOGIN_USER_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER_KEY;
 
 /**
  * 管理端用户服务实现类。

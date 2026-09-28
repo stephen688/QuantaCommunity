@@ -1,9 +1,9 @@
 package com.quanta.demo0.devtools;
 
-import com.quanta.demo0.constant.JwtClaimsConstant;
+import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
-import com.quanta.demo0.utils.JwtUtil;
+import com.quanta.demo0.platform.security.utils.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.boot.context.properties.bind.Binder;

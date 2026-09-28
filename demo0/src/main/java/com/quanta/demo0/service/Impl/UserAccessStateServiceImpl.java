@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.constant.RedisConstants;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.service.UserAccessStateService;
 import lombok.extern.slf4j.Slf4j;

@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.security.AuthenticationSnapshotCache;
+import com.quanta.demo0.platform.security.service.AuthenticationSnapshotCache;
 import com.quanta.demo0.service.AuthorProfileCache;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,7 +9,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static com.quanta.demo0.constant.RedisConstants.SECURITY_VERIFIED_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.SECURITY_VERIFIED_KEY;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;

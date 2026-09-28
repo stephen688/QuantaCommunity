@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.constant.RoleConstants;
+import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.identity.dto.IdentityAuditDTO;
 import com.quanta.demo0.user.dto.UserInfoDTO;
 import com.quanta.demo0.user.dto.UserLoginDTO;
@@ -13,8 +13,8 @@ import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
-import com.quanta.demo0.security.AuthenticationSnapshotCache;
-import com.quanta.demo0.security.AuthenticationSnapshotCacheImpl;
+import com.quanta.demo0.platform.security.service.AuthenticationSnapshotCache;
+import com.quanta.demo0.platform.security.service.impl.AuthenticationSnapshotCacheImpl;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AuthorProfileCache;
 import com.quanta.demo0.service.Impl.AuthorProfileCacheImpl;
@@ -33,7 +33,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.quanta.demo0.constant.RedisConstants.SECURITY_VERIFIED_KEY;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.SECURITY_VERIFIED_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;

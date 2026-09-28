@@ -58,7 +58,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.quanta.demo0.constant.RedisConstants.*;
+import static com.quanta.demo0.platform.redis.constant.RedisConstants.*;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.content.entity.ContentImage;
