@@ -48,6 +48,7 @@
               catchlongpress="onStopLongPress"
               data-user-id="{{item.userId}}"
             >{{item._displayName}}</text>
+            <text wx:if="{{item.isBot}}" class="cl__ai-badge">AI</text>
             <text class="cl__time">{{item._timeText}}</text>
           </view>
           <text class="cl__content" user-select>{{item.content}}</text>
@@ -118,6 +119,7 @@
                     catchlongpress="onStopLongPress"
                     data-user-id="{{item.userId}}"
                   >{{item._displayName}}</text>
+                  <text wx:if="{{item.isBot}}" class="cl__ai-badge">AI</text>
                   <block wx:if="{{item.replyNickName}}">
                     <text class="cl__reply-to"> 回复 </text>
                     <text class="cl__reply-to-name">{{item.replyNickName}}</text>

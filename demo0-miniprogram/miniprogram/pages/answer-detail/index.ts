@@ -493,7 +493,9 @@ Page({
     this.setData({ composerValue: e.detail?.value ?? '' });
   },
 
-  async onComposerSubmit(e: WechatMiniprogram.CustomEvent<{ content?: string }>) {
+  async onComposerSubmit(
+    e: WechatMiniprogram.CustomEvent<{ content?: string; mentionBot?: boolean }>,
+  ) {
     const qid = this.data.questionIdNum;
     const aid = this.data.answerIdNum;
     const text = (e.detail?.content ?? this.data.composerValue).trim();
@@ -505,6 +507,7 @@ Page({
       contentId: number;
       answerId: number;
       content: string;
+      mentionBot?: boolean;
       parentId?: number;
       replyCommentId?: number;
       replyUserId?: number;
@@ -512,6 +515,7 @@ Page({
       contentId: qid,
       answerId: aid,
       content: text,
+      mentionBot: e.detail?.mentionBot === true,
     };
     if (this._replyTarget) {
       payload.parentId = this._replyTarget.parentId;

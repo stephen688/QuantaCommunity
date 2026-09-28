@@ -98,6 +98,17 @@
   opacity: 0.72;
 }
 
+.cl__ai-badge {
+  flex-shrink: 0;
+  padding: 2rpx 8rpx;
+  border-radius: 999rpx;
+  color: #ffffff;
+  background-color: var(--color-cta, #1e5a4c);
+  font-size: 18rpx;
+  line-height: 24rpx;
+  font-weight: 600;
+}
+
 .cl__time {
   flex-shrink: 0;
   font-size: 22rpx;

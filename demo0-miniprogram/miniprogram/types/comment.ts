@@ -7,6 +7,7 @@ export interface CommentAddDTO {
   replyUserId?: number | null;
   content: string;
   imageUrls?: string[] | null;
+  mentionBot?: boolean;
 }
 
 /** 与后端 CommentPageDTO 对齐 */
@@ -53,6 +54,7 @@ export interface CommentRowVO {
   replyList?: unknown;
   isContentAuthor?: unknown;
   isAnswerAuthor?: unknown;
+  isBot?: unknown;
 }
 
 export interface CommentItemModel {
@@ -64,6 +66,7 @@ export interface CommentItemModel {
   createTime?: string;
   likeCount: number;
   liked: boolean;
+  isBot: boolean;
   replyCount?: number;
   /** 一级评论 id；二级回复与后端一致，指向所属一级 */
   parentId?: number;

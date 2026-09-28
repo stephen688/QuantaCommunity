@@ -73,6 +73,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-phase.ps1 -Pha
 - **业务**：看 JSON `code` 与 `msg`（200 成功；400/401/404/500 见 `GlobalExceptionHandler`）
 - **contentType**：以 Service 为准 — `1`=生活求助，`2`=专业问答
 
+## 认证、详情与 Feed 作者缓存功能验收（S-RC）
+
+权威设计与功能门禁见 [统一缓存计划](../plans/2026-09-20-auth-detail-feed-read-cache.md)。压测另归 [总方案第 7 项](../后续demo0优化总方案.md#jmeter-load-testing)，不属于本轮功能验收。
+
+在 `demo0/` 执行前确认 Java、Maven 与 `docker info` 成功。新增真实 Redis 与运行态测试使用 Testcontainers 的临时 Redis/MySQL/RabbitMQ、随机 HTTP 端口和独立测试数据，不暂停共享 Redis、不写入本机现有业务数据库；HTTP/STOMP 必须走生产认证、Controller 与缓存业务服务。
+
+```powershell
+mvn -Dtest=ContentDetailCacheRedisIntegrationTests,ContentDetailCacheWritePathTest,UserReadCacheWritePathTest,ReadPathCacheLocalExpiryTests,ReadPathCacheRuntimeIntegrationTests test
+mvn test
+```
+
+定向命令补验真实 Redis JSON/TTL/墓碑/竞态/故障恢复、业务写路径提交与回滚、双实例本地缓存过期，以及 HTTP/STOMP 真栈。双实例 TTL 测试缩短测试配置以验证过期机制，生产默认值仍以 `ReadPathCacheProperties` / `application.yml` 为准；不能据此声称等待了生产 TTL 或实现了跨实例广播。命令、测试数、退出码、原始报告及各层证据统一归档 [RESULTS.md 的 S-RC 小节](RESULTS.md#read-path-cache)，没有通过的项不得用其他测试代替。
+
 ## Bot 主链路验收（Task 14）
 
 `cases/07-bot.http` 是独立的 QuantaBot 联调套件，不替代既有 Phase 0-7 用例。执行前必须满足：

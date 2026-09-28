@@ -405,6 +405,7 @@ Page({
             contentId: qid,
             answerId: aid,
             content: text,
+            mentionBot: e.detail?.mentionBot === true,
         };
         if (this._replyTarget) {
             payload.parentId = this._replyTarget.parentId;

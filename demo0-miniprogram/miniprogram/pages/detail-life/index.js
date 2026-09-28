@@ -453,7 +453,11 @@ Page({
             return;
         }
         this.setData({ composerSubmitting: true });
-        const payload = { contentId: cid, content: text };
+        const payload = {
+            contentId: cid,
+            content: text,
+            mentionBot: e.detail?.mentionBot === true,
+        };
         if (this._replyTarget) {
             payload.parentId = this._replyTarget.parentId;
             payload.replyCommentId = this._replyTarget.replyCommentId;

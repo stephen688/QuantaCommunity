@@ -140,6 +140,31 @@ function seedDefaultMockComments(contentId, answerId) {
             isLiked: false,
             answerId: onAnswer ? Number(answerId) : undefined,
         },
+        {
+            commentId: secondId + 1,
+            userId: 10000,
+            nickName: '框框',
+            content: '这是本地 Mock 的 AI 评论，可用于验收角标。',
+            createTime: '2026-05-13 09:00:00',
+            likeCount: 0,
+            isLiked: false,
+            isBot: true,
+            replyCount: 1,
+            replyList: [
+                {
+                    commentId: secondId + 2,
+                    userId: 10000,
+                    nickName: '框框',
+                    parentId: secondId + 1,
+                    content: '这是本地 Mock 的 AI 楼中楼回复。',
+                    createTime: '2026-05-13 09:01:00',
+                    likeCount: 0,
+                    isLiked: false,
+                    isBot: true,
+                },
+            ],
+            answerId: onAnswer ? Number(answerId) : undefined,
+        },
     ]);
 }
 function toInt(v) {
@@ -195,6 +220,7 @@ function mapCommentRowToItem(row, topLevelParentIdHint) {
         createTime: row.createTime === undefined || row.createTime === null ? undefined : String(row.createTime),
         likeCount: toInt(row.likeCount) ?? 0,
         liked: toBool(row.isLiked),
+        isBot: toBool(row.isBot),
         replyCount: toInt(row.replyCount),
         parentId: parentIdResolved,
         answerId: toInt(row.answerId),
@@ -409,6 +435,9 @@ function sendComment(payload) {
     }
     if (payload.replyUserId !== undefined && payload.replyUserId !== null) {
         body.replyUserId = payload.replyUserId;
+    }
+    if (payload.mentionBot === true) {
+        body.mentionBot = true;
     }
     if (payload.imageUrls && payload.imageUrls.length > 0) {
         body.imageUrls = payload.imageUrls;

@@ -14,7 +14,17 @@
     bindinput="onInput"
   />
   <view class="cc__footer">
-    <text class="cc__hint">{{hintText}}</text>
+    <view class="cc__tools">
+      <button
+        class="cc__mention"
+        size="mini"
+        plain
+        disabled="{{disabled || submitting}}"
+        hover-class="cc__mention--hover"
+        bindtap="onMentionBotTap"
+      >@框框</button>
+      <text class="cc__hint">{{hintText}}</text>
+    </view>
     <button
       class="cc__btn"
       size="mini"

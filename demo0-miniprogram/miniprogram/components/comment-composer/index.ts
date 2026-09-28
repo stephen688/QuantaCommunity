@@ -1,3 +1,5 @@
+import { appendBotMention, hasBotMention } from '../../constants/bot';
+
 Component({
   properties: {
     /** 受控内容；清空时由父级置空字符串 */
@@ -71,6 +73,15 @@ Component({
       this.syncHint(v);
       this.triggerEvent('input', { value: v });
     },
+    onMentionBotTap() {
+      if (this.data.submitting || this.data.disabled) {
+        return;
+      }
+      const draft = appendBotMention(this.data.draft || '');
+      this.setData({ draft });
+      this.syncHint(draft);
+      this.triggerEvent('input', { value: draft });
+    },
     onSubmitTap() {
       if (this.data.submitting || this.data.disabled) {
         return;
@@ -79,7 +90,10 @@ Component({
       if (!text) {
         return;
       }
-      this.triggerEvent('submit', { content: text });
+      this.triggerEvent('submit', {
+        content: text,
+        mentionBot: hasBotMention(text),
+      });
     },
     syncHint(draft: string) {
       const max = this.data.maxlength || 500;

@@ -539,7 +539,9 @@ Page({
     this.setData({ composerValue: e.detail?.value ?? '' });
   },
 
-  async onComposerSubmit(e: WechatMiniprogram.CustomEvent<{ content?: string }>) {
+  async onComposerSubmit(
+    e: WechatMiniprogram.CustomEvent<{ content?: string; mentionBot?: boolean }>,
+  ) {
     const cid = this.data.contentIdNum;
     const text = (e.detail?.content ?? this.data.composerValue).trim();
     if (!cid || !text || this.data.composerSubmitting) {
@@ -556,10 +558,15 @@ Page({
     const payload: {
       contentId: number;
       content: string;
+      mentionBot?: boolean;
       parentId?: number;
       replyCommentId?: number;
       replyUserId?: number;
-    } = { contentId: cid, content: text };
+    } = {
+      contentId: cid,
+      content: text,
+      mentionBot: e.detail?.mentionBot === true,
+    };
     if (this._replyTarget) {
       payload.parentId = this._replyTarget.parentId;
       payload.replyCommentId = this._replyTarget.replyCommentId;

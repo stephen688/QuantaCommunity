@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test:bot-comment": "node --test tests/bot-comment.test.cjs",
     "prepare": "echo \"Use WeChat DevTools to build npm packages into miniprogram_npm\""
   },
   "keywords": [],

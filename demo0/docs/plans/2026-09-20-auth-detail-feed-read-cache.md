@@ -6,9 +6,23 @@
 
 **Architecture:** 三条链路共享“事务提交后失效”和“缓存失败回源”的原则，但不共享同一个大对象：认证缓存只保存安全判断所需快照并继续逐次校验 JWT、Redis 会话和封禁标记；帖子详情缓存只保存与访问者无关的内容/图片快照，点赞与收藏高亮、浏览历史仍逐次处理；作者缓存提供单个和批量读取，Feed 一次批量补齐所有 L1 未命中作者，避免退化为 N+1。帖子详情采用 Caffeine L1 + Redis L2，认证和作者信息采用短 TTL Caffeine，并由真实写路径在事务提交后驱逐当前实例。
 
-**Tech Stack:** Java 17、Spring Boot 3.5.11、Caffeine、Spring Data Redis、MyBatis、JUnit 5、Mockito、Testcontainers、Apache JMeter 5.6.3
+**Tech Stack:** Java、Spring Boot、Caffeine、Spring Data Redis、MyBatis、JUnit 5、Mockito、Testcontainers；版本以 `pom.xml` 为准，JMeter 属于后续压测计划。
 
 **Spec:** `docs/后续demo0优化总方案.md` §1；设计和验收边界以本计划第 2～6 节为准。
+
+**状态核对（2026-09-28）：** 认证、详情、Feed 作者缓存及事务提交后失效代码已落地；非压测功能门禁为 `PASS`，缓存专项 132 项及全量 389 项回归通过，分层证据与明确限制见 [RESULTS.md 的 S-RC 小节](../api-test/RESULTS.md#read-path-cache)。用户已将压测移入总方案第 7 项，性能仍 `PENDING`；本项最终状态只衡量非压测功能门禁。下方原始复选框不作为当前验收结论，状态以本轮收口清单及 RESULTS 为准。
+
+## 2026-09-28 收口范围（用户已授权执行）
+
+本轮完成非压测门禁；auth/detail/feed 的基线、候选和性能指标统一转入总方案第 7 项「真实压测（JMeter）」，不作为本轮缓存功能完成的阻塞项。执行结果仍只归档到 `docs/api-test/RESULTS.md`。
+
+- [x] 补 `ContentDetailCacheRedisIntegrationTests`：真实 Redis JSON/负结果往返、L2 回填 L1、TTL、墓碑、损坏 JSON、两种竞态顺序及再次失效；临时变异证明关键断言能失败。
+- [x] 补 `ContentDetailCacheWritePathTest` 并完善用户写路径：发布/点赞/收藏/删除、管理员审核/删除、评论审核/删除/计数，用户资料/身份/角色/封禁的成功、失败、提交与回滚分支。现有接线正确，本轮没有生产行为修复。
+- [x] 在隔离测试数据与依赖上执行 HTTP/STOMP 真栈认证、详情访问者隔离与浏览历史、Feed 作者装配、写后失效、Redis 故障恢复和多实例 TTL 边界，保留脱敏证据；不暂停用户共享 Redis。
+- [x] Docker 检查通过后执行定向及全量 `mvn test`；归档实际命令、数量、退出码与局限，独立审查补强后收口。
+- [x] 将性能步骤/指标迁移至总方案第 7 项的后续压测入口，更新本计划最终功能门禁、总方案状态与 RESULTS；不写未经执行的性能提升。
+
+并行边界：Redis 集成、写路径测试与真栈验证各自拥有独立测试文件；所有 Maven 执行使用同一个本机互斥锁串行，避免覆盖共享 `target/`。生产文件修改按归属通知主 agent，文档由主 agent 统一维护。
 
 ## Global Constraints
 
@@ -264,8 +278,6 @@ quanta:
 - `src/test/java/com/quanta/demo0/service/Impl/FollowServiceImplAuthorCacheTest.java`
 - `src/test/java/com/quanta/demo0/service/Impl/UserReadCacheWritePathTest.java`
 - `src/test/java/com/quanta/demo0/service/Impl/ContentDetailCacheWritePathTest.java`
-- `perf/read-path-cache.jmx`
-- `perf/summarize-read-path-results.ps1`
 
 修改：
 
@@ -287,25 +299,14 @@ quanta:
 - `src/test/java/com/quanta/demo0/security/TokenAuthenticationServiceImplTests.java`
 - `src/test/java/com/quanta/demo0/security/TokenAuthenticationServiceImplBotTokenTest.java`
 - `src/test/java/com/quanta/demo0/security/VerifiedStatusCacheEvictorTests.java`（由新失效器测试替代后删除）
-- `.gitignore`（仅当尚未忽略 `/perf/results/`）
 - `docs/api-test/RESULTS.md`
 - `docs/后续demo0优化总方案.md`
 
 不创建新顶层 `cache` 包，不缓存 Entity 可变实例，不修改 Controller、DTO、公开 VO、Mapper SQL 返回字段或前端代码。
 
-## 6. 性能与正确性证据标准
+## 6. 正确性证据标准
 
-压测脚本包含三个可单独启用的线程组：
-
-| 场景 | 请求 | 默认负载 | 关键断言 |
-|---|---|---:|---|
-| auth | `GET /user/security-context` | 30 线程，10 秒启动，60 秒持续 | HTTP 200、业务码 200、userId/roles 存在 |
-| detail | `GET /content/detail/${contentId}` | 20 线程，10 秒启动，60 秒持续 | HTTP 200、业务码 200、contentId 匹配 |
-| feed | `GET /follow/feed?offset=0&pageSize=20` | 20 线程，10 秒启动，60 秒持续 | HTTP 200、业务码 200、list 存在 |
-
-所有请求通过 `-Jtoken` 传入有效普通用户 Token；不得把 Token 写入 JMX、脚本、RESULTS 或 Git。`contentId` 通过 `-JcontentId` 传入已审核帖子。每个场景先预热 30 秒，再分别跑基线 3 轮和候选 3 轮；比较三轮中位数。
-
-每轮记录环境、提交 SHA、工作树状态、数据规模、样本数、错误率、吞吐、min/max/mean/median/P90/P95/P99、收发速率、实际持续时间、JTL 路径与 SHA-256。还必须通过单元测试/日志证明：
+性能脚本、负载协议、三轮基线/候选与指标比较已按用户 2026-09-28 指示转入 [后续压测计划（总方案第 7 项）](../后续demo0优化总方案.md#jmeter-load-testing)，本计划只验收缓存功能与一致性，不以性能数据阻塞功能收口。必须通过测试及真栈结果证明：
 
 - auth 缓存热命中时仍读取登录态和封禁 Key，但不调用三个 MySQL Loader；
 - detail 热命中时不查帖子和图片，但仍查询访问者点赞/收藏并写浏览历史；
@@ -319,7 +320,7 @@ quanta:
 
 | Task | Commit message |
 |---|---|
-| 1 | `test(cache): capture read path baselines` |
+| 1 | 已迁移至后续压测计划，本轮不执行 |
 | 2 | `feat(cache): configure core read caches` |
 | 3 | `feat(user): cache author profiles in batches` |
 | 4 | `feat(security): cache authentication snapshots` |
@@ -347,7 +348,7 @@ quanta:
 - [ ] 在仓库根目录执行 `git status --short`，把本任务开始前的用户改动记录到实施笔记；后续只暂存本计划文件。
 - [ ] 运行 `mvn -DskipTests compile` 和现有认证定向测试，记录当前通过/失败/阻塞状态。
 - [ ] 用有效 Token 各调用一次 `/user/security-context`、`/content/detail/{contentId}`、`/follow/feed?pageSize=20`，保存脱敏响应结构与日志，不保存 Token。
-- [ ] 确认 JDK、Maven、Docker、JMeter、MySQL、Redis 和应用端口；缺失项以 `BLOCKED` 记录，不修改测试伪装通过。
+- [ ] 确认 JDK、Maven、Docker、MySQL、Redis 和应用端口；缺失项以 `BLOCKED` 记录，不修改测试伪装通过。JMeter 环境由后续压测计划检查。
 
 验证：
 
@@ -356,19 +357,9 @@ mvn -DskipTests compile
 mvn -Dtest=TokenAuthenticationServiceImplTests,TokenAuthenticationServiceImplBotTokenTest,WebSocketAuthenticationTests test
 ```
 
-### Task 1：建立三个场景的可重复性能基线
+### Task 1：性能基线（已迁移，本轮不执行）
 
-**Files:**
-- Create: `perf/read-path-cache.jmx`
-- Create: `perf/summarize-read-path-results.ps1`
-- Modify: `.gitignore`
-- Modify: `docs/api-test/RESULTS.md`
-
-- [ ] JMX 使用 `host`、`port`、`token`、`contentId`、`threads`、`ramp`、`duration`、`runAuth`、`runDetail`、`runFeed` 属性；Token 只从命令行属性读取。
-- [ ] 三个线程组分别添加 HTTP 状态、业务码和关键字段断言，连接/响应超时均为 3000 ms。
-- [ ] 汇总脚本读取各 HTML 报告 `statistics.json` 的 `Total` 节点并输出第 6 节全部指标及 JTL SHA-256。
-- [ ] 为 auth/detail/feed 各执行一次 30 秒预热和三轮 60 秒基线；轮次间等待 15 秒并确认错误率为零。
-- [ ] 在 RESULTS 新建“认证/详情/Feed 作者缓存”小节，先写基线和候选待采集状态 `PARTIAL`。
+执行文件、三个线程组、三轮协议与汇总标准统一见 [后续压测计划（总方案第 7 项）](../后续demo0优化总方案.md#jmeter-load-testing)。保留任务编号便于追踪原计划；不将迁移视为测试通过。
 
 ### Task 2：增加统一配置与 Caffeine 依赖
 
@@ -454,7 +445,7 @@ mvn -Dtest=TokenAuthenticationServiceImplTests,TokenAuthenticationServiceImplBot
 
 - [ ] 测试稳定快照命中时不调用 `contentMapper.selectById` 和图片查询。
 - [ ] 测试每次命中仍执行点赞、收藏和浏览历史逻辑；用户 A 的高亮不得泄漏给用户 B。
-- [ ] 测试作者通过 `AuthorProfileCache.get()` 装配，作者缺失仍抛当前“发布用户信息异常”。
+- [ ] 测试作者通过 `AuthorProfileCache.get()` 装配；发布者 ID 缺失仍抛“发布用户信息异常”，作者查询为空沿用改造前的空 `UserAuthInfo` 回退（已核对 `363302f^`，不改变历史接口行为）。
 - [ ] 测试五种详情状态映射回当前异常语义，HTTP Controller 和 `ContentVO` 不改。
 - [ ] 将现有详情专用组装从 `convertContentToVO()` 中拆出最小私有方法；其他列表调用暂不迁移，避免扩大范围。
 - [ ] 运行目标测试，确认缓存只覆盖稳定字段，浏览历史写失败仍沿用现有 best-effort 日志行为。
@@ -535,31 +526,28 @@ mvn -Dtest=ContentDetailCacheRedisIntegrationTests test
 ### Task 13：分层回归与故障演练
 
 - [ ] 运行本计划全部目标测试，随后运行 `mvn test`；记录测试数、失败、错误、跳过和耗时。
-- [ ] HTTP 连续调用验证 auth 45 秒内安全快照命中，但退出登录、异地登录和封禁仍立即失败。
+- [ ] HTTP 连续调用与真实 Mapper 调用计数验证安全快照热命中，但退出登录、异地登录和封禁仍立即失败；生产 TTL 以配置为准。
 - [ ] STOMP CONNECT 使用同一 Token 认证服务验证成功、过期 Token、封禁用户和 Service Token 边界。
-- [ ] 详情连续调用验证 L1、等待 30 秒验证 L2、删除 L2 验证 MySQL 重建；每次仍有浏览历史和访问者高亮证据。
+- [ ] 详情连续调用验证 L1，以独立缓存实例验证真实 L2，再验证 MySQL 重建；每次仍有浏览历史和访问者高亮证据。过期收敛可用缩短 TTL 的隔离配置验证，不将其写成实际等待了默认 30 秒。
 - [ ] 暂停 Redis：认证按现有安全策略失败或降级，不因缓存放行；详情回源 MySQL 并只写 L1；恢复后可重新建立 L2。
 - [ ] 修改昵称/头像、审核身份、授予/撤销角色、封禁/解封，验证当前实例提交后失效；制造回滚验证缓存不变。
 - [ ] 点赞、收藏、评论审核/删除、帖子审核/删除后读取详情，验证计数与可见性更新；模拟旧 Loader 并发确认墓碑阻止旧值回填。
-- [ ] Feed 连续读取验证作者 L1 命中；修改作者资料后当前实例立即更新，另一个实例最多 180 秒陈旧的边界写入 RESULTS。
+- [ ] Feed 连续读取验证作者 L1 命中与部分命中批量装配；修改作者资料后当前实例立即更新，另一实例的配置 TTL 陈旧窗口通过缩短 TTL 的两实例测试验证，默认 180 秒仅作为当前配置边界写入 RESULTS。
 
 命令：
 
 ```powershell
-mvn -Dtest=AuthenticationSnapshotCacheImplTest,TokenAuthenticationServiceImplTests,TokenAuthenticationServiceImplBotTokenTest,WebSocketAuthenticationTests,AuthorProfileCacheImplTest,UserReadCacheInvalidatorImplTest,ContentDetailDataLoaderTest,ContentDetailCacheServiceImplTest,ContentDetailCacheRedisIntegrationTests,ContentServiceImplDetailCacheTest,FollowServiceImplAuthorCacheTest,UserReadCacheWritePathTest,ContentDetailCacheWritePathTest test
+mvn -Dtest=ReadPathCachePropertiesTest,AuthenticationSnapshotCacheImplTest,TokenAuthenticationServiceImplTests,TokenAuthenticationServiceImplBotTokenTest,WebSocketAuthenticationTests,AuthorProfileCacheImplTest,UserReadCacheInvalidatorImplTest,ContentDetailDataLoaderTest,ContentDetailCacheServiceImplTest,ContentDetailCacheInvalidatorImplTest,ContentDetailCacheRedisIntegrationTests,ContentServiceImplDetailCacheTest,FollowServiceImplAuthorCacheTest,UserReadCacheWritePathTest,ContentDetailCacheWritePathTest,ReadPathCacheLocalExpiryTests,ReadPathCacheRuntimeIntegrationTests test
 mvn test
 ```
 
-### Task 14：采集候选数据并收口文档
+### Task 14：归档功能验收并收口文档
 
 **Files:**
 - Modify: `docs/api-test/RESULTS.md`
 - Modify: `docs/后续demo0优化总方案.md`
 
-- [ ] 确认候选测试使用与基线相同机器、JDK、JMeter、数据、Token 用户、contentId 和依赖状态；不一致则重采基线。
-- [ ] auth/detail/feed 各执行 30 秒预热和三轮 60 秒候选测试，错误率必须为零。
-- [ ] 用汇总脚本生成全部指标，人工抽查 `statistics.json` 与 JTL 哈希。
-- [ ] RESULTS 写入三轮基线、基线中位数、三轮候选、候选中位数、绝对/百分比变化、功能与故障矩阵、查询调用证据和限制。
+- [ ] RESULTS 写入真实 Redis、功能与故障矩阵、查询调用证据、定向/全量回归、变异抽查、独立审查和限制；压测单独引用后续计划，不宣称已通过。
 - [ ] 更新总方案：热榜与本计划分别标记真实完成状态，只引用 RESULTS，不复制或编造性能数字。
 - [ ] 运行 `git diff --check` 和 `git status --short`，确认 `perf/results/` 与用户无关改动未被纳入。
 
@@ -570,9 +558,9 @@ mvn test
 - [ ] 复核详情两种竞态顺序：回填先于墓碑、墓碑先于回填；最终 L2 均不能是旧 JSON。
 - [ ] 复核 Feed 部分命中是否仍只发一次批量作者 SQL，没有隐藏 N+1。
 - [ ] 复核所有用户/内容写路径的提交、回滚和失败分支；发现缺口先补失败测试再修复。
-- [ ] 抽查每个场景至少一轮基线和候选原始报告、JTL SHA-256 与 RESULTS 数字。
+- [ ] 抽查本轮真实 Redis、HTTP/STOMP、写路径与回归原始报告，确认 RESULTS 与实际断言、命令结果一致；性能报告抽查转入后续压测计划。
 
-## 8. 最终验收门禁
+## 8. 最终功能验收门禁（压测另项）
 
 - HTTP、WebSocket、权限、Result、ContentVO、ScrollResult 和异常契约未变化。
 - auth 热命中消除 User/UserAuth/UserRole MySQL 读取，但 JWT、会话、banned Key 仍逐次验证。
@@ -582,11 +570,11 @@ mvn test
 - Feed 作者全命中零 Mapper、部分命中一次批量 Mapper，游标和排序不变。
 - 用户资料、身份、角色、封禁、帖子状态、点赞/收藏/评论计数的成功提交均有失效证据，回滚均不失效。
 - 全量 `mvn test` 通过，或将无关既有失败单独记录为证据充分的 `PARTIAL/BLOCKED`。
-- 三个场景各有三轮可比基线与候选数据；不夸大详情“零数据库访问”或 Feed“20 次降为 0”。
+- 压测任务已移入总方案第 7 项，功能结论不代表性能结论；不夸大详情“零数据库访问”或 Feed“20 次降为 0”。
 - 原始性能产物、Token、密钥和用户无关改动未提交；独立复核无未解决高优先级问题。
 
 ## 9. 回滚与明确限制
 
 本改造没有数据库迁移、消息格式或 API 变化。回滚时按提交逆序撤销写后失效接线、三条读路径编排、缓存实现和配置；删除 `content:detail:*` Redis Key 不影响事实数据，后续请求可从 MySQL 重建。
 
-明确接受的限制：认证与作者 Caffeine 不做跨实例广播，其他实例分别最多陈旧 45 秒和 180 秒；详情在 Redis 故障期间失效墓碑写入失败时，旧 L2 最多存活到剩余 TTL（上限 360 秒）；详情请求仍有浏览历史写入和用户态读取，因此缓存优化目标是降低稳定内容/图片/作者/认证查询，而不是把请求变成纯内存操作。
+明确接受的限制：认证与作者 Caffeine 不做跨实例广播，其他实例分别最多陈旧 45 秒和 180 秒；详情共享 Redis 墓碑同样不广播到其他实例已命中的 L1，其他实例正常情况下仍有最多 30 秒的本地陈旧窗口。详情在 Redis 故障期间失效墓碑写入失败时，旧 L2 最多存活到剩余 TTL（上限 360 秒）；详情请求仍有浏览历史写入和用户态读取，因此缓存优化目标是降低稳定内容/图片/作者/认证查询，而不是把请求变成纯内存操作。TTL 为当前默认配置，修改后以配置为准。
