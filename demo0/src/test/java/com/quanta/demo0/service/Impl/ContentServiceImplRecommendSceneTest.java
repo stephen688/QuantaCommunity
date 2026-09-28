@@ -3,7 +3,7 @@ package com.quanta.demo0.service.Impl;
 import com.quanta.demo0.feed.dto.RecommendQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.UserMapper;
@@ -113,8 +113,8 @@ class ContentServiceImplRecommendSceneTest {
                 .build();
     }
 
-    private UserAuthInfo author(Long userId, String nickName) {
-        return UserAuthInfo.builder()
+    private UserAuthInfoVO author(Long userId, String nickName) {
+        return UserAuthInfoVO.builder()
                 .userId(userId)
                 .nickName(nickName)
                 .avatarUrl("http://avatar/" + userId + ".png")

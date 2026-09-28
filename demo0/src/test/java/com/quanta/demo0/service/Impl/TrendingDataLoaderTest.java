@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.SearchMapper;
 import com.quanta.demo0.mapper.UserMapper;
@@ -299,8 +299,8 @@ class TrendingDataLoaderTest {
                 .build();
     }
 
-    private UserAuthInfo alumni(Long id, int accountStatus) {
-        return UserAuthInfo.builder()
+    private UserAuthInfoVO alumni(Long id, int accountStatus) {
+        return UserAuthInfoVO.builder()
                 .userId(id)
                 .nickName("alumni-" + id)
                 .accountStatus(accountStatus)

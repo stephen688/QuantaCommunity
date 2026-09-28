@@ -3,12 +3,12 @@ import com.quanta.demo0.platform.security.vo.SecurityContextVO;
 
 
 import com.quanta.demo0.constant.JwtClaimsConstant;
-import com.quanta.demo0.dto.UserAuthDTO;
-import com.quanta.demo0.dto.UserInfoDTO;
-import com.quanta.demo0.dto.UserLoginDTO;
+import com.quanta.demo0.identity.dto.UserAuthDTO;
+import com.quanta.demo0.user.dto.UserInfoDTO;
+import com.quanta.demo0.user.dto.UserLoginDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuth;
+import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.security.exception.AuthFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
@@ -37,6 +37,10 @@ import static com.quanta.demo0.constant.RedisConstants.LOGIN_USER_TTL;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.interaction.entity.BrowseHistory;
+import com.quanta.demo0.identity.vo.UserAuthStatusVO;
+import com.quanta.demo0.user.vo.UserLoginVO;
+import com.quanta.demo0.user.vo.UserProfileVO;
+import com.quanta.demo0.user.vo.UserInfoVO;
 
 @Tag(name = "用户模块", description = "用户信息相关接口")
 @RestController

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.constant.RoleConstants;
-import com.quanta.demo0.dto.IdentityAuditDTO;
+import com.quanta.demo0.identity.dto.IdentityAuditDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.UserMapper;

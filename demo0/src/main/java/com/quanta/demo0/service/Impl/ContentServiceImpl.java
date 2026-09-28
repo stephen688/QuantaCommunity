@@ -66,6 +66,7 @@ import com.quanta.demo0.interaction.entity.BrowseHistory;
 import com.quanta.demo0.interaction.entity.ContentLiked;
 import com.quanta.demo0.interaction.entity.ContentReport;
 import com.quanta.demo0.interaction.entity.ContentCollect;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 
 /**
  * 内容域核心服务实现类。
@@ -470,7 +471,7 @@ public class ContentServiceImpl implements ContentService {
                 .map(Content::getPublishUserId)
                 .distinct()
                 .collect(Collectors.toList());
-        List<UserAuthInfo> userAuthList = userIds.isEmpty() ? new ArrayList<>() :
+        List<UserAuthInfoVO> userAuthList = userIds.isEmpty() ? new ArrayList<>() :
                 userMapper.selectUserAuthInfoByIds(userIds);
 
         // 查询点赞和收藏高亮
@@ -479,13 +480,13 @@ public class ContentServiceImpl implements ContentService {
         contents.forEach(this::isContentCollected);
 
         // 封装 VO
-        Map<Long, UserAuthInfo> userAuthMap
+        Map<Long, UserAuthInfoVO> userAuthMap
                 = userAuthList.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId, u -> u, (v1, v2) -> v1));
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId, u -> u, (v1, v2) -> v1));
 
         return contents.stream()
                 .map(content -> {
-                    UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfo());
+                    UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfoVO());
                     return convertContentToVO(content, userInfo);
                 })
                 .collect(Collectors.toList());
@@ -523,9 +524,9 @@ public class ContentServiceImpl implements ContentService {
         }
 
         ContentDetailSnapshot snapshot = cacheEntry.snapshot();
-        UserAuthInfo userInfo = authorProfileCache.get(snapshot.publishUserId());
+        UserAuthInfoVO userInfo = authorProfileCache.get(snapshot.publishUserId());
         if (userInfo == null) {
-            userInfo = new UserAuthInfo();
+            userInfo = new UserAuthInfoVO();
         }
 
         Content viewerState = Content.builder()
@@ -540,7 +541,7 @@ public class ContentServiceImpl implements ContentService {
 
     private ContentVO convertDetailSnapshotToVO(
             ContentDetailSnapshot snapshot,
-            UserAuthInfo userInfo,
+            UserAuthInfoVO userInfo,
             Content viewerState
     ) {
         return ContentVO.builder()
@@ -1038,12 +1039,12 @@ public class ContentServiceImpl implements ContentService {
                 .map(Content::getPublishUserId)
                 .distinct()
                 .toList();
-        List<UserAuthInfo> userAuthInfos = userIds.isEmpty() ? new ArrayList<>() :
+        List<UserAuthInfoVO> userAuthInfos = userIds.isEmpty() ? new ArrayList<>() :
                 userMapper.selectUserAuthInfoByIds(userIds);
 
-        //8.将用户信息转换为Map，key=userId，value=UserAuthInfo
-        Map<Long, UserAuthInfo> userAuthMap = userAuthInfos.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId,
+        //8.将用户信息转换为Map，key=userId，value=UserAuthInfoVO
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthInfos.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId,
                         u -> u,
                         (v1, v2) -> v1));
 
@@ -1054,8 +1055,8 @@ public class ContentServiceImpl implements ContentService {
         //10.为每条数据找到对应的作者信息，并转换为VO
         List<ContentVO> contentVOList = contentList.stream()
                 .map(content -> {
-                    UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
-                            new UserAuthInfo());
+                    UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
+                            new UserAuthInfoVO());
                     return convertContentToVO(content, userInfo);
                 }).toList();
 
@@ -1130,10 +1131,10 @@ public class ContentServiceImpl implements ContentService {
                 .map(Content::getPublishUserId)
                 .distinct()
                 .toList();
-        List<UserAuthInfo> userAuthInfos = userIds.isEmpty() ? new ArrayList<>() :
+        List<UserAuthInfoVO> userAuthInfos = userIds.isEmpty() ? new ArrayList<>() :
                 userMapper.selectUserAuthInfoByIds(userIds);
-        Map<Long, UserAuthInfo> userAuthMap = userAuthInfos.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId, u -> u, (v1, v2) -> v1));
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthInfos.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId, u -> u, (v1, v2) -> v1));
 
         // 5. 计算当前用户对每条内容的点赞状态与收藏状态
         contentList.forEach(this::isContentLiked);
@@ -1142,7 +1143,7 @@ public class ContentServiceImpl implements ContentService {
         // 6. 为每条数据找到对应的作者信息，并转换为 VO
         List<ContentVO> contentVOList = contentList.stream()
                 .map(content -> {
-                    UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfo());
+                    UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfoVO());
                     return convertContentToVO(content, userInfo);
                 })
                 .toList();
@@ -1172,7 +1173,7 @@ public class ContentServiceImpl implements ContentService {
      * 1.参数校验（userId不能为空，分页参数合理，审核状态参数合法）
      * 2.分页查询（PageHelper）
      * 3.查询我的帖子列表（根据userId和审核状态查询内容列表
-     * 4.批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfo，方便后续查找
+     * 4.批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfoVO，方便后续查找
      * 5.计算当前用户对每条内容的点赞状态与收藏状态
      * 6.为每条数据找到对应的作者信息，并转换为VO
      * 7，8，9.记录总数，判断是否有更多数据，封装VO并返回
@@ -1195,23 +1196,23 @@ public class ContentServiceImpl implements ContentService {
         PageHelper.startPage(current, size);
         //3.查询我的帖子列表
         Page<Content> page = contentMapper.getMyContentsList(userId, auditStatus != null ? auditStatus.getCode() : null);
-        //4.：批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfo，方便后续查找
+        //4.：批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfoVO，方便后续查找
         List<Content> contentList = page.getResult();
         List<Long> userIds = contentList.stream()
                 .map(Content::getPublishUserId)
                 .distinct()
                 .toList();
-        List<UserAuthInfo> userAuthInfos = userIds.isEmpty() ? new ArrayList<>() :
+        List<UserAuthInfoVO> userAuthInfos = userIds.isEmpty() ? new ArrayList<>() :
                 userMapper.selectUserAuthInfoByIds(userIds);
-        Map<Long, UserAuthInfo> userAuthMap = userAuthInfos.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId, u -> u, (v1, v2) -> v1));
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthInfos.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId, u -> u, (v1, v2) -> v1));
         //5.计算当前用户对每条内容的点赞状态与收藏状态
         contentList.forEach(this::isContentLiked);
         contentList.forEach(this::isContentCollected);
       // 6.为每条数据找到对应的作者信息，并转换为VO
         List<ContentVO> contentVOList = contentList.stream()
                 .map(content -> {
-                    UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfo());
+                    UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfoVO());
                     return convertContentToVO(content, userInfo);
                 })
                 .toList();
@@ -1241,7 +1242,7 @@ public class ContentServiceImpl implements ContentService {
      * 1.参数校验（userId不能为空，分页参数合理）
      * 2.分页查询（PageHelper）
      * 3.查询我点赞的帖子列表（根据userId查询内容列表
-     * 4.批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfo，方便后续查找
+     * 4.批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfoVO，方便后续查找
      * 5.计算当前用户对每条内容的点赞状态与收藏状态
      * 6.为每条数据找到对应的作者信息，并转换为VO
      * 7，8，9.记录总数，判断是否有更多数据，封装VO并返回
@@ -1272,12 +1273,12 @@ public class ContentServiceImpl implements ContentService {
                 .distinct()
                 .toList();
 
-        List<UserAuthInfo> userAuthInfos = userIds == null || userIds.isEmpty() ? new ArrayList<>() :
+        List<UserAuthInfoVO> userAuthInfos = userIds == null || userIds.isEmpty() ? new ArrayList<>() :
                 userMapper.selectUserAuthInfoByIds(userIds);
 
-        //5.将用户信息转换为Map，key=userId，value=UserAuthInfo，方便后续查找
-        Map<Long, UserAuthInfo> userAuthMap = userAuthInfos.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId,
+        //5.将用户信息转换为Map，key=userId，value=UserAuthInfoVO，方便后续查找
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthInfos.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId,
                         u -> u,
                         (v1, v2) -> v1));
 
@@ -1288,8 +1289,8 @@ public class ContentServiceImpl implements ContentService {
         //6.为每条数据找到对应的作者信息，并转换为VO
         List<ContentVO> contentVOList = contentList.stream()
                 .map(content -> {
-                    UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
-                            new UserAuthInfo());
+                    UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
+                            new UserAuthInfoVO());
                     return convertContentToVO(content, userInfo);
                 }).toList();
 
@@ -1319,7 +1320,7 @@ public class ContentServiceImpl implements ContentService {
      * 1.参数校验（userId不能为空，分页参数合理）
      * 2.分页查询（PageHelper）
      * 3.查询我收藏的帖子列表（根据userId查询内容列表
-     * 4.批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfo，方便后续查找
+     * 4.批量查询作者信息，并转换为Map，key=userId，value=UserAuthInfoVO，方便后续查找
      * 5.计算当前用户对每条内容的点赞状态与收藏状态
      * 6.为每条数据找到对应的作者信息，并转换为VO
      * 7，8，9.记录总数，判断是否有更多数据，封装VO并返回
@@ -1346,12 +1347,12 @@ public class ContentServiceImpl implements ContentService {
         List<Long> userIds = contentList.stream().map(Content::getPublishUserId)
                 .distinct()
                 .toList();
-        List<UserAuthInfo> userAuthInfos = userIds == null || userIds.isEmpty() ? new ArrayList<>() :
+        List<UserAuthInfoVO> userAuthInfos = userIds == null || userIds.isEmpty() ? new ArrayList<>() :
                 userMapper.selectUserAuthInfoByIds(userIds);
 
-        //5.将用户信息转换为Map，key=userId，value=UserAuthInfo，方便后续查找
-        Map<Long, UserAuthInfo> userAuthMap = userAuthInfos.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId,
+        //5.将用户信息转换为Map，key=userId，value=UserAuthInfoVO，方便后续查找
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthInfos.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId,
                         u -> u,
                         (v1, v2) -> v1));
         //查询点赞与收藏高亮
@@ -1360,8 +1361,8 @@ public class ContentServiceImpl implements ContentService {
         // 6.为每条数据找到对应的作者信息，并转换为VO
         List<ContentVO> contentVOList = contentList.stream()
                 .map(content -> {
-                    UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
-                            new UserAuthInfo());
+                    UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
+                            new UserAuthInfoVO());
                     return convertContentToVO(content, userInfo);
                 }).toList();
 
@@ -1438,16 +1439,16 @@ public class ContentServiceImpl implements ContentService {
                 .map(Content::getPublishUserId)
                 .distinct()
                 .toList();
-        List<UserAuthInfo> userAuthInfos = userMapper.selectUserAuthInfoByIds(userIds);
-        Map<Long, UserAuthInfo> userAuthMap = userAuthInfos.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId,
+        List<UserAuthInfoVO> userAuthInfos = userMapper.selectUserAuthInfoByIds(userIds);
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthInfos.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId,
                         u -> u,
                         (v1, v2) -> v1));
         //5.转换为VO列表
         List<ContentVO> contentVOList = contentList.stream()
                 .map(content -> {
-                    UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
-                            new UserAuthInfo());
+                    UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(),
+                            new UserAuthInfoVO());
                     return convertContentToVO(content, userInfo);
                 }).toList();
         //6.记录总数
@@ -1604,14 +1605,14 @@ public class ContentServiceImpl implements ContentService {
     }
 
     /**
-     * 将 Content和UserAuthInfo 实体转换为 ContentVO 视图对象
+     * 将 Content和UserAuthInfoVO 实体转换为 ContentVO 视图对象
      * 包含内容信息、用户信息、图片列表
      *
      * @param content  内容实体
      * @param userInfo 用户认证信息（可能为空对象）
      * @return ContentVO 视图对象
      */
-    private ContentVO convertContentToVO(Content content, UserAuthInfo userInfo) {
+    private ContentVO convertContentToVO(Content content, UserAuthInfoVO userInfo) {
         List<ContentImage> contentImages = contentMapper.selectImagesByContentIds(content.getContentId());
         // 处理图片列表：如果为 null 则返回空列表，否则提取图片 URL 并过滤空字符串
         List<String> imageUrls = contentImages == null ? new ArrayList<>() :

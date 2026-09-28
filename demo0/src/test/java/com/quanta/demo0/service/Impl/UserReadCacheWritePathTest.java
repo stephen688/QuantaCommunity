@@ -1,13 +1,13 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.constant.RoleConstants;
-import com.quanta.demo0.dto.IdentityAuditDTO;
-import com.quanta.demo0.dto.UserInfoDTO;
-import com.quanta.demo0.dto.UserLoginDTO;
+import com.quanta.demo0.identity.dto.IdentityAuditDTO;
+import com.quanta.demo0.user.dto.UserInfoDTO;
+import com.quanta.demo0.user.dto.UserLoginDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuth;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.identity.entity.UserAuth;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
@@ -94,8 +94,8 @@ class UserReadCacheWritePathTest {
     @Test
     void successfulProfileUpdateEvictsAuthorCache() {
         UserServiceImpl service = userService();
-        UserAuthInfo oldProfile = profile("旧昵称");
-        UserAuthInfo newProfile = profile("新昵称");
+        UserAuthInfoVO oldProfile = profile("旧昵称");
+        UserAuthInfoVO newProfile = profile("新昵称");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         when(userMapper.updateById(any(User.class))).thenReturn(1);
@@ -108,8 +108,8 @@ class UserReadCacheWritePathTest {
     @Test
     void failedProfileUpdateDoesNotEvictAuthorCache() {
         UserServiceImpl service = userService();
-        UserAuthInfo oldProfile = profile("旧昵称");
-        UserAuthInfo newProfile = profile("不应提前出现");
+        UserAuthInfoVO oldProfile = profile("旧昵称");
+        UserAuthInfoVO newProfile = profile("不应提前出现");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         when(userMapper.updateById(any(User.class))).thenReturn(0);
@@ -123,8 +123,8 @@ class UserReadCacheWritePathTest {
     @Test
     void changedWechatProfileEvictsAuthorCache() {
         UserServiceImpl service = userService();
-        UserAuthInfo oldProfile = profile("用户_默认");
-        UserAuthInfo newProfile = profile("微信昵称");
+        UserAuthInfoVO oldProfile = profile("用户_默认");
+        UserAuthInfoVO newProfile = profile("微信昵称");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         User existing = User.builder()
@@ -149,8 +149,8 @@ class UserReadCacheWritePathTest {
     @Test
     void unchangedWechatProfileDoesNotEvictAuthorCache() {
         UserServiceImpl service = userService();
-        UserAuthInfo oldProfile = profile("用户自定义");
-        UserAuthInfo newProfile = profile("不应提前出现");
+        UserAuthInfoVO oldProfile = profile("用户自定义");
+        UserAuthInfoVO newProfile = profile("不应提前出现");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         User existing = User.builder()
@@ -177,8 +177,8 @@ class UserReadCacheWritePathTest {
         UserAuth auth = UserAuth.builder().authId(88L).userId(USER_ID).build();
         User oldUser = User.builder().id(USER_ID).accountStatus(0).build();
         User newUser = User.builder().id(USER_ID).accountStatus(0).build();
-        UserAuthInfo oldProfile = profile("认证前");
-        UserAuthInfo newProfile = profile("认证后");
+        UserAuthInfoVO oldProfile = profile("认证前");
+        UserAuthInfoVO newProfile = profile("认证后");
         when(userMapper.getById(USER_ID)).thenReturn(oldUser, newUser);
         when(userMapper.getUserAuthByUserId(USER_ID)).thenReturn(
                 UserAuth.builder().userId(USER_ID).auditStatus(1).build(),
@@ -212,8 +212,8 @@ class UserReadCacheWritePathTest {
         UserAuth auth = UserAuth.builder().authId(88L).userId(USER_ID).build();
         User oldUser = User.builder().id(USER_ID).accountStatus(0).build();
         User newUser = User.builder().id(USER_ID).accountStatus(0).build();
-        UserAuthInfo oldProfile = profile("认证前");
-        UserAuthInfo newProfile = profile("认证后");
+        UserAuthInfoVO oldProfile = profile("认证前");
+        UserAuthInfoVO newProfile = profile("认证后");
         when(userMapper.getById(USER_ID)).thenReturn(oldUser, newUser);
         when(userMapper.getUserAuthByUserId(USER_ID)).thenReturn(
                 UserAuth.builder().userId(USER_ID).auditStatus(2).build(),
@@ -244,7 +244,7 @@ class UserReadCacheWritePathTest {
     @Test
     void identityRejectionRollbackKeepsAllUserCaches() {
         IdentityExamServiceImpl service = identityService();
-        UserAuthInfo oldProfile = profile("认证前");
+        UserAuthInfoVO oldProfile = profile("认证前");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         UserAuth oldAuth = UserAuth.builder().userId(USER_ID).auditStatus(1).build();
@@ -270,7 +270,7 @@ class UserReadCacheWritePathTest {
     @Test
     void identityRejectionFailureDoesNotRegisterInvalidation() {
         IdentityExamServiceImpl service = identityService();
-        UserAuthInfo oldProfile = profile("认证前");
+        UserAuthInfoVO oldProfile = profile("认证前");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         UserAuth oldAuth = UserAuth.builder().userId(USER_ID).auditStatus(1).build();
@@ -402,8 +402,8 @@ class UserReadCacheWritePathTest {
                 UserAuth.builder().userId(USER_ID).auditStatus(1).build(),
                 UserAuth.builder().userId(USER_ID).auditStatus(1).build());
         when(userRoleMapper.findRoleCodesByUserId(USER_ID)).thenReturn(List.of(), List.of(), List.of());
-        UserAuthInfo oldProfile = profile("封禁前");
-        UserAuthInfo newProfile = profile("封禁后");
+        UserAuthInfoVO oldProfile = profile("封禁前");
+        UserAuthInfoVO newProfile = profile("封禁后");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         assertEquals(0, authenticationCache.get(USER_ID, false).accountStatus());
@@ -430,8 +430,8 @@ class UserReadCacheWritePathTest {
                 UserAuth.builder().userId(USER_ID).auditStatus(1).build(),
                 UserAuth.builder().userId(USER_ID).auditStatus(1).build());
         when(userRoleMapper.findRoleCodesByUserId(USER_ID)).thenReturn(List.of(), List.of(), List.of());
-        UserAuthInfo oldProfile = profile("解封前");
-        UserAuthInfo newProfile = profile("解封后");
+        UserAuthInfoVO oldProfile = profile("解封前");
+        UserAuthInfoVO newProfile = profile("解封后");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         assertEquals(1, authenticationCache.get(USER_ID, false).accountStatus());
@@ -455,7 +455,7 @@ class UserReadCacheWritePathTest {
         when(userMapper.getUserAuthByUserId(USER_ID)).thenReturn(
                 UserAuth.builder().userId(USER_ID).auditStatus(1).build());
         when(userRoleMapper.findRoleCodesByUserId(USER_ID)).thenReturn(List.of());
-        UserAuthInfo oldProfile = profile("封禁前");
+        UserAuthInfoVO oldProfile = profile("封禁前");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         AuthenticationSnapshot oldSnapshot = authenticationCache.get(USER_ID, false);
@@ -476,7 +476,7 @@ class UserReadCacheWritePathTest {
         UserAuth oldAuth = UserAuth.builder().userId(USER_ID).auditStatus(1).build();
         when(userMapper.getUserAuthByUserId(USER_ID)).thenReturn(oldAuth, oldAuth);
         when(userRoleMapper.findRoleCodesByUserId(USER_ID)).thenReturn(List.of(), List.of());
-        UserAuthInfo oldProfile = profile("封禁前");
+        UserAuthInfoVO oldProfile = profile("封禁前");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile);
         assertEquals(oldProfile, authorProfileCache.get(USER_ID));
         AuthenticationSnapshot oldSnapshot = authenticationCache.get(USER_ID, false);
@@ -534,8 +534,8 @@ class UserReadCacheWritePathTest {
         return service;
     }
 
-    private UserAuthInfo profile(String nickName) {
-        return UserAuthInfo.builder()
+    private UserAuthInfoVO profile(String nickName) {
+        return UserAuthInfoVO.builder()
                 .userId(USER_ID)
                 .nickName(nickName)
                 .avatarUrl("https://avatar.example/" + nickName)

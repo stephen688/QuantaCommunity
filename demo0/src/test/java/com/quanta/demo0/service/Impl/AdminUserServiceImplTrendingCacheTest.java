@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.entity.User;
+import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.platform.common.exception.NoFoundException;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.service.AdminAuditRecorder;

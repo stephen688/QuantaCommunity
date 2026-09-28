@@ -3,7 +3,7 @@ import com.quanta.demo0.rag.exception.RagRetrieveException;
 
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.entity.ContentImage;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.rag.properties.RagProperties;
@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
  *   获取融合排序后的候选列表（Top10）
         * 第 3 步：将候选映射为 ContentVO
  *   提取所有 contentId，批量查询 Content 实体
- *   批量查询用户信息（UserAuthInfo）
+ *   批量查询用户信息（UserAuthInfoVO）
         *   批量查询图片列表（Image）
         *   组装 ContentVO 列表
  * 第 4 步：AI 生成
@@ -293,12 +293,12 @@ public class RagSearchService {
                 .collect(Collectors.toList());
 
         // 批量查询用户信息
-        List<UserAuthInfo> userAuthList = userIds.isEmpty()
+        List<UserAuthInfoVO> userAuthList = userIds.isEmpty()
                 ? Collections.emptyList()
                 : userMapper.selectUserAuthInfoByIds(userIds);
 
-        Map<Long, UserAuthInfo> userAuthMap = userAuthList.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId, u -> u, (v1, v2) -> v1));
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthList.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId, u -> u, (v1, v2) -> v1));
 
         // 批量查询图片
         // N+1 模式：循环逐个查询图片
@@ -320,7 +320,7 @@ public class RagSearchService {
                 continue; // 跳过不存在的帖子
             }
 
-            UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfo());
+            UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfoVO());
             List<String> imageUrls = imageMap.getOrDefault(candidate.getContentId(), Collections.emptyList());
 
             ContentVO vo = ContentVO.builder()

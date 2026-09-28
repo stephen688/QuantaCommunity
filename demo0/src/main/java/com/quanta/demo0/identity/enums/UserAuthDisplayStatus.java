@@ -1,4 +1,4 @@
-package com.quanta.demo0.enums;
+package com.quanta.demo0.identity.enums;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 
 

@@ -40,6 +40,8 @@ import static com.quanta.demo0.constant.RedisConstants.*;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.entity.ContentImage;
 import com.quanta.demo0.follow.entity.Follow;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
+import com.quanta.demo0.user.entity.User;
 
 /**
  * 关注关系服务实现类。
@@ -283,15 +285,15 @@ public class FollowServiceImpl implements FollowService {
               .distinct()
                 .toList();
 
-        Map<Long, UserAuthInfo> userAuthInfoMap = authorProfileCache.getAll(userIds);
+        Map<Long, UserAuthInfoVO> userAuthInfoMap = authorProfileCache.getAll(userIds);
         contents.forEach(this::isContentLiked);
         contents.forEach(this::isContentCollected);
         //9。转换为vo
         List<ContentVO> contentVOList = contents.stream()
                 .map(content -> {
-                            UserAuthInfo userAuthInfo=userAuthInfoMap
+                            UserAuthInfoVO userAuthInfo=userAuthInfoMap
                                     .getOrDefault(content.getPublishUserId()
-                                            ,new UserAuthInfo());
+                                            ,new UserAuthInfoVO());
                             return convertContentToVO(content, userAuthInfo);
                         }).toList();
         //10.封装返回
@@ -353,7 +355,7 @@ public class FollowServiceImpl implements FollowService {
         log.info("Feed 删除完成：contentId={}, 粉丝数量={}", contentId, followerIds.size());
     }
 
-    private ContentVO convertContentToVO(Content content, UserAuthInfo userInfo) {
+    private ContentVO convertContentToVO(Content content, UserAuthInfoVO userInfo) {
         List<ContentImage> contentImages = contentMapper.selectImagesByContentIds(content.getContentId());
         // 处理图片列表：如果为 null 则返回空列表，否则提取图片 URL 并过滤空字符串
         List<String> imageUrls = contentImages == null ? new ArrayList<>() :

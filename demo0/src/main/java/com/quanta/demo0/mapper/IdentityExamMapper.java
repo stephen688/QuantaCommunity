@@ -1,8 +1,8 @@
 package com.quanta.demo0.mapper;
 
 import com.github.pagehelper.Page;
-import com.quanta.demo0.dto.IdentityExamDTO;
-import com.quanta.demo0.vo.IdentityExamVO;
+import com.quanta.demo0.identity.dto.IdentityExamDTO;
+import com.quanta.demo0.identity.vo.IdentityExamVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 

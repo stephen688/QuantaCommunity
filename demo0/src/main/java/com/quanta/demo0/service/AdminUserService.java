@@ -1,8 +1,8 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.dto.UserAdminQueryDTO;
+import com.quanta.demo0.user.dto.UserAdminQueryDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
-import com.quanta.demo0.vo.AdminUserDetailVO;
+import com.quanta.demo0.user.vo.AdminUserDetailVO;
 
 public interface AdminUserService {
 

@@ -45,6 +45,7 @@ import com.quanta.demo0.comment.entity.CommentImage;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.entity.ReplyCountRow;
 import com.quanta.demo0.interaction.entity.CommentReport;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 
 /**
  * 评论主服务实现类。
@@ -460,7 +461,7 @@ public class CommentServiceImpl implements CommentService {
         // allUserIds = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
 
-        Map<Long, UserAuthInfo> userInfoMap = queryUserInfoMap(allUserIds);
+        Map<Long, UserAuthInfoVO> userInfoMap = queryUserInfoMap(allUserIds);
 
 
         //最终用户信息示例：
@@ -511,7 +512,7 @@ public class CommentServiceImpl implements CommentService {
             // 判断是否为答主（回答发布者）
             firstMap.put("isAnswerAuthor", answerAuthorId != null && first.getUserId().equals(answerAuthorId));
 
-            UserAuthInfo firstUser = userInfoMap.get(first.getUserId());
+            UserAuthInfoVO firstUser = userInfoMap.get(first.getUserId());
             if (firstUser != null) {
                 firstMap.put("userId", firstUser.getUserId());
                 firstMap.put("avatarUrl", firstUser.getAvatarUrl());
@@ -614,7 +615,7 @@ public class CommentServiceImpl implements CommentService {
             if (replyComment.getUserId() != null) userIds.add(replyComment.getUserId());
             if (replyComment.getReplyUserId() != null) userIds.add(replyComment.getReplyUserId());
         });
-        Map<Long, UserAuthInfo> userInfoMap = queryUserInfoMap(userIds);
+        Map<Long, UserAuthInfoVO> userInfoMap = queryUserInfoMap(userIds);
 // 6.5 查询题主和答主 ID（用于身份标识）
 // 查询内容信息获取题主 ID
         Content content = contentMapper.selectById(replyPageDTO.getContentId());
@@ -964,14 +965,14 @@ public class CommentServiceImpl implements CommentService {
     //----------------------方法区-------------------------
 
     //查询用户信息
-    private Map<Long, UserAuthInfo> queryUserInfoMap(Set<Long> userIds) {
+    private Map<Long, UserAuthInfoVO> queryUserInfoMap(Set<Long> userIds) {
         if (userIds.isEmpty()) {
             return new HashMap<>();
         }
-        List<UserAuthInfo> userAuthInfos = userMapper.selectUserAuthInfoByIds(new ArrayList<>(userIds));
+        List<UserAuthInfoVO> userAuthInfos = userMapper.selectUserAuthInfoByIds(new ArrayList<>(userIds));
         return userAuthInfos.stream()
                 .collect(Collectors.toMap(
-                        UserAuthInfo::getUserId,
+                        UserAuthInfoVO::getUserId,
                         u -> u,
                         (v1, v2) -> v1
                 ));
@@ -991,7 +992,7 @@ public class CommentServiceImpl implements CommentService {
     private List<Map<String, Object>> buildReplyList(
             List<ContentComment> replies,
             Set<Long> likeCommentIds,
-            Map<Long, UserAuthInfo> userInfoMap,
+            Map<Long, UserAuthInfoVO> userInfoMap,
             Long contentAuthorId,
             Long answerAuthorId
     ) {
@@ -1012,7 +1013,7 @@ public class CommentServiceImpl implements CommentService {
             replyMap.put("isContentAuthor", contentAuthorId != null && reply.getUserId().equals(contentAuthorId));
             replyMap.put("isAnswerAuthor", answerAuthorId != null && reply.getUserId().equals(answerAuthorId));
             // 发布者信息
-            UserAuthInfo replyUser = userInfoMap.get(reply.getUserId());
+            UserAuthInfoVO replyUser = userInfoMap.get(reply.getUserId());
             if (replyUser != null) {
                 replyMap.put("avatarUrl", replyUser.getAvatarUrl());
                 replyMap.put("nickName", replyUser.getNickName());
@@ -1022,7 +1023,7 @@ public class CommentServiceImpl implements CommentService {
 
             // 被回复者信息
             if (reply.getReplyUserId() != null) {
-                UserAuthInfo beReplyUser = userInfoMap.get(reply.getReplyUserId());
+                UserAuthInfoVO beReplyUser = userInfoMap.get(reply.getReplyUserId());
                 if (beReplyUser != null) {
                     replyMap.put("replyAvatarUrl", beReplyUser.getAvatarUrl());
                     replyMap.put("replyNickName", beReplyUser.getNickName());

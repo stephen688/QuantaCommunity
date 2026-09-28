@@ -5,7 +5,7 @@ import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.feed.dto.FollowFeedQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;
@@ -173,8 +173,8 @@ class FollowServiceImplAuthorCacheTest {
         return (List<ContentVO>) result.getList();
     }
 
-    private UserAuthInfo author(Long userId, String name) {
-        return UserAuthInfo.builder()
+    private UserAuthInfoVO author(Long userId, String name) {
+        return UserAuthInfoVO.builder()
                 .userId(userId)
                 .nickName(name)
                 .avatarUrl("avatar-" + userId)

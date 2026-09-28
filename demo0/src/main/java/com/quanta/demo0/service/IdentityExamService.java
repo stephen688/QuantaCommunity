@@ -1,9 +1,9 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.dto.IdentityAuditDTO;
-import com.quanta.demo0.dto.IdentityExamDTO;
+import com.quanta.demo0.identity.dto.IdentityAuditDTO;
+import com.quanta.demo0.identity.dto.IdentityExamDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
-import com.quanta.demo0.vo.IdentityDetailVO;
+import com.quanta.demo0.identity.vo.IdentityDetailVO;
 
 public interface IdentityExamService {
     PageResult pageQuery(IdentityExamDTO identityExamDTO);

@@ -1,6 +1,6 @@
 package com.quanta.demo0.service;
 
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 
 import java.util.Collection;
 import java.util.Map;
@@ -13,9 +13,9 @@ import java.util.Map;
  */
 public interface AuthorProfileCache {
 
-    UserAuthInfo get(Long userId);
+    UserAuthInfoVO get(Long userId);
 
-    Map<Long, UserAuthInfo> getAll(Collection<Long> userIds);
+    Map<Long, UserAuthInfoVO> getAll(Collection<Long> userIds);
 
     void evict(Long userId);
 }

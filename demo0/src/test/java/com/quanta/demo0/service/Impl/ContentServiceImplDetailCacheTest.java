@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.interaction.entity.BrowseHistory;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.content.enums.ContentDetailState;
 import com.quanta.demo0.mapper.BrowseHistoryMapper;
 import com.quanta.demo0.mapper.ContentMapper;
@@ -78,7 +78,7 @@ class ContentServiceImplDetailCacheTest {
         );
         when(detailCacheService.getOrLoad(any(), any()))
                 .thenReturn(new ContentDetailCacheEntry(ContentDetailState.FOUND, snapshot));
-        when(authorProfileCache.get(7L)).thenReturn(UserAuthInfo.builder()
+        when(authorProfileCache.get(7L)).thenReturn(UserAuthInfoVO.builder()
                 .userId(7L)
                 .nickName("作者")
                 .avatarUrl("https://avatar")

@@ -10,28 +10,28 @@ import com.alibaba.fastjson.JSONObject;
 
 import com.quanta.demo0.constant.JwtClaimsConstant;
 import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.dto.UserAuthDTO;
-import com.quanta.demo0.dto.UserInfoDTO;
-import com.quanta.demo0.dto.UserLoginDTO;
+import com.quanta.demo0.identity.dto.UserAuthDTO;
+import com.quanta.demo0.user.dto.UserInfoDTO;
+import com.quanta.demo0.user.dto.UserLoginDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuth;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.identity.entity.UserAuth;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.enums.UserAuthDisplayStatus;
+import com.quanta.demo0.identity.enums.UserAuthDisplayStatus;
 import com.quanta.demo0.exception.*;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.properties.WeChatProperties;
+import com.quanta.demo0.user.properties.WeChatProperties;
 import com.quanta.demo0.service.UserService;
 import com.quanta.demo0.service.UserReadCacheInvalidator;
 import com.quanta.demo0.utils.HttpClientUtil;
 import com.quanta.demo0.utils.JwtUtil;
 import com.quanta.demo0.utils.SensitiveWordChecker;
-import com.quanta.demo0.vo.UserAuthStatusVO;
-import com.quanta.demo0.vo.UserInfoVO;
-import com.quanta.demo0.vo.UserProfileVO;
+import com.quanta.demo0.identity.vo.UserAuthStatusVO;
+import com.quanta.demo0.user.vo.UserInfoVO;
+import com.quanta.demo0.user.vo.UserProfileVO;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +46,8 @@ import java.util.Objects;
 
 import static com.quanta.demo0.constant.RedisConstants.LOGIN_USER_KEY;
 import static com.quanta.demo0.constant.SystemConstant.USER_NICK_NAME_PREFIX;
+import com.quanta.demo0.user.exception.UserInfoFailedException;
+import com.quanta.demo0.user.exception.LoginFailedException;
 
 /**
  * 用户域服务实现类。
@@ -507,7 +509,7 @@ public class UserServiceImpl implements UserService {
         }
 
         // 2. 查询目标用户公开信息（过滤软删除）
-        UserAuthInfo userInfo = userMapper.selectUserAuthInfoById(targetUserId);
+        UserAuthInfoVO userInfo = userMapper.selectUserAuthInfoById(targetUserId);
         if (userInfo == null) {
             throw new NoFoundException("用户不存在");
         }

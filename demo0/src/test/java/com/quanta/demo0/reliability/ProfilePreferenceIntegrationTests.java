@@ -63,6 +63,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import com.quanta.demo0.content.properties.ContentTopicProperties;
 import com.quanta.demo0.feed.properties.RecommendProperties;
+import com.quanta.demo0.user.entity.User;
 
 /** 真 MySQL/RabbitMQ/Redis 定向闭环；隔离容器，不修改真实用户。付费标签 smoke 显式开启，仅一帖。 */
 @MybatisTest @Testcontainers

@@ -1,5 +1,4 @@
-
-    package com.quanta.demo0.entity;
+package com.quanta.demo0.user.vo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,7 +14,7 @@ import java.io.Serializable;
     @AllArgsConstructor
     @NoArgsConstructor
     @Builder
-    public class UserAuthInfo implements Serializable {
+    public class UserAuthInfoVO implements Serializable {
 
         /**
          * 用户 ID

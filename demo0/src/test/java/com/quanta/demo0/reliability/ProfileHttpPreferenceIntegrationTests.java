@@ -81,6 +81,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import com.quanta.demo0.feed.properties.RecommendProperties;
+import com.quanta.demo0.user.entity.User;
 
 /**
  * 一条有界的真实边界证明：HTTP service-token 鉴权 → MySQL 事实/Outbox → RabbitMQ → Inbox/Redis → 推荐排序。

@@ -89,8 +89,8 @@
         where auth_id=#{authId}
     </update>
 
-    <!-- 根据用户 ID 查询用户认证信息（联表查询，只查询 UserAuthInfo 实体中的字段） -->
-    <select id="selectUserAuthInfoById" resultType="com.quanta.demo0.entity.UserAuthInfo">
+    <!-- 根据用户 ID 查询用户认证信息（联表查询，只查询 UserAuthInfoVO 实体中的字段） -->
+    <select id="selectUserAuthInfoById" resultType="com.quanta.demo0.user.vo.UserAuthInfoVO">
         SELECT
             u.id AS userId,
             u.nick_name AS nickName,
@@ -105,7 +105,7 @@
     </select>
 
 
-    <select id="selectUserAuthInfoByIds" resultType="com.quanta.demo0.entity.UserAuthInfo">
+    <select id="selectUserAuthInfoByIds" resultType="com.quanta.demo0.user.vo.UserAuthInfoVO">
         SELECT
         u.id AS userId,
         u.avatar_url AS avatarUrl,
@@ -131,7 +131,7 @@
 
     </select>
     <!-- 管理端 - 分页查询用户列表 -->
-    <select id="pageAdmin" resultType="com.quanta.demo0.entity.User">
+    <select id="pageAdmin" resultType="com.quanta.demo0.user.entity.User">
         SELECT * FROM tb_user
         <where>
             <!-- 过滤软删除数据 -->
@@ -154,7 +154,7 @@
     </select>
 
     <!-- 查询粉丝数最高的用户（热门校友兜底） -->
-    <select id="selectTopFollowedUsers" resultType="com.quanta.demo0.entity.UserAuthInfo">
+    <select id="selectTopFollowedUsers" resultType="com.quanta.demo0.user.vo.UserAuthInfoVO">
         SELECT u.id AS userId,
                u.nick_name AS nickName,
                u.avatar_url AS avatarUrl,

@@ -1,8 +1,8 @@
 package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.constant.RoleConstants;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
@@ -57,7 +57,7 @@ class ReadPathCacheLocalExpiryTests {
     @Test
     void authorEvictionIsLocalAndOtherInstanceRefreshesAfterConfiguredTtl() throws Exception {
         UserMapper userMapper = mock(UserMapper.class);
-        AtomicReference<UserAuthInfo> profile = new AtomicReference<>(author("旧昵称"));
+        AtomicReference<UserAuthInfoVO> profile = new AtomicReference<>(author("旧昵称"));
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenAnswer(invocation -> profile.get());
         ReadPathCacheProperties properties = shortTtlProperties();
         AuthorProfileCacheImpl first = new AuthorProfileCacheImpl(userMapper, properties);
@@ -80,8 +80,8 @@ class ReadPathCacheLocalExpiryTests {
         return properties;
     }
 
-    private static UserAuthInfo author(String nickName) {
-        return UserAuthInfo.builder().userId(USER_ID).nickName(nickName).build();
+    private static UserAuthInfoVO author(String nickName) {
+        return UserAuthInfoVO.builder().userId(USER_ID).nickName(nickName).build();
     }
 
     private static void awaitRefresh(BooleanSupplier refreshed) throws InterruptedException {

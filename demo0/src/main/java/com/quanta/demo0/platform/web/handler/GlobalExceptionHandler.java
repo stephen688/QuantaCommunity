@@ -25,6 +25,8 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.comment.exception.CommentFailedException;
+import com.quanta.demo0.user.exception.UserInfoFailedException;
+import com.quanta.demo0.user.exception.LoginFailedException;
 
 /**
  * 全局异常处理器，处理项目中抛出的业务异常

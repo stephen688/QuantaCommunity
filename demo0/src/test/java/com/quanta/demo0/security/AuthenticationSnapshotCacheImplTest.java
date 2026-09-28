@@ -1,7 +1,7 @@
 package com.quanta.demo0.security;
 
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuth;
+import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.mapper.UserRoleMapper;

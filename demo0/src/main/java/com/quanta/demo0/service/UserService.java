@@ -2,14 +2,14 @@ package com.quanta.demo0.service;
 
 
 
-import com.quanta.demo0.dto.UserAuthDTO;
-import com.quanta.demo0.dto.UserInfoDTO;
-import com.quanta.demo0.dto.UserLoginDTO;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuth;
-import com.quanta.demo0.vo.UserAuthStatusVO;
-import com.quanta.demo0.vo.UserInfoVO;
-import com.quanta.demo0.vo.UserProfileVO;
+import com.quanta.demo0.identity.dto.UserAuthDTO;
+import com.quanta.demo0.user.dto.UserInfoDTO;
+import com.quanta.demo0.user.dto.UserLoginDTO;
+import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.identity.entity.UserAuth;
+import com.quanta.demo0.identity.vo.UserAuthStatusVO;
+import com.quanta.demo0.user.vo.UserInfoVO;
+import com.quanta.demo0.user.vo.UserProfileVO;
 
 import java.util.Map;
 

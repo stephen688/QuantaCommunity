@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.SearchMapper;
 import com.quanta.demo0.mapper.UserMapper;
@@ -138,15 +138,15 @@ public class TrendingDataLoader {
                 RedisConstants.USER_FOLLOWER_RANK_KEY,
                 limit
         );
-        List<UserAuthInfo> rankedUsers = rankedIds.isEmpty()
+        List<UserAuthInfoVO> rankedUsers = rankedIds.isEmpty()
                 ? Collections.emptyList()
                 : userMapper.selectUserAuthInfoByIds(rankedIds);
-        Map<Long, UserAuthInfo> usersById = indexUsers(rankedUsers);
+        Map<Long, UserAuthInfoVO> usersById = indexUsers(rankedUsers);
 
         List<HotAlumniVO> alumni = new ArrayList<>(limit);
         Set<Long> selectedIds = new HashSet<>();
         for (Long rankedId : rankedIds) {
-            UserAuthInfo user = usersById.get(rankedId);
+            UserAuthInfoVO user = usersById.get(rankedId);
             if (isAvailableAlumni(user) && selectedIds.add(rankedId)) {
                 alumni.add(toHotAlumni(user));
                 if (alumni.size() == limit) {
@@ -156,11 +156,11 @@ public class TrendingDataLoader {
         }
 
         // 查询完整 limit，避免 DB TopN 前几项与排行结果重复时补不满。
-        List<UserAuthInfo> fallbackUsers = userMapper.selectTopFollowedUsers(limit);
+        List<UserAuthInfoVO> fallbackUsers = userMapper.selectTopFollowedUsers(limit);
         if (fallbackUsers == null) {
             return alumni;
         }
-        for (UserAuthInfo user : fallbackUsers) {
+        for (UserAuthInfoVO user : fallbackUsers) {
             if (isAvailableAlumni(user)
                     && selectedIds.add(user.getUserId())) {
                 alumni.add(toHotAlumni(user));
@@ -220,12 +220,12 @@ public class TrendingDataLoader {
         return indexed;
     }
 
-    private Map<Long, UserAuthInfo> indexUsers(List<UserAuthInfo> users) {
-        Map<Long, UserAuthInfo> indexed = new HashMap<>();
+    private Map<Long, UserAuthInfoVO> indexUsers(List<UserAuthInfoVO> users) {
+        Map<Long, UserAuthInfoVO> indexed = new HashMap<>();
         if (users == null) {
             return indexed;
         }
-        for (UserAuthInfo user : users) {
+        for (UserAuthInfoVO user : users) {
             if (user != null && user.getUserId() != null) {
                 indexed.putIfAbsent(user.getUserId(), user);
             }
@@ -240,7 +240,7 @@ public class TrendingDataLoader {
                 && Integer.valueOf(1).equals(content.getAuditStatus());
     }
 
-    private boolean isAvailableAlumni(UserAuthInfo user) {
+    private boolean isAvailableAlumni(UserAuthInfoVO user) {
         Integer accountStatus = user == null ? null : user.getAccountStatus();
         return user != null
                 && user.getUserId() != null
@@ -255,7 +255,7 @@ public class TrendingDataLoader {
                 .build();
     }
 
-    private HotAlumniVO toHotAlumni(UserAuthInfo user) {
+    private HotAlumniVO toHotAlumni(UserAuthInfoVO user) {
         return HotAlumniVO.builder()
                 .userId(user.getUserId())
                 .nickName(user.getNickName())

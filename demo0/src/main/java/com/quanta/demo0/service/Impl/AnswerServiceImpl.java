@@ -40,6 +40,7 @@ import static com.quanta.demo0.constant.RedisConstants.ANSWER_LIKED_KEY;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.interaction.entity.AnswerLiked;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 
 /**
  * 回答主服务实现类。
@@ -154,7 +155,7 @@ public class AnswerServiceImpl implements AnswerService {
         }
 
         // 7. 查询用户信息
-        UserAuthInfo userInfo = userMapper.selectUserAuthInfoById(userId);
+        UserAuthInfoVO userInfo = userMapper.selectUserAuthInfoById(userId);
         // 8. 构建返回 VO（auditStatus=0 表示审核中）
          AnswerVO answerVO = AnswerVO.builder()
                 .answerId(answer.getAnswerId())
@@ -229,16 +230,16 @@ public class AnswerServiceImpl implements AnswerService {
                 .collect(Collectors.toSet());
 
         // 3.2 批量查询用户信息
-        List<UserAuthInfo> userInfoList = userMapper.selectUserAuthInfoByIds(new ArrayList<>(userIds));
+        List<UserAuthInfoVO> userInfoList = userMapper.selectUserAuthInfoByIds(new ArrayList<>(userIds));
 
-        // 3.3 构建用户信息映射（userId -> UserAuthInfo）
-        Map<Long, UserAuthInfo> userInfoMap = userInfoList.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId, u -> u));
+        // 3.3 构建用户信息映射（userId -> UserAuthInfoVO）
+        Map<Long, UserAuthInfoVO> userInfoMap = userInfoList.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId, u -> u));
 
         // 4. 构建返回 VO 列表
         List<AnswerVO> answerVOList = new ArrayList<>();
         for (QuestionAnswer answer : answers) {
-            UserAuthInfo userInfo = userInfoMap.get(answer.getUserId());
+            UserAuthInfoVO userInfo = userInfoMap.get(answer.getUserId());
             AnswerVO vo = AnswerVO.builder()
                     .answerId(answer.getAnswerId())
                     .questionId(answer.getQuestionId())
@@ -541,7 +542,7 @@ public class AnswerServiceImpl implements AnswerService {
         }
 
         // 3. 查询回答用户信息
-        UserAuthInfo userInfo = userMapper.selectUserAuthInfoById(answer.getUserId());
+        UserAuthInfoVO userInfo = userMapper.selectUserAuthInfoById(answer.getUserId());
 
         // 4. 构建返回 VO
         AnswerVO answerVO = AnswerVO.builder()

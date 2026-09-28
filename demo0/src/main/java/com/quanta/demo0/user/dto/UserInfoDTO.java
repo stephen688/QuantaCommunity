@@ -1,4 +1,4 @@
-package com.quanta.demo0.dto;
+package com.quanta.demo0.user.dto;
 
 
 import lombok.AllArgsConstructor;

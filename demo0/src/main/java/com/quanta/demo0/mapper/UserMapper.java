@@ -1,9 +1,9 @@
 package com.quanta.demo0.mapper;
 
-import com.quanta.demo0.dto.UserAdminQueryDTO;
-import com.quanta.demo0.entity.User;
-import com.quanta.demo0.entity.UserAuth;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.dto.UserAdminQueryDTO;
+import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.identity.entity.UserAuth;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -43,11 +43,11 @@ public interface UserMapper {
     void updateUserAuth(UserAuth auth);
 
     //根据用户ids列表查询用户基本信息和用户认证信息列表
-    List<UserAuthInfo> selectUserAuthInfoByIds(@Param("userIds") List<Long> userIds);
+    List<UserAuthInfoVO> selectUserAuthInfoByIds(@Param("userIds") List<Long> userIds);
 
     //根据发布用户id查询用户认证信息(联表查询tb_user和tb_user_auth表，并且过滤软删除用户)
 
-    UserAuthInfo selectUserAuthInfoById(@Param("userId") Long userId);
+    UserAuthInfoVO selectUserAuthInfoById(@Param("userId") Long userId);
 
     /**
      * 管理端 - 分页查询用户列表
@@ -66,7 +66,7 @@ public interface UserMapper {
      * @param limit 限制数量
      * @return 用户认证信息列表
      */
-    List<UserAuthInfo> selectTopFollowedUsers(@Param("limit") int limit);
+    List<UserAuthInfoVO> selectTopFollowedUsers(@Param("limit") int limit);
 
     /**
      * 查询用户账号状态。

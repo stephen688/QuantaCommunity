@@ -6,7 +6,7 @@
       入参：pageNum, pageSize, auditStatus（可选）
       返回：UserAuthListVO
     -->
-    <select id="list" resultType="com.quanta.demo0.vo.IdentityExamVO">
+    <select id="list" resultType="com.quanta.demo0.identity.vo.IdentityExamVO">
         SELECT
         ua.auth_id AS authId,
         ua.user_id AS userId,

@@ -1,4 +1,4 @@
-package com.quanta.demo0.properties;
+package com.quanta.demo0.user.properties;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -1,4 +1,4 @@
-package com.quanta.demo0.vo;
+package com.quanta.demo0.user.vo;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

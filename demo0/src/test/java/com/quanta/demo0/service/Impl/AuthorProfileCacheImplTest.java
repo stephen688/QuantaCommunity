@@ -1,6 +1,6 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +41,7 @@ class AuthorProfileCacheImplTest {
 
     @Test
     void getReturnsCachedAuthorWithoutQueryingMapperAgain() {
-        UserAuthInfo author = author(7L, "Ada");
+        UserAuthInfoVO author = author(7L, "Ada");
         when(userMapper.selectUserAuthInfoById(7L)).thenReturn(author);
 
         assertThat(cache.get(7L)).isEqualTo(author);
@@ -52,7 +52,7 @@ class AuthorProfileCacheImplTest {
 
     @Test
     void getLoadsOneMissingAuthorAndCachesIt() {
-        UserAuthInfo author = author(7L, "Ada");
+        UserAuthInfoVO author = author(7L, "Ada");
         when(userMapper.selectUserAuthInfoById(7L)).thenReturn(author);
 
         assertThat(cache.get(7L)).isEqualTo(author);
@@ -62,14 +62,14 @@ class AuthorProfileCacheImplTest {
 
     @Test
     void getAllWithAllAuthorsCachedDoesNotQueryMapper() {
-        UserAuthInfo first = author(7L, "Ada");
-        UserAuthInfo second = author(8L, "Grace");
+        UserAuthInfoVO first = author(7L, "Ada");
+        UserAuthInfoVO second = author(8L, "Grace");
         when(userMapper.selectUserAuthInfoById(7L)).thenReturn(first);
         when(userMapper.selectUserAuthInfoById(8L)).thenReturn(second);
         cache.get(7L);
         cache.get(8L);
 
-        Map<Long, UserAuthInfo> result = cache.getAll(List.of(8L, 7L));
+        Map<Long, UserAuthInfoVO> result = cache.getAll(List.of(8L, 7L));
 
         assertThat(result.keySet()).containsExactly(8L, 7L);
         assertThat(result).containsEntry(8L, second).containsEntry(7L, first);
@@ -80,15 +80,15 @@ class AuthorProfileCacheImplTest {
 
     @Test
     void getAllDeduplicatesIdsAndLoadsMissesWithOneBatchQueryInFirstSeenOrder() {
-        UserAuthInfo first = author(7L, "Ada");
-        UserAuthInfo second = author(8L, "Grace");
-        UserAuthInfo third = author(9L, "Lin");
+        UserAuthInfoVO first = author(7L, "Ada");
+        UserAuthInfoVO second = author(8L, "Grace");
+        UserAuthInfoVO third = author(9L, "Lin");
         when(userMapper.selectUserAuthInfoById(8L)).thenReturn(second);
         cache.get(8L);
         when(userMapper.selectUserAuthInfoByIds(List.of(7L, 9L)))
                 .thenReturn(List.of(first, third, second));
 
-        Map<Long, UserAuthInfo> result = cache.getAll(Arrays.asList(8L, 7L, 8L, null, 9L));
+        Map<Long, UserAuthInfoVO> result = cache.getAll(Arrays.asList(8L, 7L, 8L, null, 9L));
 
         assertThat(result.keySet()).containsExactly(8L, 7L, 9L);
         assertThat(result).containsEntry(8L, second)
@@ -102,11 +102,11 @@ class AuthorProfileCacheImplTest {
 
     @Test
     void getAllOmitsMissingRowsWithoutCreatingFakeAuthorsOrDuplicateKeyFailure() {
-        UserAuthInfo author = author(7L, "Ada");
+        UserAuthInfoVO author = author(7L, "Ada");
         when(userMapper.selectUserAuthInfoByIds(List.of(7L, 8L, 9L)))
                 .thenReturn(Arrays.asList(author, author(7L, "duplicate"), null));
 
-        Map<Long, UserAuthInfo> result = cache.getAll(List.of(7L, 8L, 9L));
+        Map<Long, UserAuthInfoVO> result = cache.getAll(List.of(7L, 8L, 9L));
 
         assertThat(result).containsOnlyKeys(7L);
         assertThat(result.get(7L)).isEqualTo(author);
@@ -153,8 +153,8 @@ class AuthorProfileCacheImplTest {
         verify(userMapper, never()).selectUserAuthInfoByIds(anyList());
     }
 
-    private UserAuthInfo author(Long userId, String nickName) {
-        return UserAuthInfo.builder()
+    private UserAuthInfoVO author(Long userId, String nickName) {
+        return UserAuthInfoVO.builder()
                 .userId(userId)
                 .nickName(nickName)
                 .avatarUrl("avatar-" + userId)

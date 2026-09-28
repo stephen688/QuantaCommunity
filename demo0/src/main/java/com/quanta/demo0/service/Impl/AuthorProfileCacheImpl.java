@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.quanta.demo0.entity.UserAuthInfo;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.service.AuthorProfileCache;
@@ -29,7 +29,7 @@ import java.util.Set;
 public class AuthorProfileCacheImpl implements AuthorProfileCache {
 
     private final UserMapper userMapper;
-    private final Cache<Long, UserAuthInfo> localCache;
+    private final Cache<Long, UserAuthInfoVO> localCache;
 
     public AuthorProfileCacheImpl(
             UserMapper userMapper,
@@ -43,7 +43,7 @@ public class AuthorProfileCacheImpl implements AuthorProfileCache {
     }
 
     @Override
-    public UserAuthInfo get(Long userId) {
+    public UserAuthInfoVO get(Long userId) {
         if (userId == null) {
             return null;
         }
@@ -51,7 +51,7 @@ public class AuthorProfileCacheImpl implements AuthorProfileCache {
     }
 
     @Override
-    public Map<Long, UserAuthInfo> getAll(Collection<Long> userIds) {
+    public Map<Long, UserAuthInfoVO> getAll(Collection<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -77,9 +77,9 @@ public class AuthorProfileCacheImpl implements AuthorProfileCache {
             loadMissing(missingIds);
         }
 
-        Map<Long, UserAuthInfo> result = new LinkedHashMap<>();
+        Map<Long, UserAuthInfoVO> result = new LinkedHashMap<>();
         for (Long userId : orderedIds) {
-            UserAuthInfo userAuthInfo = localCache.getIfPresent(userId);
+            UserAuthInfoVO userAuthInfo = localCache.getIfPresent(userId);
             if (userAuthInfo != null) {
                 result.put(userId, userAuthInfo);
             }
@@ -95,13 +95,13 @@ public class AuthorProfileCacheImpl implements AuthorProfileCache {
     }
 
     private void loadMissing(List<Long> missingIds) {
-        List<UserAuthInfo> loaded = userMapper.selectUserAuthInfoByIds(missingIds);
+        List<UserAuthInfoVO> loaded = userMapper.selectUserAuthInfoByIds(missingIds);
         if (loaded == null || loaded.isEmpty()) {
             return;
         }
 
         Set<Long> requestedIds = new HashSet<>(missingIds);
-        for (UserAuthInfo userAuthInfo : loaded) {
+        for (UserAuthInfoVO userAuthInfo : loaded) {
             if (userAuthInfo == null
                     || userAuthInfo.getUserId() == null
                     || !requestedIds.contains(userAuthInfo.getUserId())) {
