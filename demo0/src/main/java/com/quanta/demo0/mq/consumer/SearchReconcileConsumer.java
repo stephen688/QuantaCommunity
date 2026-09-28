@@ -5,7 +5,7 @@ import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.SearchReconcileMessage;
 import com.quanta.demo0.mq.producer.SearchReconcileProducer;
 import com.quanta.demo0.service.InboxEventService;
-import com.quanta.demo0.service.SearchReconcileService;
+import com.quanta.demo0.search.service.SearchReconcileService;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;

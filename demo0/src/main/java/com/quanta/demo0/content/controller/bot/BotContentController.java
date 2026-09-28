@@ -5,7 +5,7 @@ import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.content.vo.BotSyncPageVO;
 import com.quanta.demo0.content.dto.BotPolicyDocDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.BotContentSyncService;
+import com.quanta.demo0.content.service.BotContentSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;

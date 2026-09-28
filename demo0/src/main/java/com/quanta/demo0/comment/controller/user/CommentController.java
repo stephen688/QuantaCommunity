@@ -8,7 +8,7 @@ import com.quanta.demo0.interaction.dto.CommentReportDTO;
 import com.quanta.demo0.interaction.dto.LikeStateDTO;
 import com.quanta.demo0.comment.dto.ReplyPageDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.CommentService;
+import com.quanta.demo0.comment.service.CommentService;
 import com.quanta.demo0.comment.vo.CommentPageVO;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;

@@ -1,6 +1,6 @@
 package com.quanta.demo0.notification.controller.user;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.NotificationService;
+import com.quanta.demo0.notification.service.NotificationService;
 import com.quanta.demo0.notification.vo.NotificationVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 import lombok.extern.slf4j.Slf4j;

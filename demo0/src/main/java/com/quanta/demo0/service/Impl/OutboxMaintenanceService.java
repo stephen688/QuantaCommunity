@@ -1,7 +1,7 @@
 package com.quanta.demo0.service.Impl;
 
-import com.quanta.demo0.mapper.InboxEventMapper;
-import com.quanta.demo0.mapper.OutboxEventMapper;
+import com.quanta.demo0.platform.mq.mapper.InboxEventMapper;
+import com.quanta.demo0.platform.mq.mapper.OutboxEventMapper;
 import com.quanta.demo0.platform.mq.properties.OutboxMaintenanceProperties;
 import com.quanta.demo0.platform.mq.admin.vo.EventStatusCountVO;
 import lombok.RequiredArgsConstructor;

@@ -7,7 +7,7 @@ import com.quanta.demo0.answer.dto.AnswerAdminQueryDTO;
 import com.quanta.demo0.content.dto.ContentAuditDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.AdminAnswerService;
+import com.quanta.demo0.answer.service.AdminAnswerService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;

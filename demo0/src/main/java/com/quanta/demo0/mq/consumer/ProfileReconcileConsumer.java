@@ -5,7 +5,7 @@ import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 import com.quanta.demo0.mq.message.ProfileReconcileMessage;
 import com.quanta.demo0.mq.producer.ProfileReconcileProducer;
-import com.quanta.demo0.service.ExplicitPreferenceService;
+import com.quanta.demo0.feed.service.ExplicitPreferenceService;
 import com.quanta.demo0.service.InboxEventService;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;

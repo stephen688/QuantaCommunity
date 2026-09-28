@@ -3,7 +3,7 @@ package com.quanta.demo0.moderation.controller.admin;
 import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.moderation.dto.ModerationTargetQueryDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.AdminModerationService;
+import com.quanta.demo0.moderation.service.AdminModerationService;
 import com.quanta.demo0.moderation.vo.ModerationRecordVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

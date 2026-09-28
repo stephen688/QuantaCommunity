@@ -7,7 +7,7 @@ import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.service.OutboxEventService;
-import com.quanta.demo0.service.ContentDetailCacheInvalidator;
+import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

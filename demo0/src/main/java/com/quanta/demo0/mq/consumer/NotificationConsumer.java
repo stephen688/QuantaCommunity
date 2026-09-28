@@ -8,7 +8,7 @@ import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.mq.producer.NotificationProducer;
 import com.quanta.demo0.service.InboxEventService;
-import com.quanta.demo0.service.NotificationConsumeService;
+import com.quanta.demo0.notification.service.NotificationConsumeService;
 import com.quanta.demo0.service.UserAccessStateService;
 import com.quanta.demo0.notification.vo.NotificationVO;
 import com.rabbitmq.client.Channel;

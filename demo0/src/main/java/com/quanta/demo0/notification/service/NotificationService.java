@@ -1,0 +1,14 @@
+package com.quanta.demo0.notification.service;
+
+import com.quanta.demo0.notification.vo.NotificationVO;
+import com.quanta.demo0.platform.common.result.PageVO;
+
+public interface NotificationService {
+    PageVO<NotificationVO> pageNotifications(Integer page, Integer pageSize);
+
+    Integer getUnreadCount();
+
+    void markAsRead(Long id);
+
+    void markAllAsRead();
+}

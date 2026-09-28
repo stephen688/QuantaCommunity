@@ -7,7 +7,7 @@ import com.quanta.demo0.identity.dto.IdentityAuditDTO;
 import com.quanta.demo0.identity.dto.IdentityExamDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.IdentityExamService;
+import com.quanta.demo0.identity.service.IdentityExamService;
 import com.quanta.demo0.identity.vo.IdentityDetailVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

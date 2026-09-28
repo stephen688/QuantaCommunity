@@ -11,7 +11,7 @@ import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.platform.common.result.ScrollResult;
-import com.quanta.demo0.service.AuthorProfileCache;
+import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.service.FollowService;
 import com.quanta.demo0.service.OutboxEventService;
 import com.quanta.demo0.content.vo.ContentVO;

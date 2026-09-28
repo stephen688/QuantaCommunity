@@ -4,7 +4,7 @@ import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.answer.dto.AnswerDTO;
 import com.quanta.demo0.interaction.dto.LikeStateDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.AnswerService;
+import com.quanta.demo0.answer.service.AnswerService;
 import com.quanta.demo0.answer.vo.AnswerVO;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;

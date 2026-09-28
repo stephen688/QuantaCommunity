@@ -2,7 +2,7 @@ package com.quanta.demo0.rag.retrieval;
 import com.github.pagehelper.Page;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.es.document.AnswerDocument;
-import com.quanta.demo0.es.service.ElasticSearchService;
+import com.quanta.demo0.search.es.service.ElasticSearchService;
 import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagCandidate;
 import lombok.extern.slf4j.Slf4j;

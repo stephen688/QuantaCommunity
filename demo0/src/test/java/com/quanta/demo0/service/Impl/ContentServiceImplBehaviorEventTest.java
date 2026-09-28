@@ -5,7 +5,7 @@ import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.interaction.entity.ContentCollect;
 import com.quanta.demo0.interaction.entity.ContentLiked;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.service.ContentDetailCacheInvalidator;
+import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

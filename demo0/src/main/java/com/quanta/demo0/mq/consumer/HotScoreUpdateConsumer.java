@@ -4,7 +4,7 @@ import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.HotScoreMessage;
 import com.quanta.demo0.mq.producer.HotScoreUpdateProducer;
-import com.quanta.demo0.service.ContentService;
+import com.quanta.demo0.content.service.ContentService;
 import com.quanta.demo0.service.InboxEventService;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;

@@ -4,7 +4,7 @@ import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.mapper.UserRoleMapper;
+import com.quanta.demo0.platform.security.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;

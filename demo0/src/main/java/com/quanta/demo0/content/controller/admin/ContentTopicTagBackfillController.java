@@ -2,7 +2,7 @@ package com.quanta.demo0.content.controller.admin;
 
 import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.ContentTopicTagService;
+import com.quanta.demo0.content.service.ContentTopicTagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;

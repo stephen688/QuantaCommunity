@@ -5,7 +5,7 @@ import com.quanta.demo0.feed.controller.bot.BotProfileController;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.web.handler.GlobalExceptionHandler;
-import com.quanta.demo0.service.ExplicitPreferenceService;
+import com.quanta.demo0.feed.service.ExplicitPreferenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

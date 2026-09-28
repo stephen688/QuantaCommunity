@@ -5,7 +5,7 @@ import com.quanta.demo0.comment.vo.BotCommentChainVO;
 import com.quanta.demo0.comment.vo.BotCommentHistoryVO;
 import com.quanta.demo0.comment.vo.BotCommentTreeVO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.BotCommentService;
+import com.quanta.demo0.comment.service.BotCommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;

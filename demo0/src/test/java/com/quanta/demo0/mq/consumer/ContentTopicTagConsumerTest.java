@@ -4,7 +4,7 @@ import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mq.message.ContentTopicTagMessage;
 import com.quanta.demo0.mq.producer.ContentTopicTagProducer;
 import com.quanta.demo0.content.properties.ContentTopicProperties;
-import com.quanta.demo0.service.ContentTopicTagService;
+import com.quanta.demo0.content.service.ContentTopicTagService;
 import com.quanta.demo0.service.InboxEventService;
 import com.rabbitmq.client.Channel;
 import org.junit.jupiter.api.Test;

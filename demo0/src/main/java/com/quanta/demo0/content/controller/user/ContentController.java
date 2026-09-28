@@ -4,7 +4,7 @@ import com.quanta.demo0.platform.security.annotation.RateLimit;
 import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.ScrollResult;
-import com.quanta.demo0.service.ContentService;
+import com.quanta.demo0.content.service.ContentService;
 import com.quanta.demo0.interaction.vo.CollectResultVO;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.interaction.vo.LikeResultVO;

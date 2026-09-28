@@ -6,7 +6,7 @@ import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.user.dto.UserAdminQueryDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.AdminUserService;
+import com.quanta.demo0.user.service.AdminUserService;
 import com.quanta.demo0.user.vo.AdminUserDetailVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

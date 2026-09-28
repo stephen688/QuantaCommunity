@@ -7,7 +7,7 @@ import com.quanta.demo0.content.controller.user.ContentController;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.SecurityProperties;
-import com.quanta.demo0.service.ContentService;
+import com.quanta.demo0.content.service.ContentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

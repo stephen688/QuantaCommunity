@@ -2,8 +2,8 @@ package com.quanta.demo0.search.controller.user;
 
 import com.quanta.demo0.search.dto.SearchDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.ContentService;
-import com.quanta.demo0.service.SearchService;
+import com.quanta.demo0.content.service.ContentService;
+import com.quanta.demo0.search.service.SearchService;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 import com.quanta.demo0.search.vo.SearchTrendingVO;

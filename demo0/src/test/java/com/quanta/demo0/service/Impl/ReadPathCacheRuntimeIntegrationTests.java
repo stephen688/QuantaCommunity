@@ -9,18 +9,18 @@ import com.quanta.demo0.identity.dto.IdentityAuditDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.mapper.UserRoleMapper;
+import com.quanta.demo0.platform.security.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.service.AuthenticationSnapshotCache;
 import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.security.service.AdminRoleService;
-import com.quanta.demo0.service.AdminUserService;
-import com.quanta.demo0.service.AuthorProfileCache;
-import com.quanta.demo0.service.ContentDetailCacheService;
-import com.quanta.demo0.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.service.IdentityExamService;
-import com.quanta.demo0.service.Impl.ContentDetailDataLoader;
-import com.quanta.demo0.service.Impl.ContentDetailCacheServiceImpl;
+import com.quanta.demo0.user.service.AdminUserService;
+import com.quanta.demo0.user.service.AuthorProfileCache;
+import com.quanta.demo0.content.service.ContentDetailCacheService;
+import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
+import com.quanta.demo0.identity.service.IdentityExamService;
+import com.quanta.demo0.content.service.impl.ContentDetailDataLoader;
+import com.quanta.demo0.content.service.impl.ContentDetailCacheServiceImpl;
 import com.quanta.demo0.platform.security.utils.JwtUtil;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
@@ -204,7 +204,7 @@ class ReadPathCacheRuntimeIntegrationTests {
     private int port;
 
     @MockitoBean
-    private com.quanta.demo0.config.RecommendFeedInitializer recommendFeedInitializer;
+    private com.quanta.demo0.feed.config.RecommendFeedInitializer recommendFeedInitializer;
 
     @MockitoBean
     private com.quanta.demo0.es.initializer.ElasticsearchIndexInitializer

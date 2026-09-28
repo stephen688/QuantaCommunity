@@ -5,7 +5,7 @@ import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.service.UserProfileService;
-import com.quanta.demo0.service.TopicCatalog;
+import com.quanta.demo0.feed.service.TopicCatalog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;

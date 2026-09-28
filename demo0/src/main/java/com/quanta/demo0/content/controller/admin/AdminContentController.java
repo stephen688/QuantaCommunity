@@ -9,7 +9,7 @@ import com.quanta.demo0.interaction.dto.ContentReportHandleDTO;
 import com.quanta.demo0.interaction.dto.ContentReportQueryDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.service.AdminContentService;
+import com.quanta.demo0.content.service.AdminContentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
