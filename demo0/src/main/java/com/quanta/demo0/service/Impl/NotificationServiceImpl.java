@@ -6,7 +6,7 @@ import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.notification.entity.Notification;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.platform.common.exception.NoFoundException;
-import com.quanta.demo0.mapper.NotificationMapper;
+import com.quanta.demo0.notification.mapper.NotificationMapper;
 import com.quanta.demo0.service.NotificationService;
 import com.quanta.demo0.notification.vo.NotificationVO;
 import com.quanta.demo0.platform.common.result.PageVO;

@@ -15,7 +15,7 @@ import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.security.AuthenticationSnapshotCache;
 import com.quanta.demo0.security.AuthenticationSnapshotCacheImpl;
-import com.quanta.demo0.service.AdminAuditRecorder;
+import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AuthorProfileCache;
 import com.quanta.demo0.service.Impl.AuthorProfileCacheImpl;
 import com.quanta.demo0.service.OutboxEventService;

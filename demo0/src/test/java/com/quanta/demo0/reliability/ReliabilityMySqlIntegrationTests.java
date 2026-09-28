@@ -7,7 +7,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.FollowMapper;
+import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.mapper.InboxEventMapper;
 import com.quanta.demo0.mapper.OutboxEventMapper;
 import com.quanta.demo0.mapper.QuestionMapper;

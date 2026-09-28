@@ -2,7 +2,7 @@ package com.quanta.demo0.platform.web.controller;
 
 import com.quanta.demo0.annotation.RateLimit;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.utils.AliOssUtil;
+import com.quanta.demo0.platform.oss.service.AliOssService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +25,7 @@ public class CommonController {
     );
 
     @Autowired
-    private AliOssUtil aliOssUtil;
+    private AliOssService aliOssService;
 
     /**
      * 文件上传接口
@@ -58,7 +58,7 @@ public class CommonController {
             }
             String extension = resolveImageExtension(file, bytes);
             String newName = UUID.randomUUID().toString() + extension;
-            String filePath = aliOssUtil.upload(bytes, newName);
+            String filePath = aliOssService.upload(bytes, newName);
             log.info("文件上传成功：filename={}, objectName={}", file.getOriginalFilename(), newName);
             return Result.success(filePath);
         } catch (IOException e) {

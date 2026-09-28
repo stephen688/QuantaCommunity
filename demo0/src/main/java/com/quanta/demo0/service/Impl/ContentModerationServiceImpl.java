@@ -16,7 +16,7 @@ import com.alibaba.fastjson.JSON;
 import com.quanta.demo0.moderation.enums.ModerationDecision;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.moderation.entity.ModerationRecord;
-import com.quanta.demo0.mapper.ModerationRecordMapper;
+import com.quanta.demo0.moderation.mapper.ModerationRecordMapper;
 
 import com.quanta.demo0.modertion.client.AliyunImageModerationClient;
 import com.quanta.demo0.modertion.client.AliyunTextModerationClient;

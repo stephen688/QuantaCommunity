@@ -1,14 +1,14 @@
 package com.quanta.demo0.service.Impl;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.quanta.demo0.constant.AdminAuditActionConstants;
+import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
 import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.user.dto.UserAdminQueryDTO;
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.platform.common.exception.NoFoundException;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.common.result.PageResult;
-import com.quanta.demo0.service.AdminAuditRecorder;
+import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.service.AdminUserService;
 import com.quanta.demo0.service.UserReadCacheInvalidator;
 import com.quanta.demo0.user.vo.AdminUserDetailVO;

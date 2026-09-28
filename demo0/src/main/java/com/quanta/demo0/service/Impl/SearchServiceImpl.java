@@ -2,7 +2,7 @@ package com.quanta.demo0.service.Impl;
 
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.search.exception.SearchFailedException;
-import com.quanta.demo0.mapper.SearchMapper;
+import com.quanta.demo0.search.mapper.SearchMapper;
 import com.quanta.demo0.service.SearchService;
 import com.quanta.demo0.service.TrendingCacheService;
 import com.quanta.demo0.search.vo.SearchTrendingVO;

@@ -8,7 +8,7 @@ import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.follow.exception.FollowException;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.FollowMapper;
+import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.AuthorProfileCache;

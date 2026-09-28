@@ -3,7 +3,7 @@ package com.quanta.demo0.service.Impl;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.SearchMapper;
+import com.quanta.demo0.search.mapper.SearchMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.search.properties.SearchTrendingProperties;
 import com.quanta.demo0.search.vo.SearchTrendingVO;

@@ -6,7 +6,7 @@ import com.quanta.demo0.constant.RedisConstants;
 import com.quanta.demo0.feed.dto.BotProfileEventDTO;
 import com.quanta.demo0.feed.entity.UserProfileSignal;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.UserProfileSignalMapper;
+import com.quanta.demo0.feed.mapper.UserProfileSignalMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.service.ExplicitPreferenceService;
 import com.quanta.demo0.service.OutboxEventService;

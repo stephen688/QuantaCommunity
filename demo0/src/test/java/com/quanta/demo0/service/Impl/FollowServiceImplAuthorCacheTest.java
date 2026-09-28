@@ -7,7 +7,7 @@ import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.FollowMapper;
+import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.service.AuthorProfileCache;

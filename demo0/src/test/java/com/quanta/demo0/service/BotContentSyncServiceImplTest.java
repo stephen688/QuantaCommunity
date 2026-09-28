@@ -5,7 +5,7 @@ import com.quanta.demo0.content.vo.BotSyncPageVO;
 import com.quanta.demo0.content.dto.BotPolicyDocDTO;
 import com.quanta.demo0.content.entity.BotPolicyDoc;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.BotContentSyncMapper;
+import com.quanta.demo0.content.mapper.BotContentSyncMapper;
 import com.quanta.demo0.service.Impl.BotContentSyncServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

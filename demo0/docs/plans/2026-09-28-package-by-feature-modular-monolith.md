@@ -393,7 +393,7 @@ git commit -m "refactor: move domain data types into feature packages"
 **Interfaces:**
 - Produces: exact Mapper interface/XML namespace pairs in their owning domains; `platform/mq/admin` is the only event-admin location.
 
-- [ ] **Step 1: Move each Mapper and XML as one unit**
+- [x] **Step 1: Move each Mapper and XML as one unit**
 
 For every moved Mapper, update both locations before compiling:
 
@@ -401,11 +401,11 @@ For every moved Mapper, update both locations before compiling:
 <mapper namespace="com.quanta.demo0.notification.mapper.NotificationMapper">
 ```
 
-- [ ] **Step 2: Move audit and message-admin classes without changing endpoints**
+- [x] **Step 2: Move audit and message-admin classes without changing endpoints**
 
 Keep all `@RequestMapping` values and Admin authorization annotations unchanged. Admin Controller files remain whole.
 
-- [ ] **Step 3: Compile once**
+- [x] **Step 3: Compile once**
 
 ```powershell
 mvn -DskipTests compile
@@ -413,7 +413,7 @@ mvn -DskipTests compile
 
 Expected: `BUILD SUCCESS`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add demo0/src/main demo0/src/test
@@ -916,3 +916,4 @@ git commit -m "docs: record modular monolith refactor evidence"
 - 2026-09-28：Task 2 的 Content/Answer/Comment 叶子模型批提交 `8b78ee1`；35 个数据模型迁包，`git diff --check` 通过，独立审查无 Critical/Important/Minor；按测试预算留待业务 leaf 全部迁移后统一编译。
 - 2026-09-28：Task 2 的 Interaction/Follow/Feed 叶子模型批提交 `fe8b74f`；26 个数据模型迁包，`git diff --check` 通过，独立审查无 Critical/Important/Minor；未改变既有 UserBehavior/ProfileReconcile 消息契约。
 - 2026-09-28：Task 2 的 User/Identity 叶子模型批提交 `b0659e4`；20 个数据模型迁包，联表投影重命名为 `UserAuthInfoVO`，Mapper 方法名、SQL 和批量查询语义保持不变；`git diff --check` 与独立审查通过。
+- 2026-09-28：Task 2 最后一批 Notification/Moderation/Search 叶子模型提交 `9897900`；21 个类型迁包，旧顶层 `dto/vo/entity/enums` 包清空，统一 `mvn -DskipTests compile` 与 `git diff --check` 通过，独立审查无 Critical/Important/Minor。

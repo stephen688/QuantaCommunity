@@ -15,6 +15,7 @@ import com.quanta.demo0.es.service.ElasticSearchService;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.search.exception.SearchFailedException;
+import com.quanta.demo0.search.mapper.SearchMapper;
 import com.quanta.demo0.mapper.*;
 import com.quanta.demo0.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.mq.message.NotificationEventMessage;
@@ -2013,4 +2014,3 @@ public class ContentServiceImpl implements ContentService {
         }
     }
 }
-

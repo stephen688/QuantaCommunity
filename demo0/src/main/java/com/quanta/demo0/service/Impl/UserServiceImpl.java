@@ -20,7 +20,7 @@ import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.identity.enums.UserAuthDisplayStatus;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.FollowMapper;
+import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.user.properties.WeChatProperties;
 import com.quanta.demo0.service.UserService;

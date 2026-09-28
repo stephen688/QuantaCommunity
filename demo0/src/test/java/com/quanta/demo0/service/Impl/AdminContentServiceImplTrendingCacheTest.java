@@ -5,7 +5,7 @@ import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
-import com.quanta.demo0.service.AdminAuditRecorder;
+import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.service.ContentExposureService;
 import com.quanta.demo0.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.service.OutboxEventService;
