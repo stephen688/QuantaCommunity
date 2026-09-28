@@ -47,6 +47,12 @@ public interface InboxEventService {
      */
     InboxAcquireResult acquire(String consumerName, String instanceId, UserBehaviorMessage message);
 
+    /** 主题打标消费，登记同一内容事件的幂等与租约。 */
+    InboxAcquireResult acquire(String consumerName, String instanceId, ContentTopicTagMessage message);
+
+    /** 显式画像消费，仅使用事件用户标识，不依赖 HTTP 上下文。 */
+    InboxAcquireResult acquire(String consumerName, String instanceId, ProfileReconcileMessage message);
+
 
 
     /**

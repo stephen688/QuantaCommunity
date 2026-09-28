@@ -47,6 +47,7 @@ class ContentAuditServiceImplTrendingCacheTest {
         verify(trendingCacheInvalidator).evictAfterCommit("content-audit-approved");
         verify(contentDetailCacheInvalidator).evictAfterCommit(42L, "content-audit-approved");
         verify(contentExposureService).exposeApprovedContent(any(Content.class));
+        verify(outboxEventService).createContentTopicTagEvent(42L);
     }
 
     @Test
@@ -58,6 +59,7 @@ class ContentAuditServiceImplTrendingCacheTest {
         service.approveContent(42L);
 
         verify(contentExposureService, never()).exposeApprovedContent(any(Content.class));
+        verify(outboxEventService, never()).createContentTopicTagEvent(42L);
         verify(trendingCacheInvalidator, never()).evictAfterCommit(anyString());
         verify(contentDetailCacheInvalidator, never()).evictAfterCommit(any(), anyString());
     }

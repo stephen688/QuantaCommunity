@@ -129,6 +129,10 @@ class Settings(BaseSettings):
     summary_cache_ttl_hours: int = 24
     # RAG 检索片段数上限（计入 RESERVED_BUDGET 预留预算）
     rag_fragment_limit: int = 3
+    # 显式主题偏好同步：只在真 Qdrant + 真主服务同时配置时启动后台 worker
+    profile_sync_enabled: bool = True
+    profile_sync_batch_size: int = 50
+    profile_sync_poll_seconds: float = 5.0
 
     @model_validator(mode="after")
     def require_admin_token_in_prod(self) -> "Settings":

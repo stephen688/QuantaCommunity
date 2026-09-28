@@ -130,6 +130,41 @@ mvn -Dtest=ContentDetailCacheWritePathTest,UserReadCacheWritePathTest,ReadPathCa
 
 ---
 
+---
+
+## 推荐③④：主题标签与未来显式偏好（S-TP，2026-09-28）
+
+本节是本次验证的唯一结果记录，不修改上方历史接口统计，不沿用 M5 冻结 SHA 为本次代码宣称发布通过。隔离工作区 `codex/recommend-topics-preferences`，基线 `f023c770701c2dff45d9bf02c3e544b993b20726`；实现/迁移/回滚细节见 `docs/plans/2026-09-28-recommend-topics-preferences.md`。
+
+| 验证层 | 实际结果 | 状态 |
+|---|---|---|
+| Java 主题单元与审核 hook | 词表 4、主题服务最终 10、自动审核 3、主题消费最终 2、人工审核 7 项全部通过；26 项词表、经验分享、0–3 标签、非法/超限拒绝、已有标签跳过、关闭回填不前进、自动/人工实际转通过时入 Outbox；不可见/条件写未完成不假记 SUCCESS，毒消息留 raw 到 broker DLQ | PASS |
+| Java 事实与重排回归 | `ExplicitPreferenceServiceImplTest,ExplicitPreferenceRerankTest,UserProfileServiceImplTest,RecommendRerankServiceImplTest`：30/30；重复提交、冲突拒绝、有效用户、负向降权仍保留候选，既有匿名/曝光/行为口径不变 | PASS |
+| HTTP 安全契约 | `BotProfileAuthorizationTests`：5/5；无 token、伪造/封禁 token、错误 BOT userId 拒绝；合法 BOT 可读词表/提交，超过三标签为真实 HTTP 400 + Result 400。此层认证依赖使用替身，不单独宣称真身份 E2E | PASS |
+| Inbox 失败保留 | `ProfileReconcileConsumerTest`：3/3；SUCCESS 租约失效或 retry 转发未确认均不 ACK，NACK requeue；null 原消息拒绝至 broker DLQ、不能永久重入 | PASS |
+| 主题任务去重 | `OutboxTopicRegistrationTest`：1/1；主题按帖子形成稳定任务键，仅主题使用 Outbox 唯一键 no-op upsert，不影响其它事件语义 | PASS |
+| MySQL/RabbitMQ/Redis 真实组件闭环 | `ProfilePreferenceIntegrationTests` 默认 3/3 通过，付费 smoke 1 项默认跳过；完整迁移补列并重复执行两次；同帖两次登记只一条持久 Outbox；事实与 Outbox 同事务回滚；真实 Publisher confirm / Outbox SENT / Inbox SUCCESS / Redis 快照与实际重排；DELETE 撤销、旧版本不复活、更新后恢复。Service 入口，未替代 HTTP E2E | PASS |
+| 单帖真实 LLM 打标 | 显式开启 `QUANTA_TOPIC_SMOKE=1`，单独执行 `ProfilePreferenceIntegrationTests#oneRealModelBackfillTravelsThroughOutboxInboxAndConditionalTagWrite`：1/1；model=`deepseek-v4-flash`；隔离课程复习经验 fixture 经回填→真实 Outbox/MQ/Inbox→条件写标签，命中 `experience_sharing + course_study`、至多3，SENT/SUCCESS；从初始游标再扫描返回无待处理项 | PASS |
+| Python unit / Qdrant SDK | 本任务定向 14 passed；unit 全集 259 passed（两条依赖弃用 warning）；Ruff check + format check 12 files 通过。真实 `AsyncQdrantClient(':memory:')` SDK 的 ADD→worker→done→UPDATE→DELETE smoke 通过；外部 Qdrant 网络部署未以此冒称完成 | PASS |
+| 真身份 HTTP 与完整下游 | `ProfileHttpPreferenceIntegrationTests`：1/1；MockMvc 实际 HTTP filter/controller + 真实 TokenAuthenticationService/AuthenticationSnapshotCache/DB Mapper，合成有效 BOT service JWT（不绕过鉴权）；MySQL 事实/Outbox → 真实 MQ confirm SENT → Inbox SUCCESS → Redis -1.25 → 真实重排。HTTP 重投 data=false、事实/Outbox各1；MQ复投 Inbox仍1。验证的是隔离的应用边界，不是已部署完整社区 | PASS |
+| Python 最后乱序回归 | UPDATE B 后 DELETE C pending 时重放 B，稳定新点不重写、DELETE eventId/status 保持；定向 Qdrant 7 passed，Ruff check/format通过。不为一个窄修重复完整 unit/付费评测 | PASS |
+| 独立审查 | 未参与实现的 reviewer 完成最终只读复核，无未闭合 Critical/Important，Ready for delivery；初审重复打标任务/毒消息两项 Important 已最小修复，后续人工审核 hook、不可见处理及 Python pending/乱序撤销边界均已闭合。审查未新增测试、LLM 或评测 | PASS |
+
+定向命令（均从仓库根执行，`-Dtest` 在 PowerShell 用单引号）：
+
+```powershell
+mvn -f demo0/pom.xml '-Dtest=TopicCatalogTest,ContentTopicTagServiceImplTest,ContentAuditServiceImplTrendingCacheTest,ContentTopicTagConsumerTest' test -q
+mvn -f demo0/pom.xml '-Dtest=ExplicitPreferenceServiceImplTest,ExplicitPreferenceRerankTest,UserProfileServiceImplTest,RecommendRerankServiceImplTest' test -q
+mvn -f demo0/pom.xml '-Dtest=BotProfileAuthorizationTests,ProfileReconcileConsumerTest,ProfilePreferenceIntegrationTests' test -q
+mvn -f demo0/pom.xml '-Dtest=OutboxTopicRegistrationTest,ProfileReconcileConsumerTest,ProfilePreferenceIntegrationTests' test -q
+mvn -f demo0/pom.xml '-Dtest=ContentTopicTagServiceImplTest,AdminContentServiceImplTrendingCacheTest,ContentTopicTagConsumerTest,ProfileHttpPreferenceIntegrationTests' test -q
+uv run --project QuantaBot pytest QuantaBot/tests/unit -q
+```
+
+失败与修复证据：初始 RED 记录包括新增类型未实现的编译失败（不称完整行为 RED）；新接口超限首次为 HTTP 200/body 400，已用 Controller 局部处理修正，最终 5/5；认证测试 fixture 的重复 Mockito stubbing 抛错改为 `doThrow`，非放宽断言。负向排序断言从正确 `[2,1]` 临时改错为 `[1,2]`，确实捕获错误返回 RED，随后恢复并复跑；最终结果在恢复后记录。两项 Important 对应稳定任务键/null NACK 测试先红后绿；最后人工 hook/毒消息/不可见与写入竞态组合为 19 项中 5 个预期失败，窄修后19项全部通过。HTTP首次即时调度曾出现 PENDING，疑似时间精度与单次 poll 竞态（未扩大诊断）：最终遵循实际到期调度使用最多3秒 Awaitility，保留 SENT 断言，不宽放 PENDING。既有自动/人工审核测试只新增 Outbox 验证及真实 isDeleted=0 fixture，没有删/跳/放宽旧断言；本次新主题测试按“不可见任务仍可补偿”的确定契约由 skip 改为失败，保留无模型/无写库断言。
+
+边界：真实依赖均为隔离 Testcontainers；付费 smoke 只用一帖合成内容，不修改真实用户或执行全量回填。历史行为/记忆画像回填、全量存量帖打标、生产迁移与部署、浏览器/小程序验收未执行；未重复 Persona/红队、未把历史 Qwen 超时费用补零。无需为本任务扩大付费评测。运行中出现现有多 SLF4J provider/JDK 动态 agent 警告及容器结束后 Lettuce reconnect 日志，不是业务断言失败。
+
 ## Elasticsearch 8 客户端迁移（2026-09-26）
 
 本节只记录本轮已执行证据，不覆盖上方历史接口汇总。代码迁移与三项业务级真栈验收均已完成，本节总状态为 `PASS`。运行窗口为 2026-09-26 21:04～21:08（Asia/Shanghai），验收节点为 Elasticsearch 8.18.8 + analysis-ik 8.18.8、demo0 `:19191`、RabbitMQ `:5674`。

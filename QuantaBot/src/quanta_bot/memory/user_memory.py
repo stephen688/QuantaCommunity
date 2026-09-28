@@ -66,7 +66,13 @@ class InMemoryUserMemoryStore:
             if record.type == "feedback" and record.valence == "negative"
         )
 
-    async def apply_ops(self, user_id: int, persona_version: str, ops: Sequence[MemoryOp]) -> None:
+    async def apply_ops(
+        self,
+        user_id: int,
+        persona_version: str,
+        ops: Sequence[MemoryOp],
+        source_event_id: str | None = None,
+    ) -> None:
         for op in ops:  # 四态逐条应用（同帖串行下无并发竞争）
             if op.op == "ADD" and op.content:
                 self._records.append(self._new_record(user_id, persona_version, op))

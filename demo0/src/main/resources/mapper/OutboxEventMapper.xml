@@ -35,6 +35,16 @@
 
     </insert>
 
+    <insert id="insertIfAbsent" parameterType="com.quanta.demo0.entity.OutboxEvent">
+        INSERT INTO tb_outbox_event (
+            event_id,event_type,aggregate_type,aggregate_id,payload,status,
+            retry_count,next_retry_time,replay_count
+        ) VALUES (
+            #{eventId},#{eventType},#{aggregateType},#{aggregateId},#{payload},#{status},
+            #{retryCount},#{nextRetryTime},#{replayCount}
+        ) ON DUPLICATE KEY UPDATE event_id=event_id
+    </insert>
+
     <select id="selectByEventId"
             resultType="com.quanta.demo0.entity.OutboxEvent">
 

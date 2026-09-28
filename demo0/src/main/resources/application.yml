@@ -153,6 +153,11 @@ quanta:
         # 是否在启动时重建粉丝排行（默认关闭，首次部署手动开启一次）
       rebuild-follower-rank-on-startup: false
   recommend:
+    topic-tags:
+      enabled: ${QUANTA_TOPIC_TAGS_ENABLED:true} # 关闭时保留待处理队列，重新开启继续消费
+      timeout-seconds: 20
+      max-tags: 3                  # 主题多标签上限；经验分享可与领域标签共存
+      max-backfill-batch-size: 100
     # Redis 推荐流为空时，启动后从 MySQL 已通过内容预热（dev-seed / Redis 清空后必开）
     warmup-on-startup: true
     warmup-batch-size: 100
@@ -164,7 +169,9 @@ quanta:
       collect-weight: 3.0
       comment-weight: 4.0
       view-weight: 1.0
-      alpha-min: 0.4                # 老用户热度分下限权重
+      alpha-min: 0.3                # 主题标签接入后老用户匹配项提高至最多0.7
+      explicit-positive-weight: 0.75
+      explicit-negative-weight: 1.25 # 强降权，不硬屏蔽，不参与行为衰减
       behavior-saturate-threshold: 100.0  # 累计行为权重饱和阈值（α 过渡用）
       decay-daily-factor: 0.95      # 每日衰减系数
       decay-min-score: 0.5          # 低于此值删 field

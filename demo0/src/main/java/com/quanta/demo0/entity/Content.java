@@ -40,6 +40,11 @@ public class Content implements Serializable {
     private String content;
 
     /**
+     * LLM 主题标签 JSON 数组；NULL 表示尚未处理，[] 表示已处理但未命中主题。
+     */
+    private String tags;
+
+    /**
      * 发布用户 ID（关联 tb_user.user_id）
      */
     private Long publishUserId;

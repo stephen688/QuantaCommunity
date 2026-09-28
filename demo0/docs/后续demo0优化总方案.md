@@ -27,7 +27,7 @@
 - 第 1 项中的“热榜聚合”已完成代码、真实 Redis 竞态、事务提交后失效、接口运行和全量回归；详细实现与证据见 `docs/plans/2026-09-20-trending-multilevel-cache.md` 和 `docs/api-test/RESULTS.md` 的 S-05 扩展小节。
 - 性能验收暂记 `PARTIAL`：候选三轮吞吐中位数未优于基线，用户决定本轮跳过性能优化与复测；不得在简历或说明中写成“QPS 提升”。
 - 帖子详情、Feed 作者信息和认证链路代码已落地，统一计划见 [认证、帖子详情与 Feed 作者读路径缓存](plans/2026-09-20-auth-detail-feed-read-cache.md)。非压测功能验收已完成，状态为 `PASS`，分层证据、全量回归与限制统一见 [RESULTS.md 的 S-RC 小节](api-test/RESULTS.md#read-path-cache)；性能按用户 2026-09-28 指示移入 [第 7 项后续压测计划](#jmeter-load-testing)，保持 `PENDING`，不再阻塞本项功能收口。
-- 第 3 项推荐流个性化的 ①画像 Hash+行为信号、②重排进 recommend() 已完成（2026-09-24，scene 语义按流形态决策收敛：latest→画像流、新增 recommend 显式参数、hot 纯热度序取消曝光去重），真栈验收/全量回归/独立审查证据见 `docs/api-test/RESULTS.md` 的「推荐流个性化（S-PF）」小节；③LLM 主题标签、④Agent 显式信号仍待立项。
+- 第 3 项推荐流个性化的 ①画像 Hash+行为信号、②重排进 recommend() 已完成（2026-09-24，scene 语义按流形态决策收敛：latest→画像流、新增 recommend 显式参数、hot 纯热度序取消曝光去重），真栈验收/全量回归/独立审查证据见 `docs/api-test/RESULTS.md` 的「推荐流个性化（S-PF）」小节；③④已于 2026-09-28 立项并实施，范围和验收分别见 `docs/plans/2026-09-28-recommend-topics-preferences.md`、`docs/api-test/RESULTS.md` 的 S-TP 小节。存量全量回填不属于已执行范围。
 
 明确排除：网关/注册中心（单体上微服务组件是负面信号）、DDD、秒杀（原计划已论证）、主服务堆 AI 功能（模糊 Java 后端定位）。
 
@@ -85,14 +85,14 @@
 
 **怎么做（要点）**：
 - 画像计算与存储在**主服务侧**（推荐不依赖 Agent 在线），行为信号：浏览×1/赞×2/藏×3/评×4，带时间衰减；
-- 帖子标签两类：结构化（contentType/学院年级/提问或经验）零成本直接用；主题标签由 **LLM 在审核通过后的事件链路顺带打**（2-3 个，受控词表 20-50 个固定主题，自由标签必成垃圾堆），Content 加 tags JSON 字段；
-- Agent 侧贡献：`apply_ops` 落库时对 `type=user` 的画像记忆发 `user.profile.updated` 事件，主服务 Inbox 消费后合并进画像 Hash（显式偏好权重 > 隐式行为，`valence=negative` 做强负反馈——字段现成，Agent 架构不改）；
+- 帖子标签两类：结构化 contentType 保留；主题由审核通过事务登记 Outbox 后异步调用 LLM 打标，每帖 0–3 个受控主题，不强凑数量。当前词表 26 项，唯一来源 `src/main/resources/recommend-topics.json`；经验分享可与课程学业/求职实习等共存，运动分别打具体项目。`tags=NULL` 未处理、`[]` 已处理无命中；个人学院/年级不推断为兴趣。
+- Agent 侧贡献：只同步今后的 user/feedback 记忆明确主题喜好/厌恶，不回填历史行为/记忆。Qdrant 单点持久化 pending → BOT HTTP 事实与 Outbox 同事务 → Inbox 重建独立显式 Hash；不传记忆原文，不累加重复消息。ADD/UPDATE/DELETE 支持撤销，负偏好强降权不硬屏蔽，不混入行为衰减及分母。
 - 执行顺序（已按风险隔离重排）：
   1. **画像 Hash + 行为信号**（约 2 天，纯增量零风险——即使重排未上线，数据也在积累，上线时画像已热）——**已完成**；
   2. **重排进 recommend()**：latest 立即映射画像流（匿名 α=1 热度兜底，语义即刻切换），新增 `scene=recommend` 显式画像流参数；hot 保持纯热度序并取消曝光去重（曝光去重整体挪给画像流）；β 先只用结构化标签（contentType），LLM 标签没上线前 β 权重调低；API 回归用例（P4-01 等）同步改造——**已完成**；
-  3. **LLM 主题标签**：离线批量跑存量帖 + 增量挂审核事件（不阻塞第 2 步），上线后调高 β——**待立项，排期：QuantaBot 欠账收口（M3 回补→M4 验收→M5）的间隙或之后**。本项纯 demo0 侧改动、不依赖 Agent：画像链路已预留唯一扩展点（`UserProfileServiceImpl.resolveContentTags`），随时可做；工作量约 2-3 天（存量批量打标 + Content.tags 字段 + 审核通过事件挂打标步骤 + β 调权重回归）；
-  4. **Agent 显式信号**最后接入（独立加分项）——**待立项，排期：QuantaBot M5 完成之后**。硬依赖 Agent 侧记忆写入链路（apply_ops）真实稳定在线——QuantaBot M3 真联调回补已完成（2026-09-25）、M4 验收阻塞（待同冻结 SHA Release gate）、M5 未动，接口仍在变化期，接早了是对着移动靶集成；落点写进 QuantaBot M5 之后的 Phase 2 备选，不再悬空；
-- **①②实施状态（2026-09-24）**：画像 Hash+行为信号、重排进 recommend() 均已完成并通过验收，证据统一见 `docs/api-test/RESULTS.md` 的「推荐流个性化（S-PF）」小节（含全量回归、独立审查与门禁 1-8 逐条对照）；③④仍待立项，排期已定（见上执行顺序 3/4：③ 随 QuantaBot 收口间隙做、④ 排 QuantaBot M5 后）。
+  3. **LLM 主题标签**：增量链路与限量/可续跑回填工具已实现，小批真实验证先行；工具跑通后的全量存量回填是后续独立批量执行，不混作本次完成。标签解析仍只扩展 `UserProfileServiceImpl.resolveContentTags`，配置值以 application.yml 为准；
+  4. **Agent 显式信号**：M5 收口后启动本跨项目任务，未来偏好后台同步与独立重排项已实现；不修改人格/策略提示词、不追加偏好提取 LLM 调用。验证与未执行边界以 S-TP 为准；
+- **实施证据**：①②的原验收仍见「推荐流个性化（S-PF）」；③④本次实现、迁移/回滚、定向验证与未执行范围见统一 RESULTS 的 S-TP。M5 原冻结证据不充当新版本门禁。
 - **前端改造（首页 tab 语义、scene 参数、mock 池）标注为后续统一批次**，不与后端各步混做，后端先保持 `scene=latest` 参数向后兼容（映射到画像流/热度兜底），前端切换后再移除兼容层。
 
 **存储选型：为什么 Redis Hash（含落选项）**：

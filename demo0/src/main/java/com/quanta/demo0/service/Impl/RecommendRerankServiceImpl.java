@@ -27,9 +27,9 @@ import java.util.concurrent.TimeUnit;
  * 画像流重排服务实现（推荐流个性化 03 Task 3.2，D6/D7）。
  * 核心流程：召回（hot∪latest 双池 ZREVRANGE top N，contentId 去重、不读 score）→
  * 曝光过滤（仅登录用户，recommend:exposed:{userId} 为隐式游标）→ MySQL 可见性兜底 →
- * 读画像 → finalScore = α·normHot + (1-α)·matchScore 算分排序 → 截页回写曝光。
+ * 读画像 → finalScore = α·normHot + (1-α)·matchScore + explicitScore 算分排序 → 截页回写曝光。
  * 边界：匿名 α=1 纯热度、不读不写曝光；归一化在候选集内做 min-max（最热=1.0，单候选=1.0）；
- * γ（显式偏好）项预留未实现（④阶段接入，当前公式位已定）；
+ * 显式偏好独立有符号加分（④）：不参与行为分母，负偏好只降权不剔除；
  * 曝光读写语义从 ContentServiceImpl 既有逻辑迁移（key / TTL 24h / 超 1000 pop 100 逐字保留）。
  */
 @Slf4j
@@ -78,9 +78,10 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
                 ? Collections.emptyMap()
                 : userProfileService.getProfile(userId);
 
-        // ========== 步骤 5：算分——finalScore = α·normHot + (1-α)·matchScore ==========
-        // γ（显式偏好）项预留：④阶段在同一公式位追加 γ·explicitScore，本阶段不实现
-        List<Content> ranked = scoreAndSort(candidates, profile, profileConfig);
+        // ========== 步骤 5：算分——行为画像基础分 + 独立显式偏好项 ==========
+        Map<String, Double> explicitProfile = userId == null
+                ? Collections.emptyMap() : userProfileService.getExplicitProfile(userId);
+        List<Content> ranked = scoreAndSort(candidates, profile, explicitProfile, profileConfig);
 
         // ========== 步骤 6：排序截断（finalScore 降序已在 scoreAndSort 完成） ==========
         boolean hasMore = ranked.size() > pageSize;
@@ -159,7 +160,8 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
      * 同分按 contentId 降序（稳定排序，与 hot 池 filterAndSort 的二级排序语义一致）。
      */
     private List<Content> scoreAndSort(
-            List<Content> candidates, Map<String, Double> profile, RecommendProperties.Profile profileConfig) {
+            List<Content> candidates, Map<String, Double> profile, Map<String, Double> explicitProfile,
+            RecommendProperties.Profile profileConfig) {
         // 5.1 热度分现算（公式唯一真源 HotScoreCalculator，不读 ZSET score）
         Map<Long, Double> hotScores = new HashMap<>();
         double maxHotScore = Double.NEGATIVE_INFINITY;
@@ -187,13 +189,14 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
             }
         }
 
-        // 5.4 逐帖 finalScore = α·normHot + (1-α)·matchScore（γ 项预留位，未实现）
+        // 5.4 显式项独立加分：最强负偏好优先，避免多个正标签抵消明确厌恶。
         Map<Long, Double> finalScores = new HashMap<>();
         for (Content content : candidates) {
             double normHot = normalizeHotScore(
                     hotScores.get(content.getContentId()), minHotScore, maxHotScore);
             double matchScore = calculateMatchScore(content, profile, profileTagWeightSum);
-            finalScores.put(content.getContentId(), alpha * normHot + (1.0 - alpha) * matchScore);
+            double explicitScore = calculateExplicitScore(content, explicitProfile);
+            finalScores.put(content.getContentId(), alpha * normHot + (1.0 - alpha) * matchScore + explicitScore);
         }
 
         // 5.5 排序：finalScore 降序，同分 contentId 降序
@@ -217,6 +220,21 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
             return 1.0; // 单候选或全同分：归一化分母为 0，按满格热度处理
         }
         return (hotScore - minHotScore) / (maxHotScore - minHotScore);
+    }
+
+    /** 同帖多个标签不叠加放大；有明确负反馈则用最强惩罚，否则取最大喜好增益。 */
+    private double calculateExplicitScore(Content content, Map<String, Double> profile) {
+        if (profile == null || profile.isEmpty()) {
+            return 0.0;
+        }
+        double positive = 0.0;
+        double negative = 0.0;
+        for (String topic : userProfileService.resolveContentTags(content)) {
+            double weight = profile.getOrDefault(topic, 0.0);
+            positive = Math.max(positive, weight);
+            negative = Math.min(negative, weight);
+        }
+        return negative < 0.0 ? negative : positive;
     }
 
     /**

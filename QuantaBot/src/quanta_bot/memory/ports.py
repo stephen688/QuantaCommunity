@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Literal, Protocol
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # 记忆四类型（蓝图 §2.2 强制 schema：user 画像 / feedback 偏好 / project 动态 / reference 指针）
 MemoryType = Literal["user", "feedback", "project", "reference"]
@@ -22,6 +22,7 @@ MemoryType = Literal["user", "feedback", "project", "reference"]
 MemoryValence = Literal["positive", "negative"]
 # 记忆状态：active 可召回；superseded 被 UPDATE 留痕；deleted 软删可审计
 MemoryStatus = Literal["active", "superseded", "deleted"]
+ProfileSyncOperation = Literal["UPSERT", "DELETE"]
 
 
 class MemoryRecord(BaseModel):
@@ -49,6 +50,68 @@ class MemoryOp(BaseModel):
     target_memory_id: str | None = None
 
 
+class ProfileSyncEvent(BaseModel):
+    """发给主服务的显式主题偏好快照（不携带记忆原文）。"""
+
+    event_id: str
+    user_id: int
+    memory_id: str
+    persona_version: str
+    revision: int
+    operation: ProfileSyncOperation
+    topics: tuple[str, ...] = ()
+    valence: MemoryValence | None = None
+
+    @model_validator(mode="after")
+    def validate_snapshot(self) -> "ProfileSyncEvent":
+        if not self.event_id or not self.memory_id or not self.persona_version:
+            raise ValueError("profile sync event identifiers must not be empty")
+        if self.user_id <= 0 or self.revision <= 0:
+            raise ValueError("profile sync event user_id/revision must be positive")
+        if len(self.topics) > 3 or len(set(self.topics)) != len(self.topics):
+            raise ValueError("profile sync event topics must contain at most three unique IDs")
+        if any(not topic for topic in self.topics):
+            raise ValueError("profile sync event topic IDs must not be empty")
+        if self.operation == "UPSERT":
+            if not self.topics or self.valence not in {"positive", "negative"}:
+                raise ValueError("UPSERT requires topics and valence")
+        elif self.topics or self.valence is not None:
+            raise ValueError("DELETE must carry empty topics and null valence")
+        return self
+
+
+class PendingProfileSync(BaseModel):
+    """Qdrant 中的本地待同步快照，可暂未解析出主题但不含外发原文。"""
+
+    event_id: str
+    user_id: int
+    memory_id: str
+    persona_version: str
+    revision: int
+    operation: ProfileSyncOperation
+    topics: tuple[str, ...] = ()
+    valence: MemoryValence | None = None
+    content: str = ""
+    resolved: bool = False
+
+
+class ProfileSyncStore(Protocol):
+    """显式画像同步的待办端口；真实实现由 Qdrant 提供。"""
+
+    async def list_pending_profile_sync(self, limit: int) -> tuple[PendingProfileSync, ...]: ...
+
+    async def resolve_profile_sync_topics(
+        self,
+        event_id: str,
+        memory_id: str,
+        revision: int,
+        topics: tuple[str, ...],
+        valence: MemoryValence | None = None,
+    ) -> bool: ...
+
+    async def clear_profile_sync(self, event_id: str, memory_id: str, revision: int) -> bool: ...
+
+
 class UserMemoryStore(Protocol):
     """用户级记忆存储端口（fake=InMemoryUserMemoryStore，真=infra Qdrant，端口不变）。
 
@@ -68,7 +131,13 @@ class UserMemoryStore(Protocol):
         """负面偏好全量返回（漏黑名单是安全问题，不是相关性问题——蓝图 §5.1）。"""
         ...
 
-    async def apply_ops(self, user_id: int, persona_version: str, ops: Sequence[MemoryOp]) -> None:
+    async def apply_ops(
+        self,
+        user_id: int,
+        persona_version: str,
+        ops: Sequence[MemoryOp],
+        source_event_id: str | None = None,
+    ) -> None:
         """应用四态操作：UPDATE 旧值 superseded 留痕、DELETE 软删、NOOP 不落任何痕迹。"""
         ...
 

@@ -88,6 +88,8 @@ public class ContentAuditServiceImpl implements ContentAuditService {
         // 3. 审核状态已经真正发生变化
         content.setAuditStatus(AuditStatus.APPROVED.getCode());
 
+        // 审核通过与主题标签 Outbox 同事务；模型处理在独立消费者中异步执行，不阻塞审核。
+        outboxEventService.createContentTopicTagEvent(contentId);
 
         // 审核状态和 Feed Outbox 在同一个事务中提交。
         outboxEventService.createFeedUpsertEvent(content);

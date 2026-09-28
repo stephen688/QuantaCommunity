@@ -149,6 +149,11 @@ public class AdminContentServiceImpl  implements AdminContentService {
         if (!oldAuditStatus.equals(auditDTO.getAuditResult())) {
             String triggerType = auditDTO.getAuditResult() == 1 ? "AUDIT_APPROVED" : "AUDIT_REJECTED";
 
+            // 人工待审/驳回→通过也属于增量打标入口；仅可见内容，标签任务与审核同事务。
+            if (auditDTO.getAuditResult() == 1 && Integer.valueOf(0).equals(content.getIsDeleted())) {
+                outboxEventService.createContentTopicTagEvent(auditDTO.getContentId());
+            }
+
             // 帖子审核状态和 ES 校准事件在同一个事务中提交。
             outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), auditDTO.getContentId(), triggerType);
 
