@@ -13,7 +13,7 @@ import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.comment.service.CommentAuditService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

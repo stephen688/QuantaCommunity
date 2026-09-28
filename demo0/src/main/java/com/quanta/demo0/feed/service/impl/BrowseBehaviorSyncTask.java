@@ -1,9 +1,10 @@
 package com.quanta.demo0.feed.service.impl;
 
+import com.quanta.demo0.platform.redis.utils.RedisTaskLockAdapter;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.interaction.entity.BrowseHistory;
 import com.quanta.demo0.interaction.mapper.BrowseHistoryMapper;
-import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;

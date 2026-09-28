@@ -1,5 +1,6 @@
 package com.quanta.demo0.platform.security.exception;
 
+import com.quanta.demo0.platform.security.enums.TokenAuthenticationFailureReason;
 import com.quanta.demo0.platform.security.exception.AuthFailedException;
 
 /**

@@ -1,4 +1,6 @@
 package com.quanta.demo0.user.service.impl;
+
+import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;

@@ -7,7 +7,7 @@ import com.quanta.demo0.platform.mq.enums.OutboxEventStatus;
 import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.platform.mq.mapper.OutboxEventMapper;
-import com.quanta.demo0.mq.message.UserBehaviorMessage;
+import com.quanta.demo0.feed.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

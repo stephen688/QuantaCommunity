@@ -1,5 +1,6 @@
 package com.quanta.demo0.feed.service.impl;
 
+import com.quanta.demo0.platform.redis.utils.RedisTaskLockAdapter;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;

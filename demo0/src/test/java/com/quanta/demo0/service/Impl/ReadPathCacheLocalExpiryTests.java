@@ -8,6 +8,7 @@ import com.quanta.demo0.platform.security.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.platform.security.service.impl.AuthenticationSnapshotCacheImpl;
+import com.quanta.demo0.user.service.impl.AuthorProfileCacheImpl;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

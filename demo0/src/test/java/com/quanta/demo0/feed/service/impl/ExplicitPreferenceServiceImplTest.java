@@ -6,7 +6,7 @@ import com.quanta.demo0.feed.entity.UserProfileSignal;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.feed.mapper.UserProfileSignalMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
-import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 

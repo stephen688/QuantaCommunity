@@ -1,12 +1,13 @@
 package com.quanta.demo0.service.Impl;
 
+import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
-import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

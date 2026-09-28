@@ -8,6 +8,7 @@ import com.quanta.demo0.interaction.mapper.BrowseHistoryMapper;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.content.service.ContentDetailCacheService;
+import com.quanta.demo0.content.service.impl.ContentDetailDataLoader;
 import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
 import com.quanta.demo0.content.vo.ContentDetailSnapshot;
 import com.quanta.demo0.content.vo.ContentVO;

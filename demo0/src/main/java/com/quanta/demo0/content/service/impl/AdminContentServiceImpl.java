@@ -1,5 +1,6 @@
 package com.quanta.demo0.content.service.impl;
 
+import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
@@ -16,14 +17,14 @@ import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.content.service.AdminContentService;
 import com.quanta.demo0.feed.service.ContentExposureService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;

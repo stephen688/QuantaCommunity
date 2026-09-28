@@ -21,7 +21,7 @@ import com.quanta.demo0.moderation.mapper.ModerationRecordMapper;
 import com.quanta.demo0.moderation.client.AliyunImageModerationClient;
 import com.quanta.demo0.moderation.client.AliyunTextModerationClient;
 import com.quanta.demo0.moderation.result.ModerationResult;
-import com.quanta.demo0.mq.message.ModerationTaskMessage;
+import com.quanta.demo0.moderation.mq.message.ModerationTaskMessage;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.moderation.service.ContentModerationService;

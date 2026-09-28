@@ -1,5 +1,6 @@
 package com.quanta.demo0.es.service;
 
+import com.quanta.demo0.search.es.service.ElasticSearchService;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.Result;

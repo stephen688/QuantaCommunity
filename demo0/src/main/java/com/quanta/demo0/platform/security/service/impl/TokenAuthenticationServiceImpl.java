@@ -1,11 +1,15 @@
 package com.quanta.demo0.platform.security.service.impl;
 
 import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
+import com.quanta.demo0.platform.security.enums.TokenAuthenticationFailureReason;
+import com.quanta.demo0.platform.security.exception.TokenAuthenticationException;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
+import com.quanta.demo0.platform.security.service.AuthenticationSnapshotCache;
+import com.quanta.demo0.platform.security.service.TokenAuthenticationService;
 import com.quanta.demo0.platform.security.utils.JwtUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
