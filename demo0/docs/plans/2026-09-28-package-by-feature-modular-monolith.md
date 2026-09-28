@@ -18,7 +18,7 @@
 - 域内命名沿用原项目：`controller/user|admin|bot`、`service`、`service/impl`、`mapper`、`entity`、`dto`、`vo`、`enums`、`exception`、`config`、`properties`、`mq/consumer|producer|message`。包名统一小写；类名继续使用 DTO、VO、Service、ServiceImpl、Mapper 等现有后缀。
 - 只有现有模式无法表达时才新增名字；允许新增的顶层业务域仅为已确认的 `interaction`、`feed` 和 `platform`。
 - 实施分支固定为 `codex/package-by-feature-refactor`，从最新 `main` 创建；禁止在 `main` 或旧的 `feat/m5-breaker-cost-tier` 上实施。
-- MyBatis Mapper XML 迁入 `resources/mapper/<domain>/` 子目录前，`mapper-locations` 固定改为 `classpath:mapper/**/*.xml`；实体分散后，`type-aliases-package` 固定改为 `com.quanta.demo0`。这两项必须进入第一笔提交。
+- MyBatis Mapper XML 迁入 `resources/mapper/<domain>/` 子目录前，`mapper-locations` 固定改为 `classpath*:/mapper/**/*.xml`；实体分散后，`type-aliases-package` 固定改为 `com.quanta.demo0`。这两项必须进入第一笔提交。
 - 跨域只允许依赖目标域的 `service` 接口、`dto`、`vo`、`enums` 和明确的 MQ 消息契约；禁止导入其他域的 `mapper`、`entity`、`service.impl`。
 - Admin Controller 不拆。`AdminContentController`、`AdminCommentController`、`AdminAnswerController`、`AdminUserController` 等保持一个 Controller，通过注入多个细分 Service 完成查询和命令编排。
 - Feed 中的用户兴趣画像固定命名为 `UserInterestProfileService` / `UserInterestProfileServiceImpl`；`UserProfileService` 名称只属于 `user` 域。
@@ -245,7 +245,7 @@ Expected: 两个 SHA 相同；本轮实际基线为 `e3d33fa776f30a7db7f612dde7e
 
 ```yaml
 mybatis:
-  mapper-locations: classpath:mapper/**/*.xml
+  mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.quanta.demo0
 ```
 
@@ -495,7 +495,7 @@ git commit -m "refactor: move services and adapters into feature packages"
 - Consumes: majority-migrated application from Task 4.
 - Produces: one clean behavioral baseline before large class decomposition.
 
-- [ ] **Step 1: Verify Docker once**
+- [x] **Step 1: Verify Docker once**
 
 ```powershell
 docker info
@@ -503,7 +503,7 @@ docker info
 
 Expected: server information is readable. If unavailable, mark Testcontainers tests `BLOCKED`; do not alter tests or assertions.
 
-- [ ] **Step 2: Run the pre-split full test suite once**
+- [x] **Step 2: Run the pre-split full test suite once**
 
 ```powershell
 mvn test
@@ -511,7 +511,7 @@ mvn test
 
 Expected: exit code `0`. This is the only full Maven run before large-class splitting.
 
-- [ ] **Step 3: Stop on behavioral regression**
+- [x] **Step 3: Stop on behavioral regression**
 
 Package/import errors are fixed within the migration commit. A real behavior failure is investigated before continuing; do not weaken assertions or skip existing tests.
 
@@ -921,3 +921,4 @@ git commit -m "docs: record modular monolith refactor evidence"
 - 2026-09-28：Task 4 Controller 子批提交 `e15b990`；19 个 Controller 整体迁入所属域，Admin Controller 未拆、`UserController` 身份方法暂留，`git diff --check` 与独立审查通过。
 - 2026-09-28：Task 4 Service/支持类子批提交 `8fc37c7`；small/medium Service、缓存、审核、搜索、配置、工具和小型 Mapper/XML 迁入所属域，保留既定大类在 legacy 包，`git diff --check` 与独立审查通过。
 - 2026-09-28：Task 4 MQ/适配器子批提交 `14f67f9`；MQ message/consumer/producer、Outbox 支撑类与 RAG 配置归位，对应测试同步迁移。首次编译仅暴露迁包漏 import，补齐后 `mvn -DskipTests compile` 对 367 个生产源码构建成功；`git diff --check` 与两轮独立审查通过，未改变队列、路由、ACK、重试或消息字段。
+- 2026-09-28：Task 5 中点回归完成。Docker Server 29.6.1 可用；按预算仅执行一次全量 `mvn test`，424 个测试中 391 通过、1 跳过、33 个上下文错误，未出现业务断言失败。错误被定位为迁包后的旧 `target` class、三处测试 `DynamicPropertySource` 仍覆盖旧 Mapper 通配、测试专用 MapperScan 和读缓存 schema 漏列；未削弱断言或跳过测试。修复后 `Demo0ApplicationTests` 通过，原失败集合定向回归 32 个测试 0 failure/0 error/1 skipped，生产类型校正后的 `ReadPathCacheRuntimeIntegrationTests` 11/11 再次通过；提交 `9c491b0`，独立审查问题已闭环。
