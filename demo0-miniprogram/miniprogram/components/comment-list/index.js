@@ -213,6 +213,7 @@ function enrich(it, index, expandedMap, defaultReplyLimit, depth) {
     }
     return {
         ...it,
+        isBot: it.isBot === true,
         _rowKey,
         _displayName: name,
         _letter: letter,

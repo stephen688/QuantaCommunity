@@ -1,4 +1,5 @@
 "use strict";
+const bot_1 = require("../../constants/bot");
 Component({
     properties: {
         /** 受控内容；清空时由父级置空字符串 */
@@ -72,6 +73,15 @@ Component({
             this.syncHint(v);
             this.triggerEvent('input', { value: v });
         },
+        onMentionBotTap() {
+            if (this.data.submitting || this.data.disabled) {
+                return;
+            }
+            const draft = (0, bot_1.appendBotMention)(this.data.draft || '');
+            this.setData({ draft });
+            this.syncHint(draft);
+            this.triggerEvent('input', { value: draft });
+        },
         onSubmitTap() {
             if (this.data.submitting || this.data.disabled) {
                 return;
@@ -80,7 +90,10 @@ Component({
             if (!text) {
                 return;
             }
-            this.triggerEvent('submit', { content: text });
+            this.triggerEvent('submit', {
+                content: text,
+                mentionBot: (0, bot_1.hasBotMention)(text),
+            });
         },
         syncHint(draft) {
             const max = this.data.maxlength || 500;

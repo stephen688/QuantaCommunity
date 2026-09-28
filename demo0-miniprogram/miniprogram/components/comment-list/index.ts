@@ -7,6 +7,7 @@ type CommentLike = Pick<
   | 'commentId'
   | 'userId'
   | 'nickName'
+  | 'isBot'
   | 'avatarUrl'
   | 'content'
   | 'createTime'
