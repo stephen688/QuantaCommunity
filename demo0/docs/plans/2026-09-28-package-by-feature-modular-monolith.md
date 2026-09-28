@@ -441,7 +441,7 @@ git commit -m "refactor: move supporting mappers and platform administration"
 - Consumes: domain-owned DTO/VO/Entity and Mapper packages from Tasks 1～3.
 - Produces: most production code under final feature packages while retaining old large Service facades temporarily.
 
-- [ ] **Step 1: Move Controller files without splitting Admin Controllers**
+- [x] **Step 1: Move Controller files without splitting Admin Controllers**
 
 An Admin Controller may inject multiple services:
 
@@ -455,11 +455,11 @@ public class AdminContentController {
 
 Do not introduce `AdminContentQueryController` or `ContentGovernanceController`.
 
-- [ ] **Step 2: Move existing small Services and MQ adapters**
+- [x] **Step 2: Move existing small Services and MQ adapters**
 
 Only change package/import references. Keep listener queue names, concurrency, ACK mode, retry behavior and message JSON fields unchanged.
 
-- [ ] **Step 3: Move corresponding tests or update their packages**
+- [x] **Step 3: Move corresponding tests or update their packages**
 
 Tests should mirror owning domains, for example:
 
@@ -470,7 +470,7 @@ src/test/java/com/quanta/demo0/platform/security/TokenAuthenticationServiceImplT
 src/test/java/com/quanta/demo0/platform/mq/consumer/ConsumerReliabilityTests.java
 ```
 
-- [ ] **Step 4: Compile after the complete majority-migration batch**
+- [x] **Step 4: Compile after the complete majority-migration batch**
 
 ```powershell
 mvn -DskipTests compile
@@ -478,7 +478,7 @@ mvn -DskipTests compile
 
 Expected: `BUILD SUCCESS`; old large classes may still exist under temporary legacy packages.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add demo0/src/main demo0/src/test demo0/pom.xml
@@ -919,3 +919,5 @@ git commit -m "docs: record modular monolith refactor evidence"
 - 2026-09-28：Task 2 最后一批 Notification/Moderation/Search 叶子模型提交 `9897900`；21 个类型迁包，旧顶层 `dto/vo/entity/enums` 包清空，统一 `mvn -DskipTests compile` 与 `git diff --check` 通过，独立审查无 Critical/Important/Minor。
 - 2026-09-28：Task 3 提交 `b4d185a`；8 组 Mapper/XML 成对迁移，Audit、Event Admin、OSS、WebSocket 归位，`AliOssUtil` 收口为 `AliOssService`；最终增量编译、`git diff --check` 与独立审查通过。
 - 2026-09-28：Task 4 Controller 子批提交 `e15b990`；19 个 Controller 整体迁入所属域，Admin Controller 未拆、`UserController` 身份方法暂留，`git diff --check` 与独立审查通过。
+- 2026-09-28：Task 4 Service/支持类子批提交 `8fc37c7`；small/medium Service、缓存、审核、搜索、配置、工具和小型 Mapper/XML 迁入所属域，保留既定大类在 legacy 包，`git diff --check` 与独立审查通过。
+- 2026-09-28：Task 4 MQ/适配器子批提交 `14f67f9`；MQ message/consumer/producer、Outbox 支撑类与 RAG 配置归位，对应测试同步迁移。首次编译仅暴露迁包漏 import，补齐后 `mvn -DskipTests compile` 对 367 个生产源码构建成功；`git diff --check` 与两轮独立审查通过，未改变队列、路由、ACK、重试或消息字段。
