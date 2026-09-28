@@ -132,6 +132,7 @@
         c.content) AS content,
         c.publish_user_id,
         c.audit_status,
+        c.tags,
         c.create_time,
         c.update_time,
         c.liked,
@@ -152,6 +153,27 @@
         )
 
     </select>
+
+    <select id="selectApprovedWithoutTags" resultType="com.quanta.demo0.entity.Content">
+        SELECT *
+        FROM tb_content
+        WHERE content_id &gt; #{afterId}
+          AND is_deleted = 0
+          AND audit_status = 1
+          AND tags IS NULL
+        ORDER BY content_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updateTags">
+        UPDATE tb_content
+        SET tags = CAST(#{tags} AS JSON),
+            update_time = CURRENT_TIMESTAMP
+        WHERE content_id = #{contentId}
+          AND audit_status = 1
+          AND is_deleted = 0
+          AND tags IS NULL
+    </update>
 
     <select id="getMyContentsList" resultType="com.quanta.demo0.entity.Content">
         SELECT * FROM tb_content

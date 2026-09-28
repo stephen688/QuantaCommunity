@@ -3,6 +3,8 @@ package com.quanta.demo0.mq.outbox;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.config.TopicTagMQConfig;
+import com.quanta.demo0.config.ProfileMQConfig;
 import com.quanta.demo0.entity.OutboxEvent;
 import com.quanta.demo0.enums.OutboxEventType;
 
@@ -149,6 +151,16 @@ public class OutboxRouteRegistry {
         }
 
 
+        if (OutboxEventType.CONTENT_TOPIC_TAG_REQUESTED.getCode().equals(event.getEventType())) {
+            return OutboxRoute.builder().exchange(TopicTagMQConfig.TOPIC_TAG_EXCHANGE)
+                    .routingKey(TopicTagMQConfig.TOPIC_TAG_ROUTING_KEY)
+                    .message(deserializePayload(event.getPayload(), ContentTopicTagMessage.class)).build();
+        }
+        if (OutboxEventType.USER_PROFILE_UPDATED.getCode().equals(event.getEventType())) {
+            return OutboxRoute.builder().exchange(ProfileMQConfig.PROFILE_EXCHANGE)
+                    .routingKey(ProfileMQConfig.PROFILE_ROUTING_KEY)
+                    .message(deserializePayload(event.getPayload(), ProfileReconcileMessage.class)).build();
+        }
         throw new IllegalArgumentException(
                 "不支持的 Outbox 事件类型：" + event.getEventType()
         );

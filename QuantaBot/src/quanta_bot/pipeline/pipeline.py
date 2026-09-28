@@ -17,6 +17,7 @@ main_service open=failed 不回；M5 成本三档：枯竭=skipped_cost_exhauste
       对话链 read_chain/append_turn 走 kv 楼层链，read-modify-write 依赖同帖串行（M2 单消费者）。
 """
 
+import inspect
 import logging
 import time
 from collections.abc import Awaitable, Sequence
@@ -57,6 +58,30 @@ if TYPE_CHECKING:
     from quanta_bot.pipeline.ports import Retriever  # Task 13 落地端口定义（仅注解前向引用）
 
 logger = logging.getLogger(__name__)
+
+
+async def _apply_memory_ops(
+    store: UserMemoryStore,
+    user_id: int,
+    persona_version: str,
+    ops: Sequence,
+    source_event_id: str,
+) -> None:
+    """写入记忆并向支持新端口的实现传递稳定 Outbox event id。
+
+    旧的测试/fake 实现可能仍是三参数端口；兼容它们不会影响真实 Qdrant，且避免
+    用捕获 TypeError 的方式掩盖存储实现内部错误。
+    """
+    apply_ops = store.apply_ops
+    parameters = inspect.signature(apply_ops).parameters.values()
+    supports_source_id = any(
+        parameter.name == "source_event_id" or parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters
+    )
+    if supports_source_id:
+        await apply_ops(user_id, persona_version, ops, source_event_id=source_event_id)
+    else:
+        await apply_ops(user_id, persona_version, ops)
 
 
 @dataclass
@@ -528,8 +553,12 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
     # ⑫ replied 后：记忆四态落库 + 对话链 append（失败 WARNING 不阻断——回复已成功）
     if decision_result.memory_ops and memory_allowed:
         try:
-            await deps.memory_store.apply_ops(
-                event.commenter_user_id, persona_version, decision_result.memory_ops
+            await _apply_memory_ops(
+                deps.memory_store,
+                event.commenter_user_id,
+                persona_version,
+                decision_result.memory_ops,
+                event.event_id,
             )
         except Exception as exc:  # 记忆失败不回滚回复（观测 WARNING；M5 起计入熔断计数）
             logger.warning("记忆四态落库失败（不阻断回复）：%s", exc)

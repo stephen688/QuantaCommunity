@@ -511,6 +511,53 @@ public class OutboxEventServiceImpl implements OutboxEventService {
         }
     }
 
+    /** 主题打标事件只带内容 ID，消费者必须读取审核后的当前事实。 */
+    @Override
+    @Transactional
+    public String createContentTopicTagEvent(Long contentId) {
+        if (contentId == null || contentId <= 0) {
+            throw new ContentFailedException("主题打标缺少有效帖子 ID");
+        }
+        // 词表初版每帖一个持久任务；回填游标重跑与重复审核不能绕过 Inbox 再付费。
+        // DEAD 的人工补偿沿用原 eventId 重放，不另造任务。
+        String eventId = UUID.nameUUIDFromBytes(("content-topic-v1:" + contentId)
+                .getBytes(StandardCharsets.UTF_8)).toString();
+        ContentTopicTagMessage message = ContentTopicTagMessage.builder().eventId(eventId)
+                .eventType(OutboxEventType.CONTENT_TOPIC_TAG_REQUESTED.getCode()).contentId(contentId)
+                .occurredAt(LocalDateTime.now()).retryCount(0).build();
+        return saveRecommendationEvent(message, eventId, OutboxEventType.CONTENT_TOPIC_TAG_REQUESTED, "CONTENT", contentId);
+    }
+
+    /** 保存显式画像校准事件；失败回滚调用方刚写入的偏好事实。 */
+    @Override
+    @Transactional
+    public String createProfileUpdatedEvent(Long userId, String eventId) {
+        if (userId == null || userId <= 0 || !StringUtils.hasText(eventId)) {
+            throw new ContentFailedException("显式画像事件缺少必要标识");
+        }
+        ProfileReconcileMessage message = ProfileReconcileMessage.builder().eventId(eventId)
+                .eventType(OutboxEventType.USER_PROFILE_UPDATED.getCode()).userId(userId)
+                .occurredAt(LocalDateTime.now()).retryCount(0).build();
+        return saveRecommendationEvent(message, eventId, OutboxEventType.USER_PROFILE_UPDATED, "USER", userId);
+    }
+
+    private String saveRecommendationEvent(Object message, String eventId, OutboxEventType type,
+            String aggregateType, Long aggregateId) {
+        String payload = serializePayload(message);
+        validatePayloadSize(payload);
+        OutboxEvent event = OutboxEvent.builder().eventId(eventId).eventType(type.getCode())
+                .aggregateType(aggregateType).aggregateId(aggregateId).payload(payload)
+                .status(OutboxEventStatus.PENDING.getCode()).retryCount(0)
+                .nextRetryTime(LocalDateTime.now()).replayCount(0).build();
+        if (type == OutboxEventType.CONTENT_TOPIC_TAG_REQUESTED) {
+            // 唯一 event_id 的原子 no-op upsert，避免“先查后插”并发竞态；其它事件保持原语义。
+            outboxEventMapper.insertIfAbsent(event);
+        } else if (outboxEventMapper.insert(event) != 1) {
+            throw new ContentFailedException("推荐异步事件写入失败");
+        }
+        return eventId;
+    }
+
 
     @Override
     @Transactional

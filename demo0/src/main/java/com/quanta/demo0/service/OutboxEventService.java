@@ -96,6 +96,12 @@ public interface OutboxEventService {
      */
     String createSearchReconcileEvent(String targetType, Long targetId, String triggerType);
 
+    /** 与审核通过或回填入队事务同提交，只带 contentId，不同步调用 LLM。 */
+    String createContentTopicTagEvent(Long contentId);
+
+    /** 与显式偏好事实同事务；保留 Agent 同次提交的稳定 eventId。 */
+    String createProfileUpdatedEvent(Long userId, String eventId);
+
     /**
      * 抢占一批等待发送的事件。
      */

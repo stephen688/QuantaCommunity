@@ -164,6 +164,20 @@ public class InboxEventServiceImpl implements InboxEventService {
         return updatedRows == 1 ? InboxAcquireResult.ACQUIRED : InboxAcquireResult.BUSY;
     }
 
+    @Override
+    @Transactional
+    public InboxAcquireResult acquire(String consumerName, String instanceId, ContentTopicTagMessage message) {
+        return acquireEvent(consumerName, instanceId, message.getEventId(), message.getEventType(),
+                "CONTENT", message.getContentId(), message.getRetryCount() == null ? 0 : message.getRetryCount());
+    }
+
+    @Override
+    @Transactional
+    public InboxAcquireResult acquire(String consumerName, String instanceId, ProfileReconcileMessage message) {
+        return acquireEvent(consumerName, instanceId, message.getEventId(), message.getEventType(),
+                "USER", message.getUserId(), message.getRetryCount() == null ? 0 : message.getRetryCount());
+    }
+
 
 
 

@@ -71,27 +71,34 @@
 
 新增 nullable `tb_content.tags JSON`，原应用可以忽略它；新增仅含主题偏好与事件标识的主服务事实表，迁移脚本放 `demo0/src/main/resources/db/V_recommend_topics_profile.sql`。先迁移再部署主服务，再开启 Agent 同步；回滚先关新增同步/打标开关，再回滚代码，暂留新列/表避免丢失证据。显式 Hash 与行为 Hash 分离，避免负数进入行为分母或被行为衰减任务误删；推荐读侧在同一算分入口组合二者。
 
+### 部署、回填与回滚入口
+
+1. 在目标 MySQL 数据库执行 `src/main/resources/db/V_recommend_topics_profile.sql` 后部署主服务。Agent 后部署/开启 `QUANTABOT_PROFILE_SYNC_ENABLED`；主服务可先用 `QUANTA_TOPIC_TAGS_ENABLED=false` 暂停新增打标消费，队列保留，开关改动需重启生效。
+2. 核对运营账号具备 `CONTENT_AUDIT` 权限，将 token 放本地进程环境 `DEMO0_ADMIN_TOKEN`（不入库）。小批命令：`python demo0/scripts/backfill_content_topics.py --base-url http://127.0.0.1:9191 --after-id 0 --limit 3 --max-batches 1`。输出 `nextAfterId` 是“已登记 Outbox”的游标，不是模型成功数；中断后以最后输出游标继续，必须另查 Inbox/DLQ 和剩余 `tags IS NULL`。
+3. 全量存量回填作为后续独立一次批量执行；DLQ 尚未解决时不能仅凭游标宣称全量成功。主题任务按词表初版/帖子 ID 形成稳定 eventId，并在 Outbox 唯一键原子去重；游标重跑不会新建付费任务。模型调用失败本身仍可能产生费用，不能宣称外部付费 API 的 exactly-once。DEAD 使用原任务的人工重放，不靠新建任务绕过失败。
+4. 回滚先停 Agent 新同步、停打标消费者，再回滚应用；保留 tags 列与事实表，避免丢事件/撤销证据。恢复消费与现有 Outbox/Inbox DLQ 重放沿用 `docs/outbox-plan.md`，不另造状态机。专用主队列带 broker DLX，无法解析/缺身份的毒消息保留原消息到死信而不永久 requeue；新队列尚未部署，禁止对已有同名旧参数队列直接做不兼容声明。
+
 ## Task 1：③主题标签、增量链路与可续跑工具
 
 **Files:** `entity/Content.java`、`mapper/ContentMapper.java`、`resources/mapper/ContentMapper.xml`；新增受控词表资源与 `service/TopicCatalog.java`、`service/ContentTopicTagService.java`、`service/Impl/ContentTopicTagServiceImpl.java`、专用 MQ 配置/消息/消费者/辅助生产者；修改实际审核通过入口；新增运营回填入口及 `demo0/scripts/backfill_content_topics.py`。主代理统一接入 Outbox/Inbox 共享文件、配置和 `resolveContentTags`，不由子代理同时编辑。
 
 **Interfaces:** `TopicCatalog.topics()` 返回词表；`TopicCatalog.parseStoredTags(String)` 返回去重后的有效 ID；`ContentTopicTagService.tagContent(Long contentId)` 重新读取当前可见内容、调现有 ChatModel 并条件写标签；`enqueueBackfill(long afterId,int limit)` 分页入队并返回下次游标，正文不进新增事件。重复已有标签可跳过；审核/删除状态变化时写入条件不满足，不能覆盖非法内容。
 
-- [ ] RED：新增定向测试证明非法/重复标签拒绝、可见性条件写入、重复打标跳过和回填游标边界；先执行并记录预期失败。
+- [x] RED：新增定向测试先失败；初始新增类型缺失为编译 RED（不冒称完整行为 RED），后续非法/超限、可见性、已有标签与回填边界已验证。
 
 ```java
 assertThat(TopicCatalog.parseStoredTags("[\"basketball\",\"unknown\",\"basketball\"]"))
         .containsExactly("basketball");
 ```
 
-- [ ] GREEN：最小实现词表白名单校验、JSON 标签解析、审核通过同事务入 Outbox、Inbox 重试/DLQ、限量回填。只对无标签可见帖处理；外部失败保留可重试状态，禁止写假标签。
+- [x] GREEN：最小实现词表白名单校验、JSON 标签解析、审核通过同事务入 Outbox、Inbox 重试/DLQ、限量回填。只对无标签可见帖处理；外部失败保留可重试状态，禁止写假标签。
 
 ```java
 // 每次实际审核通过的事务内入队；LLM 只在异步消费者执行。
 outboxEventService.createContentTopicTagEvent(contentId);
 ```
 
-- [ ] 定向执行标签服务/Mapper/审核 hook/回填测试，确认成功后再接画像标签与配置。提交只选本任务文件，最终以实际 diff 确定精确 add 清单。
+- [x] 定向标签/词表/审核/Inbox 17 项通过，Mapper 与真实回填运输在隔离 MySQL/MQ/Redis 及单帖 paid smoke 验证；提交阶段只选本任务文件。
 
 ## Task 2：④未来偏好同步与主服务快照重排
 
@@ -99,39 +106,41 @@ outboxEventService.createContentTopicTagEvent(contentId);
 
 **Interfaces:** Python `ProfileSyncWorker.run_once()` 只读取新挂 pending 的 Qdrant 点，缓存主服务词表，提取明确表达后提交上述 DTO；HTTP 在记忆锁外，成功清标记必须核对原 revision，失败保持 pending。Java `ExplicitPreferenceService.accept(BotProfileEventDTO)` 验证并同事务写事实+Outbox；`reconcile(Long userId)` 从当前最新有效记忆状态重建显式 Hash。`UserProfileService.getExplicitProfile(Long)` 返回 topic→有符号权重，默认空 Map 保持现有调用兼容。
 
-- [ ] RED：用真实逻辑与本地 Qdrant/Redis 或现有边界 fake 写少量用例，捕捉个人事实误提取、更新/删除未撤销、重复/旧消息覆盖新状态、HTTP 失败丢 pending；先运行确认预期失败。
+- [x] RED：新增端口/实现前失败，收尾针对未知主题、HTTP 400、空结果及墓碑发现真实边界并窄修；保留失败说明，不把编译 RED 当完整行为证明。
 
 ```python
 assert extract_preferences("我喜欢篮球", "positive", topics) == ("basketball",)
 assert extract_preferences("我在计算机学院读书", None, topics) == ()
 ```
 
-- [ ] GREEN：不改 memory_ops 决策 prompt，在持久化点上挂新事件；后台重试接 BOT API；主服务事实持久化、快照校准、独立显式算分。正偏好增益、负偏好更强惩罚，候选不被硬删除；显式权重不进入 `__total` 或行为分母。
+- [x] GREEN：不改 memory_ops 决策 prompt，在持久化点上挂新事件；后台重试接 BOT API；主服务事实持久化、快照校准、独立显式算分。正偏好增益、负偏好更强惩罚，候选不被硬删除；显式权重不进入 `__total` 或行为分母。
 
 ```java
 double finalScore = alpha * normHot + (1.0 - alpha) * matchScore + explicitScore;
 ```
 
-- [ ] 定向跑 Python 提取/待同步/装配及 Java API 安全/事实/重排/Redis 测试；同 eventId 重投后状态和排序不变，DELETE 后旧偏好不再影响排序。按影响面提交，不混入历史证据或原工作区修改。
+- [x] 定向 Python / Java 安全、事实、重排、真实 Redis 与 MQ 测试已通过；同事件 HTTP/MQ 重投不重复，DELETE 与旧版本不复活。Python 最后 UPDATE 重放覆盖 DELETE pending 的窄修单独7项回归，不重复整体评测。
 
 ## Task 3：必要验收、独立审查与文档收尾
 
 **Files:** 本计划、`demo0/docs/api-test/RESULTS.md`、`demo0/docs/后续demo0优化总方案.md`、QuantaBot `docs/技术选型.md`、`总计划.md` 与适用 AGENTS 变更记录。只回写本次真实结果。
 
-- [ ] 运行风险相称的定向 Java 单元+真实 MySQL/Rabbit/Redis 集成组合；Python ruff/本任务定向测试和一次单位回归，不跑付费 M5 门禁。
+- [x] 运行风险相称的定向 Java 单元+真实 MySQL/Rabbit/Redis 集成组合；Python 定向14、unit259及 Ruff 通过，不跑付费 M5 门禁；独立审查发现的最后边界仅定向补测。
 
 ```powershell
 mvn -f demo0/pom.xml '-Dtest=ContentTopicTagServiceImplTest,ExplicitPreferenceServiceImplTest,ProfilePreferenceIntegrationTests,BotProfileAuthorizationTests,UserProfileServiceImplTest,RecommendRerankServiceImplTest' test
 uv run --project QuantaBot pytest QuantaBot/tests/unit -q
 ```
 
-- [ ] 小批（最多 3 帖）真实 LLM 打标验证；一条未来偏好链路验证到主服务事实、Outbox SENT、Inbox SUCCESS、Redis 快照、排序变化，并复投同事件确认不重复；更新/删除确认撤销。可用受控测试依赖隔离真实用户，LLM 真调用只用于标签小批，不重新评测 Bot。
-- [ ] 用 requesting-code-review 派一个未参与实现的 reviewer，只给需求/计划/diff/验证证据。修 Critical/Important；对安全/幂等新增测试做一次关键断言变异抽查并恢复。
-- [ ] 自查无秘密、无原文事件、无越权路径；更新计划复选框和唯一 RESULTS。区分小批验证与全量未执行；不宣称整个新版本通过 M5 Release。
-- [ ] 精确 git add 本任务文件，Conventional Commits 提交并交付路径/命令/未完成项。不 push、不合并，除非用户另行授权。
+- [x] 一帖真实 LLM 标签 smoke 通过（experience_sharing + course_study）；一条合成未来偏好经真实 BOT 鉴权 HTTP→MySQL/Outbox SENT→MQ/Inbox SUCCESS→Redis→排序，HTTP/MQ复投幂等；真实组件验证更新/删除/旧版本，Qdrant 本地 SDK 验证 ADD/UPDATE/DELETE。生产外部网络全栈不以隔离验证冒称完成。
+- [x] 用 requesting-code-review 派未参与实现的 reviewer，最终只读复核无未闭合 Critical/Important，Ready for delivery；初审两项 Important 已修。负向重排关键断言变异捕获 RED 后已恢复并验证 GREEN。
+- [x] 自查任务文件及新增行秘密特征、无记忆原文事件、BOT/运营权限边界；更新计划复选框和唯一 RESULTS。区分小批验证与全量未执行；不宣称整个新版本通过 M5 Release。
+- [x] 精确 git add 已核对的75个本任务文件，Conventional Commits 本地提交；交付路径、证据与未完成项。不 push、不合并，除非用户另行授权。
 
 ## 执行记录
 
 - 2026-09-28：用户已确认简单计划及所有范围选择，并明确要求“写一个计划，然后开始执行”；无需重复等待执行方式选择。计划采用两个实现任务并行、一个验证收尾任务。
-- 基线 Docker ServerVersion 29.6.1 可读；尚未运行本次功能测试或真实调用，后续记录不得把此前 M5 证据当成本次证据。
+- 开始时 Docker ServerVersion 29.6.1 可读；本次后来执行的证据统一回写 RESULTS S-TP，不把此前 M5 证据当成本次证据。
 - 用户补充后已暂停并完成词表对齐：26 项已确认；电子硬件替换为经验分享；每帖最多三个主题标签，可同时命中多个领域。现在恢复两个实现任务。
+- 实施与验证结果统一见 RESULTS S-TP；独立初审两项 Important（重复任务、毒消息）已修。收尾发现的人工审核漏接、不可见假SUCCESS、pending空结果和乱序撤销均以窄回归收口。额度暂时中断子代理后主代理接手；未扩大到整轮M5或存量全量回填。
+- 最终只读审查完成，无未闭合 Critical/Important；最后 Java 定向20项和 Python 撤销乱序定向7项均通过。原工作区未提交内容未改动，隔离分支本地交付，部署及全量存量回填仍属后续执行。

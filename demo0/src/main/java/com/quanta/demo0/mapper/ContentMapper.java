@@ -177,6 +177,24 @@ public interface ContentMapper {
     @Select("SELECT * FROM tb_content WHERE publish_user_id = #{publishUserId} AND is_deleted = 0 AND audit_status = 1 ORDER BY create_time DESC LIMIT #{limit}")
     List<Content> selectApprovedByPublishUserId(@Param("publishUserId") Long publishUserId, @Param("limit") int limit);
 
+    /**
+     * 按内容 ID 游标查询审核通过且尚未完成主题标签处理的帖子。
+     *
+     * @param afterId 上一次批次最后一个内容 ID（不含）
+     * @param limit 本批最大条数
+     * @return 按内容 ID 升序排列的帖子
+     */
+    List<Content> selectApprovedWithoutTags(@Param("afterId") long afterId, @Param("limit") int limit);
+
+    /**
+     * 条件写入主题标签，只有可见内容且 tags 仍为 NULL 时才会成功。
+     *
+     * @param contentId 内容 ID
+     * @param tags JSON 数组字符串
+     * @return 实际更新行数
+     */
+    int updateTags(@Param("contentId") Long contentId, @Param("tags") String tags);
+
 
     /**
      * AI 审核只允许把待审核状态修改为最终状态。
