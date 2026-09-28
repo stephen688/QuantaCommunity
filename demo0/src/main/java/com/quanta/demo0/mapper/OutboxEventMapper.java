@@ -16,6 +16,9 @@ public interface OutboxEventMapper {
 
     int insert(OutboxEvent event);
 
+    /** 仅供稳定主题任务键：唯一键冲突保留原 payload/状态，不重新发送或绕过 DEAD。 */
+    int insertIfAbsent(OutboxEvent event);
+
     OutboxEvent selectByEventId(
             @Param("eventId") String eventId
     );

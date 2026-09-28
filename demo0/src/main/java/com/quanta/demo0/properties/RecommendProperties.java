@@ -43,6 +43,16 @@ public class RecommendProperties {
     @Data
     public static class Profile {
 
+        /** 明确喜好独立增益，不计入行为 __total 或匹配分分母。 */
+        @DecimalMin(value = "0.0", inclusive = false)
+        @DecimalMax("2.0")
+        private double explicitPositiveWeight = 0.75;
+
+        /** 明确厌恶的惩罚强于喜好增益，仅降权不剔除候选。 */
+        @DecimalMin(value = "0.0", inclusive = false)
+        @DecimalMax("3.0")
+        private double explicitNegativeWeight = 1.25;
+
         /** 画像流 hot 池召回条数（ZREVRANGE top N） */
         @Min(1)
         private int recallHotSize = 150;

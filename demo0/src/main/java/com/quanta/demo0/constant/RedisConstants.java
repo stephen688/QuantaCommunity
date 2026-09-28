@@ -81,6 +81,9 @@ public class RedisConstants {
      */
     public static final String USER_PROFILE_KEY = "user:profile:";
 
+    /** 显式偏好快照：独立于行为衰减扫描，__version 仅用于覆盖版本守卫。 */
+    public static final String USER_PROFILE_EXPLICIT_KEY = "user:profile-explicit:";
+
     /**
      * 画像累计行为权重 field（α 动态调整的数据源）。以 "__" 前缀与标签名区隔。
      */

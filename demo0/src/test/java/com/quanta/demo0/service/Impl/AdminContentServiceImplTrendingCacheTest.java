@@ -63,6 +63,7 @@ class AdminContentServiceImplTrendingCacheTest {
 
         if (newStatus == 1) {
             verify(contentExposureService).exposeApprovedContent(any(Content.class));
+            verify(outboxEventService).createContentTopicTagEvent(7L);
         } else {
             verify(contentExposureService).hideRejectedContent(7L);
         }
@@ -79,6 +80,7 @@ class AdminContentServiceImplTrendingCacheTest {
                 .build());
 
         verify(trendingCacheInvalidator, never()).evictAfterCommit(any());
+        verify(outboxEventService, never()).createContentTopicTagEvent(any());
     }
 
     @Test
@@ -123,6 +125,7 @@ class AdminContentServiceImplTrendingCacheTest {
         content.setContentType(1);
         content.setAuditStatus(auditStatus);
         content.setPublishUserId(11L);
+        content.setIsDeleted(0);
         return content;
     }
 }

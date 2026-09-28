@@ -47,7 +47,13 @@ public enum OutboxEventType {
     /**
      * 用户对帖子发生一次行为（赞/藏/评/浏览），请求画像消费者累加画像（D2）。
      */
-    USER_BEHAVIOR_REQUESTED("USER_BEHAVIOR_REQUESTED");
+    USER_BEHAVIOR_REQUESTED("USER_BEHAVIOR_REQUESTED"),
+
+    /** 审核通过后异步生成受控主题标签。 */
+    CONTENT_TOPIC_TAG_REQUESTED("CONTENT_TOPIC_TAG_REQUESTED"),
+
+    /** 主服务已持久化显式偏好，通知消费者重建用户当前画像。 */
+    USER_PROFILE_UPDATED("user.profile.updated");
 
 
 

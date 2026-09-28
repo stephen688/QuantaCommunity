@@ -25,6 +25,11 @@ public interface UserProfileService {
      */
     Map<String, Double> getProfile(Long userId);
 
+    /** 明确主题偏好独立读取；缺省为空，保持现有实现与调用方兼容。 */
+    default Map<String, Double> getExplicitProfile(Long userId) {
+        return Map.of();
+    }
+
     /**
      * 帖子标签解析（D5 唯一标签扩展点：LLM 主题标签上线后只改实现这一处）。
      * 画像累加（applyBehavior）与画像流重排（匹配分计算）共用本方法，保证标签口径一致。

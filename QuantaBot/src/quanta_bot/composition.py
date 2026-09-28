@@ -29,6 +29,7 @@ from quanta_bot.infra.main_service import (
     MainServiceClient,
     UnimplementedReplyWriter,
 )
+from quanta_bot.infra.profile_sync import ProfileSyncWorker
 from quanta_bot.infra.qdrant_content import QdrantContentIndex
 from quanta_bot.infra.qdrant_memory import QdrantUserMemoryStore
 from quanta_bot.infra.settings import Settings, resolve_data_path
@@ -59,8 +60,10 @@ class Runtime:
     control_plane: ControlPlane
     rag: RagStack | None = None  # /admin/ingest 摄取栈（None=摄取未配置，端点 503）
     consumer: CommentEventConsumer | None = None
+    profile_sync: ProfileSyncWorker | None = None
     _closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
     _consumer_task: asyncio.Task[None] | None = field(default=None, repr=False)
+    _profile_sync_task: asyncio.Task[None] | None = field(default=None, repr=False)
 
     def start(self) -> None:
         """启动后台任务（真模式：控制面轮询 + MQ 消费者）。"""
@@ -68,12 +71,22 @@ class Runtime:
             self.control_plane.start_polling()
             if self.consumer is not None:
                 self._consumer_task = asyncio.create_task(self.consumer.run_forever())
+            if self.profile_sync is not None:
+                self._profile_sync_task = asyncio.create_task(self.profile_sync.run_forever())
 
     async def aclose(self) -> None:
         """收尾：停消费者/轮询 + 逐项释放客户端（幂等）。"""
         if self._consumer_task is not None:
             self._consumer_task.cancel()
             self._consumer_task = None
+        if self._profile_sync_task is not None:
+            profile_sync_task = self._profile_sync_task
+            self._profile_sync_task = None
+            profile_sync_task.cancel()
+            try:
+                await profile_sync_task
+            except asyncio.CancelledError:
+                pass
         self.control_plane.stop_polling()
         for closer in self._closers:
             try:
@@ -194,6 +207,19 @@ def build_runtime(settings: Settings) -> Runtime:
         if not settings.fake_mode:
             logger.warning("qdrant_url 未配置——记忆降级为内存版（重启即失，不持久）")
         memory_store = InMemoryUserMemoryStore(embedding)
+    profile_sync: ProfileSyncWorker | None = None
+    if (
+        not settings.fake_mode
+        and settings.profile_sync_enabled
+        and isinstance(memory_store, QdrantUserMemoryStore)
+        and main_service is not None
+    ):
+        profile_sync = ProfileSyncWorker(
+            memory_store,
+            main_service,
+            batch_size=settings.profile_sync_batch_size,
+            poll_seconds=settings.profile_sync_poll_seconds,
+        )
     # RAG（C-3 改形）：qdrant+embedding 真接齐 → 内容索引+retriever；主服务齐才开放摄取。
     # qdrant/embedding 缺任一 → retriever=None（管线 ⑧ 步降级直说不知道——场景 6 降级链路）
     retriever: QdrantContentIndex | None = None
@@ -280,5 +306,6 @@ def build_runtime(settings: Settings) -> Runtime:
         control_plane=control_plane,
         rag=rag_stack,
         consumer=consumer,
+        profile_sync=profile_sync,
         _closers=closers,
     )

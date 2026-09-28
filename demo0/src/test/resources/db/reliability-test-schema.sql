@@ -2,7 +2,9 @@ SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS tb_user (
     id BIGINT NOT NULL PRIMARY KEY,
-    nick_name VARCHAR(64) DEFAULT NULL
+    nick_name VARCHAR(64) DEFAULT NULL,
+    account_status INT NOT NULL DEFAULT 0,
+    is_deleted INT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS tb_content (
@@ -10,6 +12,7 @@ CREATE TABLE IF NOT EXISTS tb_content (
     content_type INT NOT NULL DEFAULT 1,
     title VARCHAR(100) DEFAULT NULL,
     content VARCHAR(1000) DEFAULT NULL,
+    tags JSON DEFAULT NULL,
     publish_user_id BIGINT NOT NULL,
     audit_status INT NOT NULL DEFAULT 0,
     liked INT NOT NULL DEFAULT 0,
