@@ -26,9 +26,13 @@ import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.user.service.impl.AuthorProfileCacheImpl;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import com.quanta.demo0.user.service.UserReadCacheInvalidator;
-import com.quanta.demo0.user.service.UserService;
 import com.quanta.demo0.user.service.impl.AdminUserServiceImpl;
+import com.quanta.demo0.user.service.impl.UserAccountServiceImpl;
+import com.quanta.demo0.user.service.impl.UserProfileServiceImpl;
 import com.quanta.demo0.user.service.impl.UserReadCacheInvalidatorImpl;
+import com.quanta.demo0.user.properties.WeChatProperties;
+import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,7 +106,7 @@ class UserReadCacheWritePathTest {
 
     @Test
     void successfulProfileUpdateEvictsAuthorCache() {
-        UserServiceImpl service = userService();
+        UserProfileServiceImpl service = userProfileService();
         UserAuthInfoVO oldProfile = profile("旧昵称");
         UserAuthInfoVO newProfile = profile("新昵称");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
@@ -116,7 +120,7 @@ class UserReadCacheWritePathTest {
 
     @Test
     void failedProfileUpdateDoesNotEvictAuthorCache() {
-        UserServiceImpl service = userService();
+        UserProfileServiceImpl service = userProfileService();
         UserAuthInfoVO oldProfile = profile("旧昵称");
         UserAuthInfoVO newProfile = profile("不应提前出现");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
@@ -131,7 +135,7 @@ class UserReadCacheWritePathTest {
 
     @Test
     void changedWechatProfileEvictsAuthorCache() {
-        UserServiceImpl service = userService();
+        UserAccountServiceImpl service = userAccountService();
         UserAuthInfoVO oldProfile = profile("用户_默认");
         UserAuthInfoVO newProfile = profile("微信昵称");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
@@ -157,7 +161,7 @@ class UserReadCacheWritePathTest {
 
     @Test
     void unchangedWechatProfileDoesNotEvictAuthorCache() {
-        UserServiceImpl service = userService();
+        UserAccountServiceImpl service = userAccountService();
         UserAuthInfoVO oldProfile = profile("用户自定义");
         UserAuthInfoVO newProfile = profile("不应提前出现");
         when(userMapper.selectUserAuthInfoById(USER_ID)).thenReturn(oldProfile, newProfile);
@@ -502,16 +506,30 @@ class UserReadCacheWritePathTest {
         verify(redisTemplate, never()).delete(SECURITY_VERIFIED_KEY + USER_ID);
     }
 
-    private UserServiceImpl userService() {
-        UserServiceImpl service = new UserServiceImpl();
+    private UserProfileServiceImpl userProfileService() {
         SensitiveWordChecker sensitiveWordChecker = mock(SensitiveWordChecker.class);
         when(sensitiveWordChecker.replaceSensitiveWords(anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        ReflectionTestUtils.setField(service, "userMapper", userMapper);
-        ReflectionTestUtils.setField(service, "sensitiveWordChecker", sensitiveWordChecker);
-        ReflectionTestUtils.setField(service, "userReadCacheInvalidator", invalidator);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", redisTemplate);
-        return service;
+        return new UserProfileServiceImpl(
+                userMapper,
+                sensitiveWordChecker,
+                invalidator,
+                mock(FollowMapper.class),
+                mock(ContentMapper.class),
+                redisTemplate
+        );
+    }
+
+    private UserAccountServiceImpl userAccountService() {
+        SensitiveWordChecker sensitiveWordChecker = mock(SensitiveWordChecker.class);
+        when(sensitiveWordChecker.replaceSensitiveWords(anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        return new UserAccountServiceImpl(
+                mock(WeChatProperties.class),
+                userMapper,
+                sensitiveWordChecker,
+                invalidator
+        );
     }
 
     private IdentityExamServiceImpl identityService() {

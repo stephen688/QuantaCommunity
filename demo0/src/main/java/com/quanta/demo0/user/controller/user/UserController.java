@@ -2,41 +2,27 @@ package com.quanta.demo0.user.controller.user;
 import com.quanta.demo0.platform.security.vo.SecurityContextVO;
 
 
-import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
-import com.quanta.demo0.identity.dto.UserAuthDTO;
 import com.quanta.demo0.user.dto.UserInfoDTO;
 import com.quanta.demo0.user.dto.UserLoginDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.user.entity.User;
-import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.platform.security.exception.AuthFailedException;
-import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.PageVO;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
+import com.quanta.demo0.platform.security.service.SessionService;
 import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.interaction.service.BrowseHistoryService;
-import com.quanta.demo0.user.service.UserService;
-import com.quanta.demo0.platform.security.utils.JwtUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER_KEY;
-import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER_TTL;
-import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.vo.ContentVO;
-import com.quanta.demo0.interaction.entity.BrowseHistory;
-import com.quanta.demo0.identity.vo.UserAuthStatusVO;
+import com.quanta.demo0.user.service.UserAccountService;
+import com.quanta.demo0.user.service.UserProfileService;
 import com.quanta.demo0.user.vo.UserLoginVO;
 import com.quanta.demo0.user.vo.UserProfileVO;
 import com.quanta.demo0.user.vo.UserInfoVO;
@@ -48,12 +34,11 @@ import com.quanta.demo0.user.vo.UserInfoVO;
 public class UserController {
 
     @Autowired
-    private UserService userService;
+    private UserAccountService userAccountService;
     @Autowired
-    private JwtProperties jwtProperties;
-
+    private UserProfileService userProfileService;
     @Autowired
-    private StringRedisTemplate stringRedisTemplate;
+    private SessionService sessionService;
 
     @Autowired
     private ContentQueryService contentQueryService;
@@ -75,24 +60,10 @@ public class UserController {
     public Result<UserLoginVO> login(@RequestBody UserLoginDTO userLoginDTO) {
         log.info("微信登录，code 已接收，携带昵称={}", userLoginDTO.getNickName() != null);
         //1.获取openid和id
-        User user = userService.weChatLogin(userLoginDTO);
+        User user = userAccountService.weChatLogin(userLoginDTO);
+        String token = sessionService.login(user);
 
-        //2.生成jwt令牌
-        //生成令牌(通过id生成）
-        Map<String, Object> claims = new HashMap<>();
-        claims.put(JwtClaimsConstant.USER_ID, user.getId());
-        //判断账号状态，如果被封禁，抛出异常
-        if (user.getAccountStatus() != null && user.getAccountStatus() == 1) {
-            throw new AuthFailedException("账号已被封禁");
-        }
-
-        String token = JwtUtil.createJWT(jwtProperties.getUserSecretKey(), jwtProperties.getUserTtl(), claims);
-
-        //3.存储token到redis，设置过期时间（到期时间则会自动删除，用户无法）
-        String loginKey = LOGIN_USER_KEY + user.getId();
-        stringRedisTemplate.opsForValue().set(loginKey, token, LOGIN_USER_TTL, TimeUnit.DAYS);
-
-        //4.。封装并返回
+        //2.封装并返回
         UserLoginVO userLoginVO = UserLoginVO.builder()
                 .id(user.getId())
                 .openid(user.getOpenid())
@@ -111,7 +82,7 @@ public class UserController {
     @GetMapping("/info")
     public Result<UserInfoVO> getUserInfo() {
         log.info("查询回显用户基本信息，当前用户id：{}", BaseContext.getCurrentId());
-        UserInfoVO userInfoVO = userService.getById(BaseContext.getCurrentId());
+        UserInfoVO userInfoVO = userProfileService.getById(BaseContext.getCurrentId());
         return Result.success(userInfoVO);
     }
 
@@ -121,41 +92,10 @@ public class UserController {
     @PutMapping("/info/update")
     public Result updateUserInfo(@RequestBody UserInfoDTO userInfoDTO) {
         log.info("更新用户基本信息：{}", userInfoDTO);
-        userService.updateUserInfo(userInfoDTO);
+        userProfileService.updateUserInfo(userInfoDTO);
         return Result.success();
 
     }
-
-    /**
-     * 新增用户认证信息
-     */
-    @PostMapping("/auth/add")
-    public Result<UserAuth> addUserAuth(@RequestBody UserAuthDTO userAuthDTO) {
-        log.info("新增用户认证信息：{}", userAuthDTO);
-        UserAuth userAuth = userService.addUserAuth(userAuthDTO);
-        return Result.success(userAuth);
-    }
-
-    /**
-     * 查询用户认证状态
-     */
-    @GetMapping("/auth/status")
-    public Result<UserAuthStatusVO> getAuthStatus() {
-        log.info("查询用户认证状态，当前用户id：{}", BaseContext.getCurrentId());
-        UserAuthStatusVO authStatus = userService.getAuthStatus(BaseContext.getCurrentId());
-        return Result.success(authStatus);
-    }
-
-    /**
-     * 查询用户认证详情
-     */
-    @GetMapping("/auth/detail")
-    public Result<UserAuth> getAuthDetail() {
-        log.info("查询用户认证详情，当前用户id：{}", BaseContext.getCurrentId());
-        UserAuth userAuth = userService.getAuthDetail(BaseContext.getCurrentId());
-        return Result.success(userAuth);
-    }
-
 
     /**
      * 查询我发布的帖子(普通分页）
@@ -234,7 +174,7 @@ public class UserController {
     public Result<UserProfileVO> getUserProfile(@PathVariable Long userId) {
         log.info("查询用户主页信息，targetUserId={}", userId);
         Long viewerId = BaseContext.getCurrentId();
-        UserProfileVO userProfile = userService.getUserProfile(userId, viewerId);
+        UserProfileVO userProfile = userProfileService.getUserProfile(userId, viewerId);
         return Result.success(userProfile);
     }
 
@@ -259,7 +199,7 @@ public class UserController {
     @PostMapping("/logout")
     public Result<Void> logout() {
         log.info("退出登录，userId={}", BaseContext.getCurrentId());
-        userService.logout();
+        sessionService.logout();
         return Result.success();
     }
 
