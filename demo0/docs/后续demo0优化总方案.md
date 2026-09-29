@@ -218,6 +218,8 @@
 
 **实施与验收**：在 `codex/package-by-feature-refactor` 按“小文件迁移 → 中点原测试 → 大类拆分与最终验证”实施。详情以 [执行计划](plans/2026-09-28-package-by-feature-modular-monolith.md)、[终态包与文件清单](plans/2026-09-29-package-by-feature-final-inventory.md) 和 [API 唯一结果记录](api-test/RESULTS.md) 为准；不把编译或单元测试通过等同于 ES、OSS、AI 或 Bot 真链路验收，不做性能结论。
 
+2026-09-29 追加补验收：ES 真实内容/回答读写、搜索过滤/高亮、重复消费和删除收敛，云文本机审、RAG 真实总结，以及 Bot 生成/写库/二次机审/公开可见性与幂等复投均通过；本机漏迁移和模型装配通过既有脚本与进程级覆盖修正，未追加改动生产源码。既有 HTTP 普通用户 fixture、ES 全量 reindex、图像审核与性能等未覆盖边界仍以 RESULTS 原样记录，未合并或 push。
+
 ---
 
 （后续改造项追加于此，同样格式：是什么 / 为什么 / 怎么做要点）

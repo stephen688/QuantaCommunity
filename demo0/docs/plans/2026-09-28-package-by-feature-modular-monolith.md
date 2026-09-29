@@ -916,6 +916,17 @@ git commit -m "docs: record modular monolith refactor evidence"
 
 ### 2026-09-29 收口记录
 
+#### 合并前追加真实依赖验收（用户追加要求）
+
+目标：补齐 ES、真实 AI 和 Bot 真链路证据，不以 mock、关闭审核或空搜索结果替代真实依赖通过。沿用本分支，不 push/merge。
+
+- [x] ES：使用可达的真实 ES 8 与 IK，进程级配置覆盖，验证迁移后的初始化、内容/回答索引、公开搜索与状态过滤，以及新增/删除的异步收敛；只清理本轮创建的测试资源。
+- [x] 真实 AI：启用既有云文本审核，确认实际供应商结果；启用 Bot 的真实模型，记录模型调用与回复结果。不开全库预热，不批量调用云模型，不跑 Persona/红队或 Maven 全量。
+- [x] Bot：复用 `docs/api-test/cases/07-bot.http` 契约，通过真实身份完成 HTTP→Outbox→RabbitMQ→Agent→主服务写库→二次审核→公开可见性，验证同一触发幂等防重。
+- [x] 收口：唯一结果记录仍为 `docs/api-test/RESULTS.md`；列出 IDs、状态和未覆盖范围，不记录秘密。若发现生产缺陷，先按 `test-driven-development` 做定向复现和修复，再按 `requesting-code-review` 独立复核；纯运行验收不修改生产代码。
+
+追加执行结果：ES/真实云文本审核/RAG 实际生成/Bot 真链路与原事件防重均 PASS，帖子142/143、回答108、触发494、回复495。环境缺口为本机漏既有主题 schema migration 和既有 ChatModel 二义；已执行原幂等迁移，并用进程级 `SPRING_AI_OPENAI_CHAT_ENABLED=false` 保留自定义真实模型。临时 SQL 窄修已撤回，生产源码没有追加修改。通过原 API 软删除本轮 fixture，三项详情和未覆盖范围见 [RESULTS 补验收](../api-test/RESULTS.md#package-by-feature)。不扩展到再次全量测试、性能、图像审核或 ES 全量 reindex。
+
 - Tasks 6～8 已拆分内容/互动/Feed、评论/回答及用户/身份/会话；实现提交包括 `8332fb9`、`6cbb13b`、`647c732`，拆分过程记录提交 `ff5e4b0`。Admin Controller 没有拆文件，互动计数没有改成异步。
 - Task 9 已将 ES 文档/查询/索引归 search，拆分 RAG 内容/回答/chunk 转换器、ModerationWorkflow、域消息构造与通用 Outbox，以及共享/各域 Rabbit 配置。Rabbit 拆分逐项核对 72 个常量值、74 个 Bean 方法：业务 topology 声明不变，共享 RabbitTemplate 仅减少旧注释。
 - 四个大 Mapper/XML 已归 content/comment/answer/user，身份 SQL 归 identity，互动/举报 SQL 归 interaction。跨域改用事实快照及公开查询/命令/计数端口，保留旧 SQL 的摘要、审核可见性、顺序、NULL 和分页前过滤。回答按问题删除保持旧的已审核列表范围，没有扩大级联清理。
