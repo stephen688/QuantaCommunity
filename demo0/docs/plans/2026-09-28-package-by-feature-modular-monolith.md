@@ -241,7 +241,7 @@ git rev-parse main
 
 Expected: 两个 SHA 相同；本轮实际基线为 `e3d33fa776f30a7db7f612dde7e14b5f2c0ee7f5`。
 
-- [ ] **Step 2: 修改 MyBatis 两项扫描配置**
+- [x] **Step 2: 修改 MyBatis 两项扫描配置**
 
 ```yaml
 mybatis:
@@ -251,7 +251,7 @@ mybatis:
 
 不修改其他 MyBatis 参数，不移动 XML，不改变 SQL。
 
-- [ ] **Step 3: 做一次静态检查和编译**
+- [x] **Step 3: 做一次静态检查和编译**
 
 ```powershell
 rg -n "mapper-locations|type-aliases-package" src/main/resources/application.yml
@@ -260,7 +260,7 @@ mvn -DskipTests compile
 
 Expected: 两项值与上方完全一致，编译退出码为 `0`。配置改动不新增独立测试。
 
-- [ ] **Step 4: 创建第一笔精确提交**
+- [x] **Step 4: 创建第一笔精确提交**
 
 ```powershell
 git add demo0/src/main/resources/application.yml demo0/docs/plans/2026-09-28-package-by-feature-modular-monolith.md
@@ -699,7 +699,7 @@ git commit -m "refactor: split user identity and security services"
 ### Task 9: 拆分 Elasticsearch、RAG 转换器、审核消费者和可靠消息大类
 
 **Files:**
-- Replace `ElasticSearchService/Impl` with `search/service/{ContentSearchService,AnswerSearchService,SearchReindexService}.java` and corresponding Impl.
+- Replace `ElasticSearchService/Impl` with `search/service/{ContentIndexService,AnswerSearchService,SearchReindexService}.java` and corresponding Impl；既有 `ContentSearchService` 保留用户搜索编排职责。
 - Create `search/es/mapper/{ContentDocumentMapper,AnswerDocumentMapper}.java` and `search/es/query/ElasticsearchQueryFactory.java`.
 - Split `rag/vector/RagDocumentConverter.java` into `ContentRagDocumentConverter`、`AnswerRagDocumentConverter`、`RagChunkDocumentConverter`.
 - Split `ModerationConsumer` into thin listener plus `moderation/service/ModerationWorkflowService` and Impl; preserve Inbox success transaction and ACK/NACK behavior.
@@ -712,7 +712,7 @@ git commit -m "refactor: split user identity and security services"
 - Produces: moderation workflow calls `ContentAuditService`、`AnswerAuditService`、`CommentAuditService` only.
 - Produces: generic Outbox service accepts serialized payload/event metadata and imports no business Entity.
 
-- [ ] **Step 1: Write failing architecture-focused tests**
+- [x] **Step 1: Add architecture-focused and moderation transaction tests**
 
 ```java
 assertThat(Arrays.stream(OutboxEventServiceImpl.class.getDeclaredMethods())
@@ -722,39 +722,39 @@ assertThat(Arrays.stream(OutboxEventServiceImpl.class.getDeclaredMethods())
 
 Add one moderation test proving target update and Inbox success remain in the same workflow transaction.
 
-- [ ] **Step 2: Split search by content/answer index**
+- [x] **Step 2: Split search by content/answer index**
 
-Move current query bodies without changing ES index names, fields, analyzers, pagination or highlight behavior. `SearchReindexService` coordinates both index services.
+Move current query bodies without changing ES index names, fields, analyzers, pagination or highlight behavior. `SearchReindexService` 保留旧 `reindexAllFromMySql` 的内容索引全量重建；回答索引继续使用既有逐条 upsert/delete/search 和对账入口。实施核对发现旧服务没有回答全量重建，故取消草案中的“双索引全量协调”，避免本次纯结构重构扩张业务行为。
 
-- [ ] **Step 3: Split RAG converters**
+- [x] **Step 3: Split RAG converters**
 
 Preserve chunk IDs, metadata names, text construction and vector synchronization behavior. RAG obtains stable DTO/VO through content/answer Service, never their Mapper.
 
-- [ ] **Step 4: Thin the moderation consumer**
+- [x] **Step 4: Thin the moderation consumer**
 
 Consumer performs message receipt and ACK/NACK only. `ModerationWorkflowService` owns Inbox lease, provider call, record save, result dispatch and success marking.
 
-- [ ] **Step 5: Separate Outbox mechanics from business events**
+- [x] **Step 5: Separate Outbox mechanics from business events**
 
 Keep current transaction joining behavior. Domain producer builds its message and calls the generic Outbox append operation; Outbox implementation cannot import business Entity.
 
-- [ ] **Step 6: Split Rabbit configuration without changing broker topology**
+- [x] **Step 6: Split Rabbit configuration without changing broker topology**
 
 Before and after the split, compare exchange、queue、binding、DLX、routing key and converter declarations. Only Java configuration ownership changes.
 
-- [ ] **Step 7: Run affected tests once**
+- [x] **Step 7: Run affected tests once**
 
 ```powershell
-mvn '-Dtest=ElasticSearchServiceImplTest,ConsumerReliabilityTests,ContentTopicTagConsumerTest,ProfileReconcileConsumerTest,UserBehaviorConsumerTest,OutboxRouteRegistryBotMentionTest,OutboxRouteRegistryUserBehaviorTest,OutboxTopicRegistrationTest,ReliabilityMySqlIntegrationTests,OutboxRabbitIntegrationTests' test
+mvn '-Dtest=PackageArchitectureTest,ElasticsearchIndexAdaptersTest,ContentIndexServiceImplTest,RagDocumentConverterTest,ConsumerReliabilityTests,OutboxEventServiceImplBotMentionTest,OutboxEventServiceUserBehaviorTest,OutboxTopicRegistrationTest,ContentQueryServiceImplSnapshotTest,AnswerQueryServiceImplSnapshotTest,ReportGovernanceServiceImplTest' test
 ```
 
 Expected: exit code `0`; if Docker is unavailable, integration tests are `BLOCKED` and unit tests still run.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add demo0/src/main demo0/src/test demo0/src/main/resources
-git commit -m "refactor: split search moderation and reliable messaging"
+git commit -m "refactor: complete feature boundaries and split messaging adapters"
 ```
 
 ### Task 10: 加入 ArchUnit 门禁并删除旧顶层包
@@ -770,7 +770,7 @@ git commit -m "refactor: split search moderation and reliable messaging"
 - Consumes: final package structure from Tasks 1～9.
 - Produces: CI-verifiable architectural constraints.
 
-- [ ] **Step 1: Add ArchUnit dependency and a failing boundary test**
+- [x] **Step 1: Add test-only ArchUnit dependency and boundary tests**
 
 ```java
 @AnalyzeClasses(packages = "com.quanta.demo0")
@@ -795,15 +795,15 @@ class PackageArchitectureTest {
 
 Expand the Mapper rule for every business domain and add rules that forbid cross-domain `service.impl` and `entity` access. Explicitly allow cross-domain `service`、`dto`、`vo`、`enums` and message packages.
 
-- [ ] **Step 2: Run the architecture test and remove remaining violations**
+- [x] **Step 2: Run the architecture test and remove remaining violations**
 
 ```powershell
 mvn '-Dtest=PackageArchitectureTest' test
 ```
 
-Expected: initial run reports remaining legacy references; after import/package cleanup, exit code `0`.
+实际与 Task 9 定向集合合跑，五条规则通过，退出码 `0`；未为纯迁移重复制造 RED。
 
-- [ ] **Step 3: Verify old top-level packages contain no Java files**
+- [x] **Step 3: Verify old top-level packages contain no Java files**
 
 ```powershell
 rg --files src/main/java/com/quanta/demo0/controller src/main/java/com/quanta/demo0/service src/main/java/com/quanta/demo0/mapper src/main/java/com/quanta/demo0/entity src/main/java/com/quanta/demo0/dto src/main/java/com/quanta/demo0/vo src/main/java/com/quanta/demo0/mq src/main/java/com/quanta/demo0/modertion
@@ -811,11 +811,11 @@ rg --files src/main/java/com/quanta/demo0/controller src/main/java/com/quanta/de
 
 Expected: no results.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
-git add demo0/pom.xml demo0/src demo0/AGENTS.md demo0/docs
-git commit -m "test: enforce feature package boundaries"
+git add demo0/pom.xml demo0/src/test/java/com/quanta/demo0/architecture/PackageArchitectureTest.java
+git commit -m "test: enforce feature package architecture"
 ```
 
 ### Task 11: 最终验证和文档收口
@@ -829,7 +829,7 @@ git commit -m "test: enforce feature package boundaries"
 - Consumes: complete module structure and ArchUnit rules.
 - Produces: one final regression result and one HTTP compatibility result; no performance claims.
 
-- [ ] **Step 1: Run the final full Maven suite once**
+- [x] **Step 1: Run the final full Maven suite once**
 
 ```powershell
 docker info
@@ -838,7 +838,7 @@ mvn test
 
 Expected: `BUILD SUCCESS`. Record test count, exit code and any environment-limited tests.
 
-- [ ] **Step 2: Start or reuse the verified local application and run one existing HTTP regression**
+- [x] **Step 2: Start or reuse the verified local application and run one existing HTTP regression**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\api-test\scripts\run-phase.ps1 -Phase all
@@ -846,7 +846,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\api-test\scripts\run-
 
 Expected: existing public endpoints retain their status codes and response contracts. If MySQL、Redis、RabbitMQ、ES、OSS or AI dependencies are unavailable, mark the affected phase `BLOCKED` rather than changing code or tests.
 
-- [ ] **Step 3: Run static closure checks**
+- [x] **Step 3: Run static closure checks**
 
 ```powershell
 rg -n "com\.quanta\.demo0\.(controller|service|mapper|entity|dto|vo|mq|modertion)\." src/main/java src/test/java src/main/resources
@@ -856,7 +856,7 @@ git status --short
 
 Expected: no legacy package imports or Mapper XML namespaces; `git diff --check` exits `0`; unrelated user files remain untouched.
 
-- [ ] **Step 4: Update documentation with verified facts**
+- [x] **Step 4: Update documentation with verified facts**
 
 Record:
 
@@ -868,10 +868,10 @@ Record:
 - no HTTP/DB/MQ/cache contract changes;
 - no JMeter or performance claim.
 
-- [ ] **Step 5: Final commit**
+- [x] **Step 5: Final commit**
 
 ```powershell
-git add demo0/docs demo0/AGENTS.md
+git add demo0/AGENTS.md demo0/docs/plans/2026-09-28-package-by-feature-modular-monolith.md demo0/docs/plans/2026-09-29-package-by-feature-final-inventory.md demo0/docs/api-test/RESULTS.md demo0/docs/后续demo0优化总方案.md
 git commit -m "docs: record modular monolith refactor evidence"
 ```
 
@@ -899,20 +899,35 @@ git commit -m "docs: record modular monolith refactor evidence"
 
 ## 5. 自检清单
 
-- [ ] 所有顶层域都使用原有 Controller/Service/Mapper/Entity/DTO/VO 命名模式。
-- [ ] Feed 画像固定为 `UserInterestProfileService`。
-- [ ] `UserAccessStateService` 位于 `platform/security/service`。
-- [ ] `AuthenticatedUser` 位于 `platform/security/model`。
-- [ ] `BaseContext` 位于 `platform/security/context`。
-- [ ] Event Admin 位于 `platform/mq/admin`。
-- [ ] Admin Controller 文件未拆分。
-- [ ] 内容、评论、回答计数继续同步事务更新。
-- [ ] 旧 MQ、缓存、审核、权限和 HTTP 契约未变。
-- [ ] Mapper XML namespace 与新接口完全一致。
-- [ ] ArchUnit 阻止跨域 Mapper、Entity、ServiceImpl 依赖和循环依赖。
-- [ ] 中点只跑一次原测试，终点只跑一次全量和一次 HTTP 回归。
+- [x] 所有顶层域都使用原有 Controller/Service/Mapper/Entity/DTO/VO 命名模式。
+- [x] Feed 画像固定为 `UserInterestProfileService`。
+- [x] `UserAccessStateService` 位于 `platform/security/service`。
+- [x] `AuthenticatedUser` 位于 `platform/security/model`。
+- [x] `BaseContext` 位于 `platform/security/context`。
+- [x] Event Admin 位于 `platform/mq/admin`。
+- [x] Admin Controller 文件未拆分。
+- [x] 内容、评论、回答计数继续同步事务更新。
+- [x] 旧 MQ、缓存、审核、权限和 HTTP 契约未变；真实 ES/AI/Bot 受限范围与 HTTP fixture 不符已单独记录，不声称全链路通过。
+- [x] Mapper XML namespace 与新接口完全一致。
+- [x] ArchUnit 阻止跨域 Mapper、Entity、ServiceImpl 依赖和实际 Service 注入循环；不禁止必要的双向公开领域契约。
+- [x] 中点只跑一次原测试，终点只跑一次全量和一次 HTTP 回归；失败后只重跑失败集合及直接受影响的收口测试。
 
 ## 6. 执行记录
+
+### 2026-09-29 收口记录
+
+- Tasks 6～8 已拆分内容/互动/Feed、评论/回答及用户/身份/会话；实现提交包括 `8332fb9`、`6cbb13b`、`647c732`，拆分过程记录提交 `ff5e4b0`。Admin Controller 没有拆文件，互动计数没有改成异步。
+- Task 9 已将 ES 文档/查询/索引归 search，拆分 RAG 内容/回答/chunk 转换器、ModerationWorkflow、域消息构造与通用 Outbox，以及共享/各域 Rabbit 配置。Rabbit 拆分逐项核对 72 个常量值、74 个 Bean 方法：业务 topology 声明不变，共享 RabbitTemplate 仅减少旧注释。
+- 四个大 Mapper/XML 已归 content/comment/answer/user，身份 SQL 归 identity，互动/举报 SQL 归 interaction。跨域改用事实快照及公开查询/命令/计数端口，保留旧 SQL 的摘要、审核可见性、顺序、NULL 和分页前过滤。回答按问题删除保持旧的已审核列表范围，没有扩大级联清理。
+- 保留旧 ES 内容索引全量重建能力，取消设计草案里的“双索引全量协调”；旧代码没有回答全量重建，本次不新增业务功能。RAG 回答标题重复、图片事实投影空态及创建时间缺失的旧异常语义均保留。
+- Task 10 加入仅 test scope 的 ArchUnit 依赖。五条规则为 `noLegacyTopLevelPackages`、`controllersDoNotAccessMappers`、`servicesAndMappersDoNotDependOnControllers`、`domainInternalsStayInTheirDomain`、`serviceInjectionHasNoCycles`；不使用 ignore/freeze，也不禁止必要的双向公开领域契约。生产和旧测试技术包清空，最终文件列表见 [终态清单](2026-09-29-package-by-feature-final-inventory.md)。
+- 最终定向 42/42 通过；仅一次 `mvn clean test` 得到 447 tests、0 failures、39 errors、1 skipped。重复 SQL 注册和测试 fixture 漏注入修复后，只重跑失败集合得到 44 tests、1 failure、0 errors、1 skipped；该断言暴露登录多查一次用户表，改为原登录对象直接转 VO，保留原 SQL 次数断言。最后只重跑该用例和架构规则，6/6 通过，没有第二次全量。
+- HTTP 仅跑一次既有 `run-phase.ps1 -Phase all`，脚本实际为 Phase 0～3：18 cases，17 PASS，P1-06 因当前测试账号已有 SUPER_ADMIN 不符合普通用户 fixture 前提，按 PARTIAL 记录；未改角色/SQL/断言。MySQL/Redis/RabbitMQ/OSS 真实可用，ES 不可达；云模型和 Bot 真链路没有验收，未做压测。完整结果统一见 [RESULTS](../api-test/RESULTS.md#package-by-feature)。
+- 测试策略：纯迁移复用原测试，未逐文件重复 RED/GREEN；对事务边界补测试并做一次可恢复断言变异。只调整拆分后的被测对象、注入和归属，未删除/放宽存量行为断言。`pom.xml` 仅增 test 依赖，不改 Surefire、CI 或 `.gitignore`，单独提交。
+- 独立审查发现 Outbox 通用错误会改变旧的业务 400/系统 500 分类，已加入平台插入失败标识并在各域精确翻译，仅捕获平台超限与插入返回值失败；序列化与数据库异常原样保留。最后仅跑受影响集合 31/31 通过，新增 1 个平台异常文件，终态 448 Java/21 XML。RAG 创建时间缺失异常也已恢复，最后没有重复全量或 HTTP。
+- 最终源码与资源提交 `57febb2`，仅测试用 ArchUnit 依赖和架构规则单独提交 `3b1b881`；独立审查复核结论为 Ready，全部发现项已闭环。终态清单由独立子 agent 静态核对 Java 448/448、XML 21/21，无缺失或多余文件。文档收口单独提交，未 push/merge，用户已有文件未纳入提交。
+
+### 2026-09-28 迁移记录
 
 - 2026-09-28：完成 grill-me 设计讨论并生成本计划；本轮只写计划，尚未迁移业务代码、修改 `pom.xml` 或运行重构测试。
 - 当前工作树已有用户未提交文件，实施时必须逐项保留；不自动 push、merge 或覆盖。

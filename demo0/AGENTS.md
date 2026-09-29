@@ -45,36 +45,26 @@ demo0 是 QuantaCommunity 的 Java 主服务：负责用户与身份、内容/�
 
     demo0/
     ├─ src/main/java/com/quanta/demo0/
-    │  ├─ controller/              # HTTP 门面；user/admin/bot 等接口边界
-    │  ├─ service/                 # 业务接口
-    │  │  └─ Impl/                 # 现有 Service 实现目录，大小写暂不做全局重命名
-    │  ├─ mapper/                  # MyBatis Mapper 接口
-    │  ├─ entity/                  # 持久化实体与兼容中的 BaseContext
-    │  ├─ dto/                     # 请求 DTO / 输入契约
-    │  ├─ vo/                      # 对外响应 VO
-    │  ├─ result/                  # 统一结果与分页结果
-    │  ├─ config/                  # Spring、MQ、Security、RAG、WebSocket 等装配
-    │  ├─ security/                # Token、Filter、角色/权限和安全异常
-    │  ├─ annotation/ + aop/       # 限流、审计等横切能力
-    │  ├─ mq/
-    │  │  ├─ message/              # 事件消息模型
-    │  │  ├─ outbox/               # Outbox Dispatcher / 路由
-    │  │  ├─ producer/             # 可靠发布与重试/死信
-    │  │  └─ consumer/             # Inbox 幂等消费
-    │  ├─ rag/                     # generation/retrieval/vector/model
-    │  ├─ es/                      # Elasticsearch 适配
-    │  ├─ properties/              # @ConfigurationProperties 配置对象
-    │  └─ exception/ + handler/    # 业务异常和统一 HTTP 异常响应
+    │  ├─ content/、answer/、comment/         # 内容、回答、评论
+    │  ├─ user/、identity/                   # 账号画像、身份认证与考试
+    │  ├─ interaction/、follow/、feed/       # 互动举报、关系链、推荐与关注流
+    │  ├─ notification/、moderation/、search/ # 通知、审核、搜索
+    │  ├─ rag/                              # generation/retrieval/vector/model
+    │  └─ platform/                         # 公共、安全、审计、MQ、Redis、OSS、Web
     ├─ src/main/resources/
-    │  ├─ application.yml          # 默认运行配置；密钥通过环境变量/本地 secret 提供
-    │  ├─ mapper/*.xml              # MyBatis SQL
-    │  ├─ db/*.sql                  # 数据库/验证/种子脚本
-    │  └─ lua/                      # Redis Lua 原子操作
-    ├─ src/test/                    # 单元、Web、安全、MQ、Testcontainers 集成测试
-    ├─ docs/api-test/               # 分阶段 HTTP/API 测试、唯一结果记录和脚本
+    │  ├─ application.yml                   # 密钥通过环境变量/本地 secret 提供
+    │  ├─ mapper/<domain>/*.xml              # 与所属域 Mapper 成对维护
+    │  ├─ db/*.sql                          # 数据库/验证/种子脚本
+    │  └─ lua/                              # Redis Lua 原子操作
+    ├─ src/test/                            # 单元、Web、安全、MQ、架构及集成测试
+    ├─ docs/api-test/                       # 分阶段 HTTP/API 测试与唯一结果记录
     └─ pom.xml
 
-现有代码仍是按技术层分包；“按域分包”的重构属于单独计划，不得在普通功能任务中顺手迁移大量包名。新增代码先跟随被修改区域的既有结构，避免制造同一模块两套组织方式。
+采用 package-by-feature 的模块化单体，仍是一个 Spring Boot 应用和 Maven 模块。每个域内部沿用 `controller/service/service.impl/mapper/entity/dto/vo` 命名；只在实际有职责时设置 `config/mq/exception` 等子包，不创建空层。跨域只依赖公开 Service、DTO、VO、枚举及消息契约，不直接访问其它域的 Mapper、Entity 或 ServiceImpl。约束以 `src/test/java/com/quanta/demo0/architecture/PackageArchitectureTest.java` 为准。
+
+管理端 Controller 保留原 URL 和原文件，通过多个领域 Service 完成编排；互动引起的内容、回答、评论计数仍同步调用所属域计数 Service，不改成事件。安全上下文归 `platform/security/context`，认证用户模型归 `platform/security/model`；事件管理入口归 `platform/mq/admin`。
+
+专项重构决策和验收记录统一见 `docs/plans/2026-09-28-package-by-feature-modular-monolith.md`；普通功能任务遵循当前所属域结构，不恢复旧顶层技术包，不另外创建 Maven 子模块。
 
 ***
 

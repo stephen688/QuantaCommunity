@@ -20,7 +20,7 @@
 | 9 | 私信 + 群聊 | WebSocket/Outbox 基建已就绪的填空；**待定**——小程序场景用户少聊天，后续再决策 | 待定 |
 | 10 | 定时任y务多实例防重 | 现有任务（对账/热度重算）多实例重复跑的真 bug；轻量锁 + 幂等语义，**不做框架** | 中 |
 | 11 | 慢 SQL 治理 + 索引优化 | 搭压测的车：slow log 找慢查询，EXPLAIN 前后对比 | 中 |
-| 12 | 按域分包重构（package-by-feature） | 模块化单体：按业务域分包 + 拆 1983 行 ContentServiceImpl；**不做 DDD 战术模式**；整体顺序待定 | 中 |
+| 12 | 按域分包重构（package-by-feature） | 单模块模块化单体；迁包、大类拆分和架构门禁已实现；验收状态见执行计划及 API 结果 | 中 |
 
 ### 当前实施状态（2026-09-28）
 
@@ -212,11 +212,11 @@
 
 ## 12. 按域分包重构（package-by-feature 模块化单体）
 
-**是什么**：从"按层分柜（controller/service/mapper）+ 按技术分柜（es/mq/rag）平铺混放"切换为按业务域分包——content/comment/interaction/feed/search/notify/follow/moderation/identity/security/rag/infra，每域内部保留层结构。**核心动作不是搬包，是拆 1983 行/46 方法的 `ContentServiceImpl`**：ContentCommandService（发布/删除）、ContentQueryService（列表）、InteractionService（赞/藏/举报）、FeedRecommendService（推荐/曝光/热度），拆后每类 300-500 行。顺手修：modertion 拼写、BaseContext 移出 entity、handler/policy 并入所属域。
+**是什么**：单 Maven 模块、单 Spring Boot 应用，顶层固定为 `content/answer/comment/interaction/feed/follow/user/identity/notification/moderation/search/rag/platform`；域内沿用 `controller/service/impl/mapper/entity/dto/vo` 等既有命名。内容、评论、回答、用户、搜索索引、审核工作流、Outbox 消息构造和 Rabbit 配置按职责拆分，不做 DDD 战术模式，不拆微服务。
 
-**为什么**：乱的来源诊断——①上帝服务（主体）；②两种分包逻辑混放导致业务边界不可见（发帖横跨五六个包）；③小疙瘩错位。package-by-feature 是中大型项目主流（Spring Modulith、K8s 源码均此路数）；小项目少用是没必要+教材默认按层。**不做 DDD 战术模式**：299 文件全搬家+概念重造，11 个测试兜不住，半吊子 DDD 一问聚合根就露馅；且 DDD ≠ 微服务——它是建模方法论，此处只取"限界上下文"思想的轻量落地（按域分包+域间走 service 接口），战术模式等真拆微服务再升级。简历口径："按业务域分包的模块化单体 + 事件驱动（Outbox/Inbox），域间只走 service 接口，为拆微服务留了缝"。
+**边界**：跨域通过公开 Service 和 DTO/VO/枚举/消息契约，不直接访问另一域 Mapper、Entity 或 ServiceImpl。Admin Controller 不拆；互动计数同事务同步调用 Counter Service，不新增计数事件。Feed 画像使用 `UserInterestProfileService`；用户资料使用 `UserProfileService`；安全状态、认证模型、请求上下文和事件管理分别归 `platform/security` 与 `platform/mq/admin`。
 
-**怎么做（要点）**：1-2 天。全部测试先补到能兜住重构 → 按 infra→security→各业务域顺序搬家（每域一个 commit）→ 拆 ContentServiceImpl → 修小疙瘩。**顺序硬约束：动几乎所有 import，必须等加法类改造（1/3/8 等新功能）全部落地后一次搬完，只搬一次**——先重构再加功能，新类又会塞进旧结构白搬。整体执行顺序待定，此条只锁"重构在加法之后"这一个相对关系。
+**实施与验收**：在 `codex/package-by-feature-refactor` 按“小文件迁移 → 中点原测试 → 大类拆分与最终验证”实施。详情以 [执行计划](plans/2026-09-28-package-by-feature-modular-monolith.md)、[终态包与文件清单](plans/2026-09-29-package-by-feature-final-inventory.md) 和 [API 唯一结果记录](api-test/RESULTS.md) 为准；不把编译或单元测试通过等同于 ES、OSS、AI 或 Bot 真链路验收，不做性能结论。
 
 ---
 

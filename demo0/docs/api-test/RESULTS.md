@@ -22,6 +22,41 @@
 
 ---
 
+<a id="package-by-feature"></a>
+
+## 按域分包模块化单体（2026-09-29）
+
+实施分支：`codex/package-by-feature-refactor`，基线 `e3d33fa776f30a7db7f612dde7e14b5f2c0ee7f5`。这是结构重构，不改变 HTTP 路径/JSON、SQL 事实语义、Redis Key、MQ topology 或 Outbox/Inbox 状态机。终态源码与资源见 [包结构与全部文件清单](../plans/2026-09-29-package-by-feature-final-inventory.md)，实施细节见 [执行计划](../plans/2026-09-28-package-by-feature-modular-monolith.md)。本节不覆盖上方历史 64 接口统计。
+
+### Maven 和架构验证
+
+- 中点回归及分组定向证据见执行计划；本轮收口定向 42 tests、0 failures、0 errors，其中五条架构规则通过。
+- 最终只执行一次 `mvn clean test`：447 tests、0 failures、39 errors、1 skipped。错误根因：评论 Mapper 的两处注解与 XML 重复注册，以及管理权限/内容删除测试 fixture 漏注入；没有删除、跳过或放宽原断言。
+- 修复后只重跑原失败类和新增快照测试：44 tests、1 failure、0 errors、1 skipped。剩余断言发现登录转 VO 多查一次用户表；已直接转换原登录对象，不修改 SQL 次数断言。
+- 最后只重跑这一缓存方法与架构规则：6 tests、0 failures、0 errors、0 skipped。一次历史真实模型条件测试仍按原环境条件跳过，不将其计为模型验收通过。
+- 新增审核事务测试按仓库规范做一次可恢复断言变异：预期 ACK 改成 DEAD，确实产生 1 个 assertion failure；已恢复原断言，全量内该测试通过，无人为变异残留。
+- 独立审查的 Outbox 异常兼容问题已修复：平台只提供 payload 超限/插入行数失败标识，各域恢复旧异常类型与文案；序列化失败和数据库异常不被笼统翻译。最后仅跑受影响集合：31 tests、0 failures、0 errors、0 skipped（含 9 个异常兼容用例、RAG 2 个及架构 5 条）。本轮 HTTP 回归在该失败路径修复前完成，后续补丁由上述定向测试验证，未重复跑 HTTP。
+- 终态生产 Java 448 个（最后新增平台 Outbox 插入契约异常）、Mapper XML 21 个；旧生产/测试技术包引用归零，XML namespace/方法和重复定义静态核对通过。架构规则检查旧包、Controller→Mapper、Service/Mapper→Controller、跨域私有类型和实际 Service 注入循环；不禁止必要的双向公开领域契约。
+- 最终独立代码审查复核为 Ready，无剩余阻塞项；源码/资源提交 `57febb2`，仅测试用依赖及架构规则提交 `3b1b881`，未 push/merge。
+
+### 一次既有 HTTP 回归
+
+命令：`powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\api-test\scripts\run-phase.ps1 -Phase all`。该脚本实际覆盖 Phase 0～3，不代表 Phase 0～7；2026-09-29 本轮实际执行 18 cases，17 PASS、1 未满足 fixture 前提，总体 `PARTIAL`。
+
+| 结果 | Cases | 证据与边界 |
+|---|---|---|
+| PASS | P0-01、P0-02、P0-03、P1-01、P1-03、P1-04、P1-05、P1-07 | 匿名/无效 Token 为 401；正常登录与资料读取成功；空登录凭证保持 HTTP 200 + Result.code=400；管理身份访问成功。 |
+| Fixture 不符 | P1-06 | 脚本以同一个 `test` 账号同时充当普通用户和管理员。该账号当前后端角色为 SUPER_ADMIN、VERIFIED_USER、USER；预期普通用户 403，实际管理员 200。没有降权、直接改 SQL、放宽断言或重复跑脚本。普通用户/各管理角色授权矩阵由 AdminMethodSecurityTests 原断言验证。 |
+| PASS | P2-01、P2-04、P2-05、P2-06 | OSS 上传、专业/生活区内容发布成功，空标题保持业务 400。 |
+| PASS | P3-01、P3-04、P3-05、P3-06、P3-07 | 管理端待审列表、通过/驳回、专业区回答发布及生活区回答禁止保持既有结果。 |
+
+### 环境与未验收范围
+
+- 本地 MySQL、Redis、RabbitMQ 实际可用；RabbitMQ 连接列表确认本应用连接为 running。首次启动使用了错误的本地 Rabbit 凭据，按容器现有凭据做进程级覆盖后成功，未改配置文件或 broker 用户。
+- 本轮应用进程关闭云机审、主题模型提取、RAG/生成及启动预热，并将模型 URL 指向本地不可达地址以防误触付费调用；人工审核和鉴权仍走真实入口。不能将这些 HTTP PASS 解释为真实模型通过。
+- 配置中的远程 Elasticsearch 不可达，索引初始化记录连接失败；搜索/ES 真链路为 `BLOCKED`。本轮未启动 QuantaBot、未执行模型/红队/Persona/JMeter，Bot/真实 AI 与性能均未验收。
+- 临时 HTTP 验证进程已停止，启动覆盖未留在生产配置。脚本生成的 Token/输出未纳入 Git，未覆盖用户已有文件。
+
 <a id="read-path-cache"></a>
 
 ## 认证、详情与 Feed 作者缓存（S-RC，2026-09-28）
