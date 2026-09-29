@@ -541,7 +541,7 @@ Package/import errors are fixed within the migration commit. A real behavior fai
 - Produces: signatures in §3.1 and §3.3; `UserInterestProfileService` is the only Feed profile service name.
 - Consumes: `FollowQueryService`、`UserProfileService`、Outbox service、cache services.
 
-- [ ] **Step 1: Write one failing test for the new synchronous count boundary**
+- [x] **Step 1: Write one failing test for the new synchronous count boundary**
 
 ```java
 @Test
@@ -557,23 +557,23 @@ Expected initial result: compilation fails because the split services do not exi
 
 现有 `UserBehaviorMessage` 属于画像派生事件，继续保留；本测试只要求事实计数同步更新，不把画像事件误当作计数事件删除。
 
-- [ ] **Step 2: Extract command/query/counter logic without changing method bodies unnecessarily**
+- [x] **Step 2: Extract command/query/counter logic without changing method bodies unnecessarily**
 
 Move publish/delete to `ContentCommandServiceImpl`; detail and list reads to `ContentQueryServiceImpl`; atomic count SQL to `ContentCounterServiceImpl`. Preserve transaction annotations on Spring-proxied public methods.
 
-- [ ] **Step 3: Move interaction logic and keep count updates synchronous**
+- [x] **Step 3: Move interaction logic and keep count updates synchronous**
 
 Move like、collect、report、browse-history relation operations to `interaction`. Call `ContentCounterService` inside the same transaction. Keep current Outbox user-behavior publication as a separate derived side effect.
 
-- [ ] **Step 4: Move recommendation, hot score and follow-feed projection**
+- [x] **Step 4: Move recommendation, hot score and follow-feed projection**
 
 Move Feed/Redis/profile methods out of Content and Follow services. `FollowService` retains only relationship commands and queries. Feed reads content via `ContentQueryService.getContentSnapshots`, never `ContentMapper`.
 
-- [ ] **Step 5: Preserve cache visitor boundaries**
+- [x] **Step 5: Preserve cache visitor boundaries**
 
 `ContentDetailCacheService` continues caching stable snapshots only. `ContentQueryServiceImpl.getContentDetail` still computes current visitor like/collect flags and records browse history on every successful request.
 
-- [ ] **Step 6: Run the affected tests once**
+- [x] **Step 6: Run the affected tests once**
 
 ```powershell
 mvn '-Dtest=ContentServiceImplBehaviorEventTest,ContentServiceImplDetailCacheTest,ContentServiceImplRecommendSceneTest,ContentServiceImplTrendingCacheTest,ContentDetailCacheWritePathTest,FollowServiceImplAuthorCacheTest,RecommendRerankServiceImplTest,RecommendRerankRedisIntegrationTests,TrendingCacheServiceImplTest' test
@@ -581,7 +581,9 @@ mvn '-Dtest=ContentServiceImplBehaviorEventTest,ContentServiceImplDetailCacheTes
 
 Expected: exit code `0`. Rename test classes only when their production subject no longer exists; preserve assertions.
 
-- [ ] **Step 7: Commit**
+Execution: the focused Content/Feed/Follow/Security/MQ batch ran 80 tests with 0 failures and 0 errors. The batch used the renamed split-service tests and did not repeat the full Maven suite.
+
+- [x] **Step 7: Commit**
 
 ```powershell
 git add demo0/src/main demo0/src/test
@@ -603,7 +605,7 @@ git commit -m "refactor: split content interaction and feed services"
 - Produces: `AnswerCounterService` and `CommentCounterService` from §3.2.
 - Consumes: content counter/query services、moderation service、interaction services、Outbox service.
 
-- [ ] **Step 1: Write focused failing tests for synchronous count updates**
+- [x] **Step 1: Write focused failing tests for synchronous count updates**
 
 ```java
 verify(commentCounterService).changeLikeCount(commentId, 1);
@@ -612,19 +614,19 @@ verify(answerCounterService).changeLikeCount(answerId, -1);
 
 Expected initial result: compilation failure before the new services exist.
 
-- [ ] **Step 2: Split command and query methods**
+- [x] **Step 2: Split command and query methods**
 
 Comment send/delete go to command service; comment/reply pages go to query service. Answer publish/accept/delete go to command service; answer list/detail go to query service.
 
-- [ ] **Step 3: Move like/report relations to interaction**
+- [x] **Step 3: Move like/report relations to interaction**
 
 Keep interaction relation change and counter service call in the same transaction. Do not add MQ count events.
 
-- [ ] **Step 4: Split Mapper interfaces by owner**
+- [x] **Step 4: Split Mapper interfaces by owner**
 
 Comment/Answer core Mapper keeps entity lifecycle SQL; interaction Mapper owns like/report relation SQL; Admin Mapper owns management read models. Preserve SQL text and parameter names unless the interface split requires a namespace update.
 
-- [ ] **Step 5: Run affected tests once**
+- [x] **Step 5: Run affected tests once**
 
 ```powershell
 mvn '-Dtest=CommentServiceImplBehaviorEventTest,CommentServiceImplBotModerationTest,CommentAuditServiceImplBotMentionTest,BotCommentServiceImplTest,AdminContentServiceImplTrendingCacheTest' test
@@ -632,7 +634,9 @@ mvn '-Dtest=CommentServiceImplBehaviorEventTest,CommentServiceImplBotModerationT
 
 Expected: exit code `0`.
 
-- [ ] **Step 6: Commit**
+Execution: the focused Comment batch ran 36 tests with 0 failures and 0 errors, followed by the previously blocked Answer synchronous-count test (1 test, passed). No full-suite rerun was performed.
+
+- [x] **Step 6: Commit**
 
 ```powershell
 git add demo0/src/main demo0/src/test
@@ -656,7 +660,7 @@ git commit -m "refactor: split comment and answer services"
 - Produces: contracts in §3.4; `UserProfileService` exists only in `user`, while Feed uses `UserInterestProfileService`.
 - Consumes: platform token/session/cache facilities.
 
-- [ ] **Step 1: Add a failing package/behavior test for UserAccessStateService**
+- [x] **Step 1: Add a failing package/behavior test for UserAccessStateService**
 
 ```java
 assertThat(UserAccessStateService.class.getPackageName())
@@ -667,15 +671,15 @@ verifyNoInteractions(userMapper);
 
 Expected initial result: old package or missing interface causes failure.
 
-- [ ] **Step 2: Split account, profile, identity and session methods**
+- [x] **Step 2: Split account, profile, identity and session methods**
 
 Preserve WeChat login sanitization, auth display reconciliation, cache invalidation, token invalidation and transaction annotations. Do not change response DTO/VO fields.
 
-- [ ] **Step 3: Move access-state security service**
+- [x] **Step 3: Move access-state security service**
 
 Retain Redis banned-key check and fail-closed fallback. Replace direct Mapper dependency with `UserAccountService.getAccountStatus`.
 
-- [ ] **Step 4: Run affected tests once**
+- [x] **Step 4: Run affected tests once**
 
 ```powershell
 mvn '-Dtest=TokenAuthenticationServiceImplTests,TokenAuthenticationServiceImplBotTokenTest,OptionalJwtAuthenticationFilterBearerTest,SecurityFilterChainTests,VerifiedUserMethodSecurityTests,UserReadCacheInvalidatorImplTest,UserReadCacheWritePathTest,ConsumerReliabilityTests' test
@@ -683,7 +687,9 @@ mvn '-Dtest=TokenAuthenticationServiceImplTests,TokenAuthenticationServiceImplBo
 
 Expected: exit code `0`.
 
-- [ ] **Step 5: Commit**
+Execution: the focused user/identity/security batch ran 21 tests successfully; the full Maven suite was intentionally deferred to the final gate.
+
+- [x] **Step 5: Commit**
 
 ```powershell
 git add demo0/src/main demo0/src/test
