@@ -9,7 +9,7 @@ import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
 import com.quanta.demo0.notification.mq.producer.NotificationProducer;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
 import com.quanta.demo0.notification.service.NotificationConsumeService;
-import com.quanta.demo0.service.UserAccessStateService;
+import com.quanta.demo0.platform.security.service.UserAccessStateService;
 import com.quanta.demo0.notification.vo.NotificationVO;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
