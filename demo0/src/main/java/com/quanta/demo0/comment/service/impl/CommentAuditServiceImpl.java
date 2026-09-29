@@ -1,22 +1,25 @@
 package com.quanta.demo0.comment.service.impl;
 
-import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.comment.entity.ContentComment;
-import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.answer.service.AnswerQueryService;
+import com.quanta.demo0.answer.vo.AnswerSnapshotVO;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.comment.exception.CommentFailedException;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.comment.service.bot.BotMentionDetector;
 import com.quanta.demo0.comment.service.CommentAuditService;
 import com.quanta.demo0.comment.service.CommentCounterService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.comment.mq.producer.CommentEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,17 +48,16 @@ import java.util.Objects;
 public class CommentAuditServiceImpl implements CommentAuditService {
 
     private final CommentMapper commentMapper;
-    private final ContentMapper contentMapper;
-    private final QuestionMapper questionMapper;
-    private final OutboxEventService outboxEventService;
+    private final ContentQueryService contentQueryService;
+    private final AnswerQueryService answerQueryService;
+    private final FeedEventProducer feedEventProducer;
+    private final SearchEventProducer searchEventProducer;
+    private final CommentEventProducer commentEventProducer;
+    private final NotificationEventProducer notificationEventProducer;
     private final ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
-    /**
-     * 评论可见性变化统一通过评论计数服务同步更新帖子/回答计数。
-     * 单测未提供该新端口时保留旧 mapper 回退，避免破坏已有审核行为测试。
-     */
-    @Autowired(required = false)
-    private CommentCounterService commentCounterService;
+    /** 评论可见性变化统一通过评论计数服务同步更新帖子/回答计数。 */
+    private final CommentCounterService commentCounterService;
 
     /** bot 账号与昵称配置；审核服务只消费配置，不持有 HTTP 上下文。 */
     @Autowired
@@ -91,7 +93,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
 
 
         // 评论状态、帖子评论数和热度 Outbox 一起提交。
-        outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_ADD");
+        feedEventProducer.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_ADD");
 
         createCommentSearchEvents(comment, "COMMENT_ADD");
         // C-1/C-4：评论可见后再判定 bot mention，并将触发事件写入同一事务。
@@ -141,7 +143,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         createCommentNotificationEvents(comment);
 
         // 驳回评论重新通过后，评论数和热度 Outbox 一起提交。
-        outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_ADD");
+        feedEventProducer.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_ADD");
         createCommentSearchEvents(comment, "COMMENT_ADD");
         // C-1/C-4：驳回评论重新通过也必须进入同一 bot 触发判定。
         maybeCreateBotMentionEvent(comment);
@@ -166,22 +168,18 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-reverted");
 
         // 评论数减少和热度 Outbox 必须在同一个事务中提交。
-        outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
+        feedEventProducer.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
         createCommentSearchEvents(comment, "COMMENT_DELETE");
         return true;
     }
 
     private void incrementCommentCounts(ContentComment comment) {
-        int rows = commentCounterService != null
-                ? commentCounterService.changeCommentCount(comment.getContentId(), 1)
-                : commentMapper.updateCommentCount(comment.getContentId(), 1);
+        int rows = commentCounterService.changeCommentCount(comment.getContentId(), 1);
         if (rows != 1) {
             throw new CommentFailedException("更新内容表评论数失败");
         }
         if (comment.getAnswerId() != null) {
-            int rows2 = commentCounterService != null
-                    ? commentCounterService.changeAnswerCommentCount(comment.getAnswerId(), 1)
-                    : questionMapper.updateAnswerCommentCount(comment.getAnswerId(), 1);
+            int rows2 = commentCounterService.changeAnswerCommentCount(comment.getAnswerId(), 1);
             if (rows2 != 1) {
                 throw new CommentFailedException("更新回答表评论数失败");
             }
@@ -189,17 +187,17 @@ public class CommentAuditServiceImpl implements CommentAuditService {
     }
 
     private void decrementCommentCounts(ContentComment comment) {
-        commentMapper.updateCommentCount(comment.getContentId(), -1);
+        commentCounterService.changeCommentCount(comment.getContentId(), -1);
         if (comment.getAnswerId() != null) {
-            questionMapper.updateAnswerCommentCount(comment.getAnswerId(), -1);
+            commentCounterService.changeAnswerCommentCount(comment.getAnswerId(), -1);
         }
     }
 
     /** 评论数会进入帖子和回答搜索文档，因此两类文档都要登记重建事件。 */
     private void createCommentSearchEvents(ContentComment comment, String triggerType) {
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), comment.getContentId(), triggerType);
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), comment.getContentId(), triggerType);
         if (comment.getAnswerId() != null) {
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), comment.getAnswerId(), triggerType);
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), comment.getAnswerId(), triggerType);
         }
     }
 
@@ -222,12 +220,12 @@ public class CommentAuditServiceImpl implements CommentAuditService {
                 comment.getReplyUserId(),
                 quantabotProperties.getBotUserId()
         );
-        outboxEventService.createBotMentionEvent(comment, imageUrls, triggerKind);
+        commentEventProducer.createBotMentionEvent(comment, imageUrls, triggerKind);
     }
 
     /** 在审核事务中创建评论、回答和回复通知 Outbox。 */
     private void createCommentNotificationEvents(ContentComment comment) {
-        Content content = contentMapper.selectById(comment.getContentId());
+        ContentSnapshotVO content = contentQueryService.getContentSnapshot(comment.getContentId());
         if (content == null) {
             return;
         }
@@ -237,7 +235,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
 
         Long answerAuthorId = null;
         if (comment.getAnswerId() != null) {
-            QuestionAnswer answer = questionMapper.selectById(comment.getAnswerId());
+            AnswerSnapshotVO answer = answerQueryService.getAnswerSnapshot(comment.getAnswerId());
             if (answer != null) {
                 answerAuthorId = answer.getUserId();
             }
@@ -263,7 +261,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
                                 "commentId", commentId
                         ))
                         .build();
-                outboxEventService.createNotificationEvent(notification, ModerationTargetType.COMMENT.name(), commentId);
+                notificationEventProducer.createNotificationEvent(notification, ModerationTargetType.COMMENT.name(), commentId);
             }
         } else {
             if (!content.getPublishUserId().equals(actorUserId)) {
@@ -277,7 +275,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
                                 "commentId", commentId
                         ))
                         .build();
-                outboxEventService.createNotificationEvent(contentNotification, ModerationTargetType.COMMENT.name(), commentId);
+                notificationEventProducer.createNotificationEvent(contentNotification, ModerationTargetType.COMMENT.name(), commentId);
             }
 
             if (answerAuthorId != null && !answerAuthorId.equals(actorUserId)) {
@@ -292,7 +290,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
                                 "commentId", commentId
                         ))
                         .build();
-                outboxEventService.createNotificationEvent(answerNotification, ModerationTargetType.COMMENT.name(), commentId);
+                notificationEventProducer.createNotificationEvent(answerNotification, ModerationTargetType.COMMENT.name(), commentId);
             }
         }
 
@@ -309,7 +307,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
                                 "replyCommentId", comment.getReplyCommentId()
                         ))
                         .build();
-                outboxEventService.createNotificationEvent(replyNotification, ModerationTargetType.COMMENT.name(), commentId);
+                notificationEventProducer.createNotificationEvent(replyNotification, ModerationTargetType.COMMENT.name(), commentId);
             }
         }
     }

@@ -11,24 +11,33 @@ import com.quanta.demo0.comment.service.impl.AdminCommentServiceImpl;
 import com.quanta.demo0.comment.service.impl.CommentAuditServiceImpl;
 import com.quanta.demo0.comment.service.CommentCounterService;
 import com.quanta.demo0.comment.service.impl.CommentCommandServiceImpl;
+import com.quanta.demo0.interaction.service.CommentInteractionService;
+import com.quanta.demo0.answer.service.AnswerQueryService;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.content.enums.ContentDetailState;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.interaction.mapper.ContentInteractionMapper;
 import com.quanta.demo0.interaction.service.impl.ContentInteractionServiceImpl;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.answer.mapper.QuestionMapper;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.content.service.ContentDetailCacheService;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.service.ContentCounterService;
+import com.quanta.demo0.answer.service.AnswerCounterService;
 import com.quanta.demo0.feed.service.ContentExposureService;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
+import com.quanta.demo0.comment.mq.producer.CommentEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
 import com.quanta.demo0.content.vo.ContentDetailSnapshot;
@@ -152,7 +161,7 @@ class ContentDetailCacheWritePathTest {
     @Test
     void likeSuccessEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS);
         ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
         ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
@@ -174,7 +183,7 @@ class ContentDetailCacheWritePathTest {
     @Test
     void unlikeSuccessEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
         ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
                 outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
@@ -194,7 +203,7 @@ class ContentDetailCacheWritePathTest {
     @Test
     void likeCountFailureDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
         ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
                 outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
@@ -212,7 +221,7 @@ class ContentDetailCacheWritePathTest {
     @Test
     void likeRollbackDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
         ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
                 outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
@@ -231,7 +240,7 @@ class ContentDetailCacheWritePathTest {
     @Test
     void collectSuccessEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
         ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
                 outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
@@ -251,7 +260,7 @@ class ContentDetailCacheWritePathTest {
     @Test
     void uncollectSuccessEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
         ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
                 outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
@@ -271,7 +280,7 @@ class ContentDetailCacheWritePathTest {
     @Test
     void collectCountFailureDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
         ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
                 outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
@@ -290,12 +299,14 @@ class ContentDetailCacheWritePathTest {
     void userDeleteEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentEventProducer outboxEventService = mock(ContentEventProducer.class);
         ContentVectorSyncService vectorSyncService = mock(ContentVectorSyncService.class);
         ContentCommandServiceImpl service = new ContentCommandServiceImpl();
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
+        ReflectionTestUtils.setField(service, "answerCommandService", mock(com.quanta.demo0.answer.service.AnswerCommandService.class));
+        ReflectionTestUtils.setField(service, "commentCommandService", mock(com.quanta.demo0.comment.service.CommentCommandService.class));
+        ReflectionTestUtils.setField(service, "contentEventProducer", outboxEventService);
+        ReflectionTestUtils.setField(service, "searchEventProducer", mock(SearchEventProducer.class));
         ReflectionTestUtils.setField(service, "contentVectorSyncService", vectorSyncService);
         ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
         ReflectionTestUtils.setField(service, "trendingCacheInvalidator", mock(TrendingCacheInvalidator.class));
@@ -315,11 +326,13 @@ class ContentDetailCacheWritePathTest {
     void userDeleteFailureDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentEventProducer outboxEventService = mock(ContentEventProducer.class);
         ContentCommandServiceImpl service = new ContentCommandServiceImpl();
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
+        ReflectionTestUtils.setField(service, "answerCommandService", mock(com.quanta.demo0.answer.service.AnswerCommandService.class));
+        ReflectionTestUtils.setField(service, "commentCommandService", mock(com.quanta.demo0.comment.service.CommentCommandService.class));
+        ReflectionTestUtils.setField(service, "contentEventProducer", outboxEventService);
+        ReflectionTestUtils.setField(service, "searchEventProducer", mock(SearchEventProducer.class));
         ReflectionTestUtils.setField(service, "contentVectorSyncService", mock(ContentVectorSyncService.class));
         ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
         ReflectionTestUtils.setField(service, "trendingCacheInvalidator", mock(TrendingCacheInvalidator.class));
@@ -338,7 +351,7 @@ class ContentDetailCacheWritePathTest {
     void adminAuditEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentEventProducer outboxEventService = mock(ContentEventProducer.class);
         ContentExposureService exposureService = mock(ContentExposureService.class);
         AdminContentServiceImpl service = adminContentService(contentMapper, questionMapper, outboxEventService, exposureService);
 
@@ -358,7 +371,7 @@ class ContentDetailCacheWritePathTest {
     void adminAuditFailureDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentEventProducer outboxEventService = mock(ContentEventProducer.class);
         ContentExposureService exposureService = mock(ContentExposureService.class);
         AdminContentServiceImpl service = adminContentService(contentMapper, questionMapper, outboxEventService, exposureService);
 
@@ -380,7 +393,7 @@ class ContentDetailCacheWritePathTest {
     void adminDeleteEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentEventProducer outboxEventService = mock(ContentEventProducer.class);
         ContentExposureService exposureService = mock(ContentExposureService.class);
         AdminContentServiceImpl service = adminContentService(contentMapper, questionMapper, outboxEventService, exposureService);
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID, AuditStatus.APPROVED.getCode()));
@@ -397,7 +410,7 @@ class ContentDetailCacheWritePathTest {
     void adminDeleteFailureDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentEventProducer outboxEventService = mock(ContentEventProducer.class);
         ContentExposureService exposureService = mock(ContentExposureService.class);
         AdminContentServiceImpl service = adminContentService(contentMapper, questionMapper, outboxEventService, exposureService);
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID, AuditStatus.APPROVED.getCode()));
@@ -412,19 +425,22 @@ class ContentDetailCacheWritePathTest {
     @Test
     void commentApprovalEvictsDetailAfterCommit() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        ContentMapper contentMapper = mock(ContentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        AnswerQueryService answerQueryService = mock(AnswerQueryService.class);
+        CommentCounterService commentCounterService = mock(CommentCounterService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         CommentAuditServiceImpl service = new CommentAuditServiceImpl(
-                commentMapper, contentMapper, questionMapper, outboxEventService, invalidator);
+                commentMapper, contentQueryService, answerQueryService, outboxEventService,
+                mock(SearchEventProducer.class), mock(CommentEventProducer.class),
+                mock(NotificationEventProducer.class), invalidator, commentCounterService);
         ReflectionTestUtils.setField(service, "quantabotProperties", new QuantabotProperties());
         ContentComment comment = comment(AuditStatus.PENDING.getCode());
         when(commentMapper.selectById(100L)).thenReturn(comment);
         when(commentMapper.updateAuditStatusIfCurrent(
                 eq(100L), eq(AuditStatus.PENDING.getCode()), eq(AuditStatus.APPROVED.getCode()), eq(null), eq(null)))
                 .thenReturn(1);
-        when(commentMapper.updateCommentCount(CONTENT_ID, 1)).thenReturn(1);
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(null);
+        when(commentCounterService.changeCommentCount(CONTENT_ID, 1)).thenReturn(1);
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(null);
 
         beginTransaction();
         assertTrue(service.approveComment(100L, null));
@@ -437,17 +453,20 @@ class ContentDetailCacheWritePathTest {
     @Test
     void commentApprovalCountFailureDoesNotEvictDetail() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        ContentMapper contentMapper = mock(ContentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        AnswerQueryService answerQueryService = mock(AnswerQueryService.class);
+        CommentCounterService commentCounterService = mock(CommentCounterService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         CommentAuditServiceImpl service = new CommentAuditServiceImpl(
-                commentMapper, contentMapper, questionMapper, outboxEventService, invalidator);
+                commentMapper, contentQueryService, answerQueryService, outboxEventService,
+                mock(SearchEventProducer.class), mock(CommentEventProducer.class),
+                mock(NotificationEventProducer.class), invalidator, commentCounterService);
         ReflectionTestUtils.setField(service, "quantabotProperties", new QuantabotProperties());
         when(commentMapper.selectById(100L)).thenReturn(comment(AuditStatus.PENDING.getCode()));
         when(commentMapper.updateAuditStatusIfCurrent(
                 eq(100L), eq(AuditStatus.PENDING.getCode()), eq(AuditStatus.APPROVED.getCode()), eq(null), eq(null)))
                 .thenReturn(1);
-        when(commentMapper.updateCommentCount(CONTENT_ID, 1)).thenReturn(0);
+        when(commentCounterService.changeCommentCount(CONTENT_ID, 1)).thenReturn(0);
 
         assertThrows(RuntimeException.class, () -> service.approveComment(100L, null));
 
@@ -457,18 +476,21 @@ class ContentDetailCacheWritePathTest {
     @Test
     void commentApprovalRollbackDoesNotEvictDetail() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        ContentMapper contentMapper = mock(ContentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        AnswerQueryService answerQueryService = mock(AnswerQueryService.class);
+        CommentCounterService commentCounterService = mock(CommentCounterService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         CommentAuditServiceImpl service = new CommentAuditServiceImpl(
-                commentMapper, contentMapper, questionMapper, outboxEventService, invalidator);
+                commentMapper, contentQueryService, answerQueryService, outboxEventService,
+                mock(SearchEventProducer.class), mock(CommentEventProducer.class),
+                mock(NotificationEventProducer.class), invalidator, commentCounterService);
         ReflectionTestUtils.setField(service, "quantabotProperties", new QuantabotProperties());
         when(commentMapper.selectById(100L)).thenReturn(comment(AuditStatus.PENDING.getCode()));
         when(commentMapper.updateAuditStatusIfCurrent(
                 eq(100L), eq(AuditStatus.PENDING.getCode()), eq(AuditStatus.APPROVED.getCode()), eq(null), eq(null)))
                 .thenReturn(1);
-        when(commentMapper.updateCommentCount(CONTENT_ID, 1)).thenReturn(1);
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(null);
+        when(commentCounterService.changeCommentCount(CONTENT_ID, 1)).thenReturn(1);
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(null);
 
         beginTransaction();
         service.approveComment(100L, null);
@@ -480,11 +502,14 @@ class ContentDetailCacheWritePathTest {
     @Test
     void duplicateCommentApprovalDoesNotEvictDetailOrChangeCount() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        ContentMapper contentMapper = mock(ContentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        AnswerQueryService answerQueryService = mock(AnswerQueryService.class);
+        CommentCounterService commentCounterService = mock(CommentCounterService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         CommentAuditServiceImpl service = new CommentAuditServiceImpl(
-                commentMapper, contentMapper, questionMapper, outboxEventService, invalidator);
+                commentMapper, contentQueryService, answerQueryService, outboxEventService,
+                mock(SearchEventProducer.class), mock(CommentEventProducer.class),
+                mock(NotificationEventProducer.class), invalidator, commentCounterService);
         ReflectionTestUtils.setField(service, "quantabotProperties", new QuantabotProperties());
         when(commentMapper.selectById(100L)).thenReturn(comment(AuditStatus.APPROVED.getCode()));
         when(commentMapper.updateAuditStatusIfCurrent(
@@ -496,45 +521,50 @@ class ContentDetailCacheWritePathTest {
         assertOldDetailCached();
         commit();
 
-        verify(commentMapper, never()).updateCommentCount(any(), anyInt());
+        verify(commentCounterService, never()).changeCommentCount(any(), anyInt());
         assertOldDetailCached();
     }
 
     @Test
     void commentRejectionAfterApprovalDecrementsCountAndEvictsAfterCommit() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        ContentMapper contentMapper = mock(ContentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        AnswerQueryService answerQueryService = mock(AnswerQueryService.class);
+        CommentCounterService commentCounterService = mock(CommentCounterService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         CommentAuditServiceImpl service = new CommentAuditServiceImpl(
-                commentMapper, contentMapper, questionMapper, outboxEventService, invalidator);
+                commentMapper, contentQueryService, answerQueryService, outboxEventService,
+                mock(SearchEventProducer.class), mock(CommentEventProducer.class),
+                mock(NotificationEventProducer.class), invalidator, commentCounterService);
         ReflectionTestUtils.setField(service, "quantabotProperties", new QuantabotProperties());
         when(commentMapper.selectById(100L)).thenReturn(comment(AuditStatus.APPROVED.getCode()));
         when(commentMapper.updateAuditStatusIfCurrent(
                 eq(100L), eq(AuditStatus.APPROVED.getCode()), eq(AuditStatus.REJECTED.getCode()),
                 anyString(), eq(null))).thenReturn(1);
-        when(commentMapper.updateCommentCount(CONTENT_ID, -1)).thenReturn(1);
+        when(commentCounterService.changeCommentCount(CONTENT_ID, -1)).thenReturn(1);
 
         beginTransaction();
         assertTrue(service.revertApprovedComment(100L, "违规", null));
         assertOldDetailCached();
         commit();
 
-        verify(commentMapper).updateCommentCount(CONTENT_ID, -1);
+        verify(commentCounterService).changeCommentCount(CONTENT_ID, -1);
         assertNewDetailLoaded();
     }
 
     @Test
     void userCommentDeleteEvictsDetailAfterCommit() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        ContentMapper contentMapper = mock(ContentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        AnswerQueryService answerQueryService = mock(AnswerQueryService.class);
+        CommentInteractionService commentInteractionService = mock(CommentInteractionService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         CommentCounterService commentCounterService = mock(CommentCounterService.class);
         StringRedisTemplate stringRedisTemplate = mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS);
         CommentCommandServiceImpl service = new CommentCommandServiceImpl(
-                commentMapper, contentMapper, questionMapper, null, null, null, null,
-                null, outboxEventService, invalidator, stringRedisTemplate, commentCounterService);
+                commentMapper, contentQueryService, answerQueryService, commentInteractionService,
+                null, null, null, null, null, outboxEventService, mock(SearchEventProducer.class),
+                mock(CommentEventProducer.class), invalidator, stringRedisTemplate, commentCounterService);
         ContentComment comment = ContentComment.builder()
                 .commentId(100L)
                 .contentId(CONTENT_ID)
@@ -555,14 +585,16 @@ class ContentDetailCacheWritePathTest {
     @Test
     void userRootCommentDeleteEvictsDetailAfterCommit() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        ContentMapper contentMapper = mock(ContentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        AnswerQueryService answerQueryService = mock(AnswerQueryService.class);
+        CommentInteractionService commentInteractionService = mock(CommentInteractionService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         CommentCounterService commentCounterService = mock(CommentCounterService.class);
         StringRedisTemplate stringRedisTemplate = mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS);
         CommentCommandServiceImpl service = new CommentCommandServiceImpl(
-                commentMapper, contentMapper, questionMapper, null, null, null, null,
-                null, outboxEventService, invalidator, stringRedisTemplate, commentCounterService);
+                commentMapper, contentQueryService, answerQueryService, commentInteractionService,
+                null, null, null, null, null, outboxEventService, mock(SearchEventProducer.class),
+                mock(CommentEventProducer.class), invalidator, stringRedisTemplate, commentCounterService);
         ContentComment comment = ContentComment.builder()
                 .commentId(100L)
                 .contentId(CONTENT_ID)
@@ -586,12 +618,18 @@ class ContentDetailCacheWritePathTest {
     @Test
     void adminCommentDeleteEvictsDetailAfterCommit() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        CommentInteractionService commentInteractionService = mock(CommentInteractionService.class);
+        AnswerCounterService answerCounterService = mock(AnswerCounterService.class);
+        ContentCounterService contentCounterService = mock(ContentCounterService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         AdminCommentServiceImpl service = new AdminCommentServiceImpl();
         ReflectionTestUtils.setField(service, "commentMapper", commentMapper);
-        ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
+        ReflectionTestUtils.setField(service, "commentInteractionService", commentInteractionService);
+        ReflectionTestUtils.setField(service, "answerCounterService", answerCounterService);
+        ReflectionTestUtils.setField(service, "contentCounterService", contentCounterService);
+        ReflectionTestUtils.setField(service, "feedEventProducer", outboxEventService);
+        ReflectionTestUtils.setField(service, "searchEventProducer", mock(SearchEventProducer.class));
+        ReflectionTestUtils.setField(service, "notificationEventProducer", mock(NotificationEventProducer.class));
         ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
         ReflectionTestUtils.setField(service, "adminAuditRecorder", mock(AdminAuditRecorder.class));
         when(commentMapper.selectById(100L)).thenReturn(comment(AuditStatus.APPROVED.getCode()));
@@ -608,12 +646,18 @@ class ContentDetailCacheWritePathTest {
     @Test
     void adminCommentDeleteFailureDoesNotEvictDetail() {
         CommentMapper commentMapper = mock(CommentMapper.class);
-        QuestionMapper questionMapper = mock(QuestionMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
+        CommentInteractionService commentInteractionService = mock(CommentInteractionService.class);
+        AnswerCounterService answerCounterService = mock(AnswerCounterService.class);
+        ContentCounterService contentCounterService = mock(ContentCounterService.class);
+        FeedEventProducer outboxEventService = mock(FeedEventProducer.class);
         AdminCommentServiceImpl service = new AdminCommentServiceImpl();
         ReflectionTestUtils.setField(service, "commentMapper", commentMapper);
-        ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
+        ReflectionTestUtils.setField(service, "commentInteractionService", commentInteractionService);
+        ReflectionTestUtils.setField(service, "answerCounterService", answerCounterService);
+        ReflectionTestUtils.setField(service, "contentCounterService", contentCounterService);
+        ReflectionTestUtils.setField(service, "feedEventProducer", outboxEventService);
+        ReflectionTestUtils.setField(service, "searchEventProducer", mock(SearchEventProducer.class));
+        ReflectionTestUtils.setField(service, "notificationEventProducer", mock(NotificationEventProducer.class));
         ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
         ReflectionTestUtils.setField(service, "adminAuditRecorder", mock(AdminAuditRecorder.class));
         when(commentMapper.selectById(100L)).thenReturn(comment(AuditStatus.APPROVED.getCode()));
@@ -629,13 +673,15 @@ class ContentDetailCacheWritePathTest {
     private ContentInteractionServiceImpl interactionService(
             ContentMapper contentMapper,
             ContentInteractionMapper interactionMapper,
-            OutboxEventService outboxEventService,
+            FeedEventProducer outboxEventService,
             StringRedisTemplate redisTemplate
     ) {
         return new ContentInteractionServiceImpl(
                 interactionMapper,
                 new ContentCounterServiceImpl(contentMapper),
+                mock(NotificationEventProducer.class),
                 outboxEventService,
+                mock(SearchEventProducer.class),
                 invalidator,
                 redisTemplate
         );
@@ -644,13 +690,18 @@ class ContentDetailCacheWritePathTest {
     private AdminContentServiceImpl adminContentService(
             ContentMapper contentMapper,
             QuestionMapper questionMapper,
-            OutboxEventService outboxEventService,
+            ContentEventProducer outboxEventService,
             ContentExposureService exposureService
     ) {
         AdminContentServiceImpl service = new AdminContentServiceImpl();
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
+        ReflectionTestUtils.setField(service, "answerCounterService", mock(com.quanta.demo0.answer.service.AnswerCounterService.class));
+        ReflectionTestUtils.setField(service, "answerCommandService", mock(com.quanta.demo0.answer.service.AnswerCommandService.class));
+        ReflectionTestUtils.setField(service, "commentCommandService", mock(com.quanta.demo0.comment.service.CommentCommandService.class));
+        ReflectionTestUtils.setField(service, "contentInteractionService", mock(com.quanta.demo0.interaction.service.ContentInteractionService.class));
+        ReflectionTestUtils.setField(service, "contentEventProducer", outboxEventService);
+        ReflectionTestUtils.setField(service, "searchEventProducer", mock(SearchEventProducer.class));
+        ReflectionTestUtils.setField(service, "notificationEventProducer", mock(NotificationEventProducer.class));
         ReflectionTestUtils.setField(service, "contentExposureService", exposureService);
         ReflectionTestUtils.setField(service, "contentVectorSyncService", mock(ContentVectorSyncService.class));
         ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));

@@ -1,6 +1,5 @@
 package com.quanta.demo0.feed.service.impl;
 
-import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.content.vo.ContentSnapshotVO;
@@ -66,7 +65,7 @@ public class HotContentServiceImpl implements HotContentService {
         stringRedisTemplate.opsForZSet().add(resolveRecommendKey(contentType), contentId.toString(), score);
     }
 
-    private void publishToHotRedis(Content content) {
+    private void publishToHotRedis(ContentSnapshotVO content) {
         double hotScore = calculateHotScore(content);
         stringRedisTemplate.opsForZSet().add(RECOMMEND_HOT_ALL_KEY, content.getContentId().toString(), hotScore);
         stringRedisTemplate.opsForZSet().add(resolveRecommendHotKey(content.getContentType()),
@@ -79,8 +78,7 @@ public class HotContentServiceImpl implements HotContentService {
             throw new ContentFailedException("热度校准缺少帖子 ID");
         }
 
-        ContentSnapshotVO snapshot = contentQueryService.getContentSnapshots(java.util.List.of(contentId))
-                .stream().findFirst().orElse(null);
+        ContentSnapshotVO snapshot = contentQueryService.getContentSnapshot(contentId);
         removeHotScoreFromRedis(contentId);
         if (snapshot == null
                 || !AuditStatus.APPROVED.getCode().equals(snapshot.getAuditStatus())
@@ -89,19 +87,11 @@ public class HotContentServiceImpl implements HotContentService {
             return;
         }
 
-        Content content = Content.builder()
-                .contentId(snapshot.getContentId())
-                .contentType(snapshot.getContentType())
-                .createTime(snapshot.getCreateTime())
-                .liked(snapshot.getLikedCount())
-                .commentCount(snapshot.getCommentCount())
-                .collectCount(snapshot.getCollectCount())
-                .build();
-        publishToHotRedis(content);
-        log.info("帖子热度校准完成，contentId={}, hotScore={}", contentId, calculateHotScore(content));
+        publishToHotRedis(snapshot);
+        log.info("帖子热度校准完成，contentId={}, hotScore={}", contentId, calculateHotScore(snapshot));
     }
 
-    private double calculateHotScore(Content content) {
+    private double calculateHotScore(ContentSnapshotVO content) {
         return HotScoreCalculator.calculate(content);
     }
 

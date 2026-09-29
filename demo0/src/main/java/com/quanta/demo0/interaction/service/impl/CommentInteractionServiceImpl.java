@@ -1,18 +1,17 @@
 package com.quanta.demo0.interaction.service.impl;
 
-import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.exception.CommentFailedException;
 import com.quanta.demo0.comment.service.CommentCounterService;
+import com.quanta.demo0.comment.vo.CommentSnapshotVO;
 import com.quanta.demo0.interaction.dto.CommentReportDTO;
 import com.quanta.demo0.interaction.entity.CommentReport;
 import com.quanta.demo0.interaction.mapper.CommentInteractionMapper;
 import com.quanta.demo0.interaction.service.CommentInteractionService;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
-import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,10 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 评论互动服务实现。
@@ -37,10 +39,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CommentInteractionServiceImpl implements CommentInteractionService {
 
-    private final CommentMapper commentMapper;
     private final CommentInteractionMapper commentInteractionMapper;
     private final CommentCounterService commentCounterService;
-    private final OutboxEventService outboxEventService;
+    private final NotificationEventProducer notificationEventProducer;
     private final StringRedisTemplate stringRedisTemplate;
 
     /**
@@ -56,7 +57,7 @@ public class CommentInteractionServiceImpl implements CommentInteractionService 
         if (commentId == null) {
             throw new CommentFailedException("评论ID不能为空");
         }
-        ContentComment comment = commentMapper.selectById(commentId);
+        CommentSnapshotVO comment = commentCounterService.getCommentSnapshot(commentId);
         if (comment == null) {
             throw new CommentFailedException("评论不存在");
         }
@@ -86,7 +87,7 @@ public class CommentInteractionServiceImpl implements CommentInteractionService 
                     .content("点赞了你的评论")
                     .payload(Map.of("contentId", comment.getContentId(), "commentId", commentId))
                     .build();
-            outboxEventService.createNotificationEvent(
+            notificationEventProducer.createNotificationEvent(
                     notification, ModerationTargetType.COMMENT.name(), commentId);
         }
 
@@ -94,9 +95,53 @@ public class CommentInteractionServiceImpl implements CommentInteractionService 
             registerLikeCacheSync(commentId, userId, targetLiked);
         }
 
-        ContentComment latest = commentMapper.selectById(commentId);
+        CommentSnapshotVO latest = commentCounterService.getCommentSnapshot(commentId);
         int likeCount = latest == null || latest.getLikeCount() == null ? 0 : latest.getLikeCount();
         return LikeResultVO.builder().isLiked(targetLiked).likedCount(likeCount).build();
+    }
+
+    /**
+     * 查询指定用户对评论集合的点赞关系。
+     *
+     * <p>点赞关系属于 interaction 域，评论查询只通过该公开端口读取。</p>
+     */
+    @Override
+    public Set<Long> getLikedCommentIds(Long userId, List<Long> commentIds) {
+        if (userId == null || commentIds == null || commentIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<Long> likedIds = commentInteractionMapper.selectCommentLikeIds(userId, commentIds);
+        return likedIds == null ? Collections.emptySet() : likedIds;
+    }
+
+    /** 删除指定内容下评论的全部点赞关系。 */
+    @Override
+    @Transactional
+    public void deleteByContentId(Long contentId) {
+        if (contentId == null) {
+            throw new CommentFailedException("contentId 不能为空");
+        }
+        commentInteractionMapper.deleteCommentLikesByContentId(contentId);
+    }
+
+    /** 删除单条评论的全部点赞关系。 */
+    @Override
+    @Transactional
+    public void deleteByCommentId(Long commentId) {
+        if (commentId == null) {
+            throw new CommentFailedException("commentId 不能为空");
+        }
+        commentInteractionMapper.deleteCommentLikes(commentId);
+    }
+
+    /** 删除指定回复集合的全部点赞关系。 */
+    @Override
+    @Transactional
+    public void deleteByCommentIds(List<Long> commentIds) {
+        if (commentIds == null || commentIds.isEmpty()) {
+            return;
+        }
+        commentInteractionMapper.deleteCommentLikesByCommentIds(commentIds);
     }
 
     /**
@@ -115,7 +160,7 @@ public class CommentInteractionServiceImpl implements CommentInteractionService 
                 || commentReportDTO.getReportType() > 5) {
             throw new CommentFailedException("举报类型不合法（1-垃圾广告 2-人身攻击 3-违规内容 4-虚假信息 5-其他）");
         }
-        if (commentMapper.selectById(commentReportDTO.getCommentId()) == null) {
+        if (commentCounterService.getCommentSnapshot(commentReportDTO.getCommentId()) == null) {
             throw new CommentFailedException("评论不存在");
         }
 

@@ -1,26 +1,26 @@
 package com.quanta.demo0.user.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import com.quanta.demo0.follow.mapper.FollowMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.follow.service.FollowQueryService;
 import com.quanta.demo0.identity.enums.UserAuthDisplayStatus;
-import com.quanta.demo0.identity.entity.UserAuth;
-import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.identity.service.IdentityQueryService;
+import com.quanta.demo0.identity.vo.UserAuthStatusVO;
+import com.quanta.demo0.user.mapper.UserMapper;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.common.exception.NoFoundException;
-import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import com.quanta.demo0.user.dto.UserInfoDTO;
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.user.exception.UserInfoFailedException;
+import com.quanta.demo0.user.service.UserQueryService;
 import com.quanta.demo0.user.service.UserProfileService;
 import com.quanta.demo0.user.service.UserReadCacheInvalidator;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.user.vo.UserInfoVO;
 import com.quanta.demo0.user.vo.UserProfileVO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -30,19 +30,19 @@ import java.util.Objects;
  * 用户资料服务实现。
  *
  * 负责用户资料写入、公开主页聚合和认证展示态修复；登录会话及认证申请分别由
- * SessionService 和 IdentityService 负责。过渡期内沿用既有 FollowMapper/ContentMapper
- * 查询统计，待对应域查询端口稳定后再继续收口。
+ * SessionService 和 IdentityService 负责，关注、内容和认证读取通过公开查询端口完成。
  */
 @Service
 @RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserMapper userMapper;
+    private final UserQueryService userQueryService;
     private final SensitiveWordChecker sensitiveWordChecker;
     private final UserReadCacheInvalidator userReadCacheInvalidator;
-    private final FollowMapper followMapper;
-    private final ContentMapper contentMapper;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final IdentityQueryService identityQueryService;
+    private final FollowQueryService followQueryService;
+    private final ContentQueryService contentQueryService;
 
     /**
      * 根据用户 ID 查询基本资料，并隐藏不存在或封禁账号。
@@ -102,20 +102,15 @@ public class UserProfileServiceImpl implements UserProfileService {
             throw new NoFoundException("用户 ID 不能为空");
         }
 
-        UserAuthInfoVO userInfo = userMapper.selectUserAuthInfoById(targetUserId);
+        UserAuthInfoVO userInfo = userQueryService.getUserAuthInfo(targetUserId);
         if (userInfo == null || Integer.valueOf(1).equals(userInfo.getAccountStatus())) {
             throw new NoFoundException("用户不存在");
         }
 
-        Integer followingCount = followMapper.countFollowing(targetUserId);
-        Integer followerCount = followMapper.countFollowers(targetUserId);
-        Integer contentCount = contentMapper.countUserPublicContents(targetUserId);
-        Boolean isFollowed = false;
-        if (viewerId != null && !viewerId.equals(targetUserId)) {
-            String key = RedisConstants.FOLLOWED_KEY + viewerId;
-            isFollowed = Boolean.TRUE.equals(
-                    stringRedisTemplate.opsForSet().isMember(key, targetUserId.toString()));
-        }
+        Integer followingCount = followQueryService.countFollowing(targetUserId);
+        Integer followerCount = followQueryService.countFollowers(targetUserId);
+        Integer contentCount = contentQueryService.countUserPublicContents(targetUserId);
+        Boolean isFollowed = followQueryService.isFollowing(viewerId, targetUserId);
         Boolean isSelf = viewerId != null && viewerId.equals(targetUserId);
         Integer authStatus = resolveAuthDisplayStatus(targetUserId, userInfo.getAuthStatus());
 
@@ -135,8 +130,9 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     private Integer resolveAuthDisplayStatus(Long userId, Integer storedDisplayStatus) {
-        UserAuth userAuth = userMapper.getUserAuthByUserId(userId);
-        UserAuthDisplayStatus expected = expectedDisplayFromAuthRecord(userAuth);
+        UserAuthStatusVO userAuthStatus = identityQueryService.getAuthStatus(userId);
+        UserAuthDisplayStatus expected = expectedDisplayFromAuditStatus(
+                userAuthStatus == null ? null : userAuthStatus.getAuditStatus());
         int code = expected.getCode();
         if (!Objects.equals(storedDisplayStatus, code)) {
             syncUserAuthDisplayStatus(userId, expected);
@@ -144,17 +140,14 @@ public class UserProfileServiceImpl implements UserProfileService {
         return code;
     }
 
-    private UserAuthDisplayStatus expectedDisplayFromAuthRecord(UserAuth userAuth) {
-        if (userAuth == null) {
-            return UserAuthDisplayStatus.NONE;
-        }
-        if (Objects.equals(userAuth.getAuditStatus(), AuditStatus.APPROVED.getCode())) {
+    private UserAuthDisplayStatus expectedDisplayFromAuditStatus(Integer auditStatus) {
+        if (Objects.equals(auditStatus, AuditStatus.APPROVED.getCode())) {
             return UserAuthDisplayStatus.VERIFIED;
         }
-        if (Objects.equals(userAuth.getAuditStatus(), AuditStatus.REJECTED.getCode())) {
+        if (Objects.equals(auditStatus, AuditStatus.REJECTED.getCode())) {
             return UserAuthDisplayStatus.REJECTED;
         }
-        if (Objects.equals(userAuth.getAuditStatus(), AuditStatus.PENDING.getCode())) {
+        if (Objects.equals(auditStatus, AuditStatus.PENDING.getCode())) {
             return UserAuthDisplayStatus.PENDING;
         }
         return UserAuthDisplayStatus.NONE;

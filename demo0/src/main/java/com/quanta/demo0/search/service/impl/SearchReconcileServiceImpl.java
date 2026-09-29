@@ -1,7 +1,8 @@
 package com.quanta.demo0.search.service.impl;
 
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
-import com.quanta.demo0.search.es.service.ElasticSearchService;
+import com.quanta.demo0.search.service.AnswerSearchService;
+import com.quanta.demo0.search.service.ContentIndexService;
 import com.quanta.demo0.search.service.SearchReconcileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +21,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SearchReconcileServiceImpl implements SearchReconcileService {
 
-    private final ElasticSearchService elasticSearchService;
+    private final ContentIndexService contentIndexService;
+    private final AnswerSearchService answerSearchService;
 
     @Override
     public void reconcileSearchIndex(String targetType, Long targetId) {
@@ -30,7 +32,7 @@ public class SearchReconcileServiceImpl implements SearchReconcileService {
 
         if (ModerationTargetType.CONTENT.name().equals(targetType)) {
             // 该方法会重新查询 MySQL，并自行决定执行 upsert 还是 delete。
-            elasticSearchService.upsertByContentId(targetId);
+            contentIndexService.upsertByContentId(targetId);
             log.info("帖子 ES 索引校准完成，contentId={}", targetId);
             return;
         }
@@ -38,7 +40,7 @@ public class SearchReconcileServiceImpl implements SearchReconcileService {
 
         if (ModerationTargetType.ANSWER.name().equals(targetType)) {
             // 回答不存在、已删除或未审核通过时，底层方法会删除 ES 文档。
-            elasticSearchService.upsertByAnswerId(targetId);
+            answerSearchService.upsertByAnswerId(targetId);
             log.info("回答 ES 索引校准完成，answerId={}", targetId);
             return;
         }

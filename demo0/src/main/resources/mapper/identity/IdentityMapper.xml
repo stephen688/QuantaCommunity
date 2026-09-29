@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.identity.mapper.IdentityMapper">
+
+    <!-- 动态插入用户认证信息 -->
+    <insert id="insertUserAuth" useGeneratedKeys="true" keyProperty="authId">
+        insert into tb_user_auth
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="identityType != null">identity_type,</if>
+            <if test="realName != null and realName != ''">real_name,</if>
+            <if test="schoolId != null and schoolId != ''">school_id,</if>
+            <if test="quantaBatch != null and quantaBatch != ''">quanta_batch,</if>
+            <if test="quantaDepartment != null and quantaDepartment != ''">quanta_department,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="identityType != null">#{identityType},</if>
+            <if test="realName != null and realName != ''">#{realName},</if>
+            <if test="schoolId != null and schoolId != ''">#{schoolId},</if>
+            <if test="quantaBatch != null and quantaBatch != ''">#{quantaBatch},</if>
+            <if test="quantaDepartment != null and quantaDepartment != ''">#{quantaDepartment},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateUserAuth">
+        update tb_user_auth
+        <set>
+            <if test="identityType != null">identity_type=#{identityType},</if>
+            <if test="realName != null and realName != ''">real_name=#{realName},</if>
+            <if test="schoolId != null and schoolId != ''">school_id=#{schoolId},</if>
+            <if test="quantaBatch != null and quantaBatch != ''">quanta_batch=#{quantaBatch},</if>
+            <if test="quantaDepartment != null and quantaDepartment != ''">quanta_department=#{quantaDepartment},</if>
+            <if test="updateTime != null">update_time=#{updateTime},</if>
+            <if test="auditStatus != null">audit_status=#{auditStatus},</if>
+            <if test="auditRemark != null and auditRemark != ''">audit_remark=#{auditRemark},</if>
+            <if test="auditTime != null">audit_time=#{auditTime},</if>
+        </set>
+        where auth_id=#{authId}
+    </update>
+
+</mapper>

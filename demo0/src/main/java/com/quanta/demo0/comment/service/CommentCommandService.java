@@ -10,4 +10,7 @@ public interface CommentCommandService {
 
     /** 删除评论及其回复、图片、点赞明细，并同步派生计数。 */
     void deleteComment(Long commentId);
+
+    /** 删除指定内容下的评论图片、点赞明细并软删除评论。 */
+    void deleteByContentId(Long contentId);
 }

@@ -6,11 +6,11 @@ import com.quanta.demo0.comment.vo.BotCommentNodeVO;
 import com.quanta.demo0.comment.vo.BotCommentTreeVO;
 import com.quanta.demo0.content.vo.BotPostVO;
 import com.quanta.demo0.comment.entity.CommentImage;
-import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.exception.CommentFailedException;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.comment.service.BotCommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,7 +38,7 @@ public class BotCommentServiceImpl implements BotCommentService {
     private static final int MAX_PAGE_SIZE = 200;
 
     private final CommentMapper commentMapper;
-    private final ContentMapper contentMapper;
+    private final ContentQueryService contentQueryService;
 
     // 评论链口，获取评论链（包含所有回复）
     @Override
@@ -47,7 +47,7 @@ public class BotCommentServiceImpl implements BotCommentService {
         if (trigger == null) {
             throw new CommentFailedException("评论不存在或不可见");
         }
-        Content post = contentMapper.selectById(trigger.getContentId());
+        ContentSnapshotVO post = contentQueryService.getContentSnapshot(trigger.getContentId());
         if (post == null) {
             throw new CommentFailedException("帖子不存在或已删除");
         }

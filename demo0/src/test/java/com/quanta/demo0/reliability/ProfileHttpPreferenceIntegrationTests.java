@@ -12,14 +12,17 @@ import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.feed.controller.bot.BotProfileController;
 import com.quanta.demo0.feed.dto.BotProfileEventDTO;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.feed.mq.consumer.ProfileReconcileConsumer;
 import com.quanta.demo0.feed.mq.message.ProfileReconcileMessage;
 import com.quanta.demo0.platform.mq.outbox.OutboxDispatcher;
 import com.quanta.demo0.platform.mq.outbox.OutboxRouteRegistry;
 import com.quanta.demo0.feed.mq.producer.ProfileReconcileProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
+import com.quanta.demo0.platform.mq.producer.OutboxEventAppender;
 import com.quanta.demo0.platform.security.filter.OptionalJwtAuthenticationFilter;
 import com.quanta.demo0.platform.security.handler.SecurityAccessDeniedHandler;
 import com.quanta.demo0.platform.security.handler.SecurityAuthenticationEntryPoint;
@@ -30,9 +33,12 @@ import com.quanta.demo0.platform.mq.service.InboxEventService;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import com.quanta.demo0.feed.service.impl.ExplicitPreferenceServiceImpl;
 import com.quanta.demo0.platform.mq.service.impl.InboxEventServiceImpl;
-import com.quanta.demo0.service.Impl.OutboxEventServiceImpl;
+import com.quanta.demo0.platform.mq.service.impl.OutboxEventServiceImpl;
 import com.quanta.demo0.feed.service.impl.RecommendRerankServiceImpl;
 import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
+import com.quanta.demo0.content.service.impl.ContentQueryServiceImpl;
+import com.quanta.demo0.identity.service.impl.IdentityQueryServiceImpl;
+import com.quanta.demo0.user.service.impl.UserQueryServiceImpl;
 import com.quanta.demo0.platform.security.utils.JwtUtil;
 import com.rabbitmq.client.GetResponse;
 import org.junit.jupiter.api.AfterEach;
@@ -270,10 +276,17 @@ class ProfileHttpPreferenceIntegrationTests {
         redis.opsForZSet().add(RedisConstants.RECOMMEND_HOT_ALL_KEY, "2", 0.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_ALL_KEY, "1", 100.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_ALL_KEY, "2", 0.0);
-        var profile = new UserInterestProfileServiceImpl(contentMapper, redis);
-        var rerank = new RecommendRerankServiceImpl(redis, contentMapper, profile, new RecommendProperties());
-        assertThat(rerank.rerank(123L, null, 10).contents()).extracting(Content::getContentId)
+        ContentQueryService contentQueryService = contentQueryService();
+        var profile = new UserInterestProfileServiceImpl(contentQueryService, redis);
+        var rerank = new RecommendRerankServiceImpl(redis, contentQueryService, profile, new RecommendProperties());
+        assertThat(rerank.rerank(123L, null, 10).contents()).extracting(ContentSnapshotVO::getContentId)
                 .containsExactly(2L, 1L);
+    }
+
+    private ContentQueryService contentQueryService() {
+        ContentQueryServiceImpl queryService = new ContentQueryServiceImpl();
+        ReflectionTestUtils.setField(queryService, "contentMapper", contentMapper);
+        return queryService;
     }
 
     private ResultActions postEvent(String token, BotProfileEventDTO event) throws Exception {
@@ -318,13 +331,19 @@ class ProfileHttpPreferenceIntegrationTests {
     @EnableTransactionManagement
     @EnableAspectJAutoProxy
     @MapperScan({
-            "com.quanta.demo0.mapper",
+            "com.quanta.demo0.content.mapper",
+            "com.quanta.demo0.comment.mapper",
+            "com.quanta.demo0.answer.mapper",
+            "com.quanta.demo0.user.mapper",
+            "com.quanta.demo0.identity.mapper",
             "com.quanta.demo0.feed.mapper",
             "com.quanta.demo0.platform.mq.mapper",
             "com.quanta.demo0.platform.security.mapper"
     })
     @Import({
             ExplicitPreferenceServiceImpl.class,
+            FeedEventProducer.class,
+            OutboxEventAppender.class,
             OutboxEventServiceImpl.class,
             InboxEventServiceImpl.class,
             OutboxDispatchProperties.class,
@@ -333,6 +352,8 @@ class ProfileHttpPreferenceIntegrationTests {
             JwtProperties.class,
             QuantabotProperties.class,
             SecurityProperties.class,
+            UserQueryServiceImpl.class,
+            IdentityQueryServiceImpl.class,
             AuthenticationSnapshotCacheImpl.class,
             TokenAuthenticationServiceImpl.class,
             OptionalJwtAuthenticationFilter.class,

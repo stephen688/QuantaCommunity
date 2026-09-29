@@ -6,7 +6,7 @@ import com.quanta.demo0.content.vo.ContentDetailSnapshot;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.interaction.service.BrowseHistoryService;
 import com.quanta.demo0.interaction.service.ContentInteractionService;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;

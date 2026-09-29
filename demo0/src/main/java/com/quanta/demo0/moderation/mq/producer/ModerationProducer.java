@@ -2,7 +2,7 @@
 package com.quanta.demo0.moderation.mq.producer;
 
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.moderation.config.ModerationMQConfig;
 import com.quanta.demo0.moderation.mq.message.ModerationTaskMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,8 +24,8 @@ public class ModerationProducer {
     ) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.MODERATION_RETRY_EXCHANGE,
-                    RabbitMQConfig.MODERATION_RETRY_ROUTING_KEY,
+                    ModerationMQConfig.MODERATION_RETRY_EXCHANGE,
+                    ModerationMQConfig.MODERATION_RETRY_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;

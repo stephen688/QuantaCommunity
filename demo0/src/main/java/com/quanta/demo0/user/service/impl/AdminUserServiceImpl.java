@@ -1,6 +1,6 @@
 package com.quanta.demo0.user.service.impl;
 
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
@@ -8,7 +8,7 @@ import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.user.dto.UserAdminQueryDTO;
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.platform.common.exception.NoFoundException;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.user.mapper.UserMapper;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.user.service.AdminUserService;

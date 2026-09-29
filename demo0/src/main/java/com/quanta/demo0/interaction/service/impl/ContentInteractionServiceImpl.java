@@ -13,7 +13,9 @@ import com.quanta.demo0.interaction.vo.LikeResultVO;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +38,9 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
 
     private final ContentInteractionMapper contentInteractionMapper;
     private final ContentCounterService contentCounterService;
-    private final OutboxEventService outboxEventService;
+    private final NotificationEventProducer notificationEventProducer;
+    private final FeedEventProducer feedEventProducer;
+    private final SearchEventProducer searchEventProducer;
     private final ContentDetailCacheInvalidator contentDetailCacheInvalidator;
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -80,14 +84,14 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
                     .content("点赞了你的内容")
                     .payload(Map.of("contentId", contentId))
                     .build();
-            outboxEventService.createNotificationEvent(notification, ModerationTargetType.CONTENT.name(), contentId);
-            outboxEventService.createUserBehaviorEvent(userId, contentId, "LIKE");
+            notificationEventProducer.createNotificationEvent(notification, ModerationTargetType.CONTENT.name(), contentId);
+            feedEventProducer.createUserBehaviorEvent(userId, contentId, "LIKE");
         }
 
         if (changed) {
             String triggerType = targetLiked ? "LIKE" : "UNLIKE";
-            outboxEventService.createHotScoreRecalculateEvent(contentId, triggerType);
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
+            feedEventProducer.createHotScoreRecalculateEvent(contentId, triggerType);
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
             contentDetailCacheInvalidator.evictAfterCommit(contentId, triggerType);
             synchronizeCacheAfterCommit(CONTENT_LIKED_KEY + contentId, userId, targetLiked, "CONTENT_LIKE");
         }
@@ -131,11 +135,11 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
 
         if (changed) {
             if (targetCollected) {
-                outboxEventService.createUserBehaviorEvent(userId, contentId, "COLLECT");
+                feedEventProducer.createUserBehaviorEvent(userId, contentId, "COLLECT");
             }
             String triggerType = targetCollected ? "COLLECT" : "UNCOLLECT";
-            outboxEventService.createHotScoreRecalculateEvent(contentId, triggerType);
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
+            feedEventProducer.createHotScoreRecalculateEvent(contentId, triggerType);
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
             contentDetailCacheInvalidator.evictAfterCommit(contentId, triggerType);
             synchronizeCacheAfterCommit(CONTENT_COLLECT_KEY + contentId, userId, targetCollected, "CONTENT_COLLECT");
         }

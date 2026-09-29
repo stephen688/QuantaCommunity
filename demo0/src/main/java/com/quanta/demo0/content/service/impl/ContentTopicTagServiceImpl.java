@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.content.properties.ContentTopicProperties;
 import com.quanta.demo0.content.service.ContentTopicTagService;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
 import com.quanta.demo0.feed.service.TopicCatalog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +37,7 @@ import java.util.concurrent.TimeoutException;
 public class ContentTopicTagServiceImpl implements ContentTopicTagService {
 
     private final ContentMapper contentMapper;
-    private final OutboxEventService outboxEventService;
+    private final ContentEventProducer contentEventProducer;
     private final ChatModel chatModel;
     private final ObjectMapper objectMapper;
     private final ContentTopicProperties properties;
@@ -96,7 +96,7 @@ public class ContentTopicTagServiceImpl implements ContentTopicTagService {
             if (content == null || content.getContentId() == null) {
                 continue;
             }
-            outboxEventService.createContentTopicTagEvent(content.getContentId());
+            contentEventProducer.createContentTopicTagEvent(content.getContentId());
             nextCursor = Math.max(nextCursor, content.getContentId());
         }
         return nextCursor;

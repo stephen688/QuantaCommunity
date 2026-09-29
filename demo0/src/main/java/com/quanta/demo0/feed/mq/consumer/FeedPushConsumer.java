@@ -1,6 +1,6 @@
 package com.quanta.demo0.feed.mq.consumer;
 
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.feed.mq.message.FeedPushMessage;
 import com.quanta.demo0.feed.mq.producer.FeedPushProducer;
@@ -33,7 +33,7 @@ public class FeedPushConsumer {
     @Autowired
     private FeedPushProducer feedPushProducer;
 
-    @RabbitListener(queues = RabbitMQConfig.FEED_PUSH_QUEUE)
+    @RabbitListener(queues = FeedMQConfig.FEED_PUSH_QUEUE)
     public void handleFeedPushMessage(FeedPushMessage message, Message mqMessage, Channel channel) {
         long deliveryTag = mqMessage.getMessageProperties().getDeliveryTag();
 

@@ -2,11 +2,15 @@ package com.quanta.demo0.comment.service.impl;
 
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.answer.service.AnswerQueryService;
+import com.quanta.demo0.comment.service.CommentCounterService;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.comment.mq.producer.CommentEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,11 +42,19 @@ class CommentAuditServiceImplBotMentionTest {
     @Mock
     private CommentMapper commentMapper;
     @Mock
-    private OutboxEventService outboxEventService;
+    private CommentEventProducer commentEventProducer;
     @Mock
-    private ContentMapper contentMapper;
+    private FeedEventProducer feedEventProducer;
     @Mock
-    private QuestionMapper questionMapper;
+    private SearchEventProducer searchEventProducer;
+    @Mock
+    private NotificationEventProducer notificationEventProducer;
+    @Mock
+    private ContentQueryService contentQueryService;
+    @Mock
+    private AnswerQueryService answerQueryService;
+    @Mock
+    private CommentCounterService commentCounterService;
     @Mock
     private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
@@ -74,7 +86,7 @@ class CommentAuditServiceImplBotMentionTest {
         when(commentMapper.updateAuditStatusIfCurrent(
                 eq(100L), anyInt(), eq(AuditStatus.APPROVED.getCode()),
                 isNull(), isNull())).thenReturn(1);
-        when(commentMapper.updateCommentCount(eq(10L), anyInt())).thenReturn(1);
+        when(commentCounterService.changeCommentCount(eq(10L), anyInt())).thenReturn(1);
         when(commentMapper.selectImagesByCommentId(100L)).thenReturn(List.of());
     }
 
@@ -84,7 +96,7 @@ class CommentAuditServiceImplBotMentionTest {
 
         service.approveComment(100L, null);
 
-        verify(outboxEventService).createBotMentionEvent(
+        verify(commentEventProducer).createBotMentionEvent(
                 any(ContentComment.class), eq(List.of()), eq("mentioned"));
         verify(contentDetailCacheInvalidator).evictAfterCommit(10L, "comment-approved");
     }
@@ -95,7 +107,7 @@ class CommentAuditServiceImplBotMentionTest {
 
         service.approveComment(100L, null);
 
-        verify(outboxEventService).createBotMentionEvent(
+        verify(commentEventProducer).createBotMentionEvent(
                 any(ContentComment.class), eq(List.of()), eq("replied"));
     }
 
@@ -105,7 +117,7 @@ class CommentAuditServiceImplBotMentionTest {
 
         service.approveComment(100L, null);
 
-        verify(outboxEventService, never()).createBotMentionEvent(
+        verify(commentEventProducer, never()).createBotMentionEvent(
                 any(), any(), any());
     }
 
@@ -120,7 +132,7 @@ class CommentAuditServiceImplBotMentionTest {
 
         service.approveRejectedComment(100L, null);
 
-        verify(outboxEventService).createBotMentionEvent(
+        verify(commentEventProducer).createBotMentionEvent(
                 any(ContentComment.class), eq(List.of()), eq("mentioned"));
     }
 }

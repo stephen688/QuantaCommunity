@@ -1,10 +1,11 @@
 package com.quanta.demo0.rag.retrieval;
 import com.github.pagehelper.Page;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.es.document.AnswerDocument;
-import com.quanta.demo0.search.es.service.ElasticSearchService;
+import com.quanta.demo0.search.es.document.AnswerDocument;
+import com.quanta.demo0.search.es.document.ContentDocument;
 import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagCandidate;
+import com.quanta.demo0.search.service.AnswerSearchService;
+import com.quanta.demo0.search.service.ContentIndexService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ import java.util.List;
  * filter: isDeleted=0（只查未删除的）
  * filter: auditStatus=1（只查审核通过的）
  * 第 3 步：执行 ES 查询
- * 通过 ElasticSearchService 调用 Elasticsearch Java API Client
+ * 通过搜索域索引服务调用 Elasticsearch Java API Client
  * 按 _score（相关度得分）降序排序
  * 限制返回数量为 topK（默认 20）
  * 第 4 步：解析 ES 结果
@@ -65,7 +66,9 @@ public class EsRecallService {
     @Autowired
     private RagProperties ragProperties;
     @Autowired
-    private ElasticSearchService elasticSearchService;
+    private ContentIndexService contentIndexService;
+    @Autowired
+    private AnswerSearchService answerSearchService;
 
   //  private static final String INDEX_NAME = "content"; // ES 索引名称
 
@@ -91,12 +94,12 @@ public class EsRecallService {
         }
         try {
             //2. 构建 ES 查询请求 - 帖子召回
-            Page<Content> page = elasticSearchService.searchContent(query, contentType, 1, topK);
+            Page<ContentDocument> page = contentIndexService.searchContent(query, contentType, 1, topK);
 
             // 3. 转换为 RagCandidate（帖子）
             List<RagCandidate> candidates = new ArrayList<>();
             if (page != null && !page.isEmpty()) {
-                for (Content content : page) {
+                for (ContentDocument content : page) {
                     String contentSnippet = content.getContent() != null && content.getContent().length() > 200
                             ? content.getContent().substring(0, 200)
                             : content.getContent();
@@ -117,10 +120,10 @@ public class EsRecallService {
             }
 
             // 4. ES 回答召回
-          //  List<AnswerDocument> answerDocs = elasticSearchService.searchAnswers(query, topK);
+          //  List<AnswerDocument> answerDocs = answerSearchService.searchAnswers(query, topK);
             // 4. ES 回答召回（仅专业区或全部时召回，生活区不召回回答）
             if (contentType == null || contentType == 2) {
-                List<AnswerDocument> answerDocs = elasticSearchService.searchAnswers(query, topK);
+                List<AnswerDocument> answerDocs = answerSearchService.searchAnswers(query, topK);
                 if (answerDocs != null && !answerDocs.isEmpty()) {
                     for (AnswerDocument doc : answerDocs) {
                         String contentSnippet = doc.getAnswerContent() != null && doc.getAnswerContent().length() > 200

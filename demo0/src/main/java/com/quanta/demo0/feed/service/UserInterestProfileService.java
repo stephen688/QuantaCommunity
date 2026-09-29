@@ -1,6 +1,6 @@
 package com.quanta.demo0.feed.service;
 
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 
 import java.util.List;
 import java.util.Map;
@@ -36,5 +36,5 @@ public interface UserInterestProfileService {
      *
      * @return 帖子标签列表（第一版：contentType 1→life / 2→professional；其它返回空列表）
      */
-    List<String> resolveContentTags(Content content);
+    List<String> resolveContentTags(ContentSnapshotVO content);
 }

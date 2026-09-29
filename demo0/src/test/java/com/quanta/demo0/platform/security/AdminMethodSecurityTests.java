@@ -22,6 +22,7 @@ import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.SecurityProperties;
 import com.quanta.demo0.content.service.AdminContentService;
+import com.quanta.demo0.interaction.service.ReportGovernanceService;
 import com.quanta.demo0.platform.mq.admin.service.AdminEventService;
 import com.quanta.demo0.user.service.AdminUserService;
 import com.quanta.demo0.identity.service.IdentityExamService;
@@ -236,6 +237,11 @@ class AdminMethodSecurityTests {
         @Bean
         AdminContentService adminContentService() {
             return mock(AdminContentService.class);
+        }
+
+        @Bean
+        ReportGovernanceService reportGovernanceService() {
+            return mock(ReportGovernanceService.class);
         }
 
         @Bean

@@ -1,8 +1,8 @@
 package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -35,7 +35,7 @@ class UserInterestProfileServiceImplTest {
     private static final Long CONTENT_ID = 42L;
     private static final String PROFILE_KEY = RedisConstants.USER_PROFILE_KEY + USER_ID;
 
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
     private StringRedisTemplate stringRedisTemplate;
     private HashOperations<String, Object, Object> hashOperations;
     private UserInterestProfileServiceImpl service;
@@ -43,15 +43,15 @@ class UserInterestProfileServiceImplTest {
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
-        contentMapper = mock(ContentMapper.class);
+        contentQueryService = mock(ContentQueryService.class);
         stringRedisTemplate = mock(StringRedisTemplate.class);
         hashOperations = mock(HashOperations.class);
         when(stringRedisTemplate.opsForHash()).thenReturn(hashOperations);
-        service = new UserInterestProfileServiceImpl(contentMapper, stringRedisTemplate);
+        service = new UserInterestProfileServiceImpl(contentQueryService, stringRedisTemplate);
     }
 
-    private Content approvedContent(Integer contentType) {
-        return Content.builder()
+    private ContentSnapshotVO approvedContent(Integer contentType) {
+        return ContentSnapshotVO.builder()
                 .contentId(CONTENT_ID)
                 .contentType(contentType)
                 .auditStatus(1)  // 审核通过
@@ -61,7 +61,7 @@ class UserInterestProfileServiceImplTest {
 
     @Test
     void 合法帖type1审核通过_life标签与total各累加权重() {
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(approvedContent(1));
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(approvedContent(1));
 
         service.applyBehavior(USER_ID, CONTENT_ID, 2.0);
 
@@ -72,7 +72,7 @@ class UserInterestProfileServiceImplTest {
 
     @Test
     void 合法帖type2审核通过_professional标签累加() {
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(approvedContent(2));
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(approvedContent(2));
 
         service.applyBehavior(USER_ID, CONTENT_ID, 2.0);
 
@@ -83,7 +83,7 @@ class UserInterestProfileServiceImplTest {
 
     @Test
     void 帖子不存在_零写入零异常() {
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(null);
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(null);
 
         assertDoesNotThrow(() -> service.applyBehavior(USER_ID, CONTENT_ID, 2.0));
 
@@ -92,9 +92,9 @@ class UserInterestProfileServiceImplTest {
 
     @Test
     void 帖子已驳回_零写入零异常() {
-        Content rejected = approvedContent(1);
+        ContentSnapshotVO rejected = approvedContent(1);
         rejected.setAuditStatus(2);  // 已驳回
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(rejected);
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(rejected);
 
         assertDoesNotThrow(() -> service.applyBehavior(USER_ID, CONTENT_ID, 2.0));
 
@@ -103,9 +103,9 @@ class UserInterestProfileServiceImplTest {
 
     @Test
     void 帖子已删除_零写入零异常() {
-        Content deleted = approvedContent(1);
+        ContentSnapshotVO deleted = approvedContent(1);
         deleted.setIsDeleted(1);  // 已软删除
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(deleted);
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(deleted);
 
         assertDoesNotThrow(() -> service.applyBehavior(USER_ID, CONTENT_ID, 2.0));
 
@@ -114,7 +114,7 @@ class UserInterestProfileServiceImplTest {
 
     @Test
     void redis异常向上抛_不吞掉伪装成功() {
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(approvedContent(1));
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(approvedContent(1));
         when(hashOperations.increment(anyString(), any(), anyDouble()))
                 .thenThrow(new RedisConnectionFailureException("redis down"));
 

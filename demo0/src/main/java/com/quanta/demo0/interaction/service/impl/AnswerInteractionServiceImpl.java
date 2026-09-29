@@ -1,17 +1,17 @@
 package com.quanta.demo0.interaction.service.impl;
 
-import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.answer.service.AnswerCounterService;
+import com.quanta.demo0.answer.vo.AnswerSnapshotVO;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.interaction.entity.AnswerLiked;
 import com.quanta.demo0.interaction.mapper.AnswerInteractionMapper;
 import com.quanta.demo0.interaction.service.AnswerInteractionService;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
-import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import lombok.extern.slf4j.Slf4j;
@@ -31,15 +31,15 @@ import java.util.Map;
 public class AnswerInteractionServiceImpl implements AnswerInteractionService {
 
     @Autowired
-    private QuestionMapper questionMapper;
-    @Autowired
     private AnswerInteractionMapper answerInteractionMapper;
     @Autowired
     private AnswerCounterService answerCounterService;
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
-    private OutboxEventService outboxEventService;
+    private NotificationEventProducer notificationEventProducer;
+    @Autowired
+    private SearchEventProducer searchEventProducer;
 
     @Override
     @Transactional
@@ -47,7 +47,7 @@ public class AnswerInteractionServiceImpl implements AnswerInteractionService {
         if (answerId == null) {
             throw new ContentFailedException("answerId 不能为空");
         }
-        QuestionAnswer answer = questionMapper.selectById(answerId);
+        AnswerSnapshotVO answer = answerCounterService.getAnswerSnapshot(answerId);
         if (answer == null) {
             throw new ContentFailedException("回答不存在");
         }
@@ -85,10 +85,10 @@ public class AnswerInteractionServiceImpl implements AnswerInteractionService {
                     .content("点赞了你的回答")
                     .payload(Map.of("contentId", answer.getQuestionId(), "answerId", answerId))
                     .build();
-            outboxEventService.createNotificationEvent(likeNotification, ModerationTargetType.ANSWER.name(), answerId);
+            notificationEventProducer.createNotificationEvent(likeNotification, ModerationTargetType.ANSWER.name(), answerId);
         }
         if (changed) {
-            outboxEventService.createSearchReconcileEvent(
+            searchEventProducer.createSearchReconcileEvent(
                     ModerationTargetType.ANSWER.name(), answerId, targetLiked ? "LIKE" : "UNLIKE");
         }
 
@@ -110,8 +110,25 @@ public class AnswerInteractionServiceImpl implements AnswerInteractionService {
             });
         }
 
-        QuestionAnswer updatedAnswer = questionMapper.selectById(answerId);
+        AnswerSnapshotVO updatedAnswer = answerCounterService.getAnswerSnapshot(answerId);
         int likeCount = updatedAnswer.getLikeCount() != null ? updatedAnswer.getLikeCount() : 0;
         return LikeResultVO.builder().likedCount(likeCount).isLiked(targetLiked).build();
+    }
+
+    /**
+     * 删除回答下的互动关联数据。
+     *
+     * <p>回答评论的图片、点赞和软删除属于 interaction 侧级联边界，回答命令服务只依赖此端口。</p>
+     */
+    @Override
+    @Transactional
+    public void deleteByAnswerId(Long answerId) {
+        if (answerId == null) {
+            throw new ContentFailedException("answerId 不能为空");
+        }
+        answerInteractionMapper.deleteAnswerLikedByAnswerId(answerId);
+        answerInteractionMapper.deleteAnswerCommentImages(answerId);
+        answerInteractionMapper.deleteAnswerCommentLiked(answerId);
+        answerInteractionMapper.softDeleteAnswerComments(answerId);
     }
 }

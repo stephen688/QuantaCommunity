@@ -4,11 +4,12 @@ import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.notification.enums.NotificationType;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.answer.mapper.QuestionMapper;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.rag.vector.AnswerVectorSyncService;
 import com.quanta.demo0.answer.service.AnswerAuditService;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,7 +39,8 @@ public class AnswerAuditServiceImpl implements AnswerAuditService {
 
     private final QuestionMapper questionMapper;
     private final AnswerVectorSyncService answerVectorSyncService;
-    private final OutboxEventService outboxEventService;
+    private final NotificationEventProducer notificationEventProducer;
+    private final SearchEventProducer searchEventProducer;
     @Override
     @Transactional
     public void approveAnswer(Long answerId) {
@@ -61,7 +63,7 @@ public class AnswerAuditServiceImpl implements AnswerAuditService {
         createAuditNotificationEvent(answer, AuditStatus.APPROVED.getCode(), null);
 
         // 回答审核状态和 ES 校准 Outbox 一起提交。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "AUDIT_APPROVED");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "AUDIT_APPROVED");
 
         // 向量库不在本次 Outbox 计划内，仍然在事务提交后同步。
         scheduleAnswerIndexSync(answerId);
@@ -89,7 +91,7 @@ public class AnswerAuditServiceImpl implements AnswerAuditService {
         createAuditNotificationEvent(answer, AuditStatus.REJECTED.getCode(), rejectReason);
 
         // 即使 ES 原本没有该回答，也通过校准事件保证最终状态为删除。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "AUDIT_REJECTED");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "AUDIT_REJECTED");
     }
 
 
@@ -141,6 +143,6 @@ public class AnswerAuditServiceImpl implements AnswerAuditService {
                 .build();
 
         // 通知 Outbox 会和回答审核状态、审核 Inbox SUCCESS 一起提交。
-        outboxEventService.createNotificationEvent(message, ModerationTargetType.ANSWER.name(), answer.getAnswerId());
+        notificationEventProducer.createNotificationEvent(message, ModerationTargetType.ANSWER.name(), answer.getAnswerId());
     }
 }

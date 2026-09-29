@@ -1,7 +1,7 @@
 package com.quanta.demo0.search.mq.producer;
 
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.search.config.SearchMQConfig;
 import com.quanta.demo0.search.mq.message.SearchReconcileMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +27,8 @@ public class SearchReconcileProducer {
     public boolean sendRetryTask(SearchReconcileMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.SEARCH_RECONCILE_RETRY_EXCHANGE,
-                    RabbitMQConfig.SEARCH_RECONCILE_RETRY_ROUTING_KEY,
+                    SearchMQConfig.SEARCH_RECONCILE_RETRY_EXCHANGE,
+                    SearchMQConfig.SEARCH_RECONCILE_RETRY_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;
@@ -48,8 +48,8 @@ public class SearchReconcileProducer {
     public boolean sendDeadTask(SearchReconcileMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.SEARCH_RECONCILE_DLX_EXCHANGE,
-                    RabbitMQConfig.SEARCH_RECONCILE_DLX_ROUTING_KEY,
+                    SearchMQConfig.SEARCH_RECONCILE_DLX_EXCHANGE,
+                    SearchMQConfig.SEARCH_RECONCILE_DLX_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;

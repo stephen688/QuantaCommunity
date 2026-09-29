@@ -1,6 +1,6 @@
 package com.quanta.demo0.search.mq.consumer;
 
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.search.config.SearchMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.search.mq.message.SearchReconcileMessage;
 import com.quanta.demo0.search.mq.producer.SearchReconcileProducer;
@@ -48,7 +48,7 @@ public class SearchReconcileConsumer {
     @Autowired
     private SearchReconcileProducer searchReconcileProducer;
 
-    @RabbitListener(queues = RabbitMQConfig.SEARCH_RECONCILE_QUEUE)
+    @RabbitListener(queues = SearchMQConfig.SEARCH_RECONCILE_QUEUE)
     public void handleSearchReconcileMessage(SearchReconcileMessage message, Message mqMessage, Channel channel) {
         long deliveryTag = mqMessage.getMessageProperties().getDeliveryTag();
 

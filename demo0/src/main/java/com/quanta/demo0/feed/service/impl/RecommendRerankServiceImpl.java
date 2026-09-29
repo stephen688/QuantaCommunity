@@ -1,10 +1,10 @@
 package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.feed.service.RecommendRerankService;
 import com.quanta.demo0.feed.service.UserInterestProfileService;
@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 public class RecommendRerankServiceImpl implements RecommendRerankService {
 
     private final StringRedisTemplate stringRedisTemplate;
-    private final ContentMapper contentMapper;
+    private final ContentQueryService contentQueryService;
     private final UserInterestProfileService userProfileService;
     private final RecommendProperties recommendProperties;
 
@@ -68,7 +68,7 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
         }
 
         // ========== 步骤 3：查帖子并过滤非审核通过/已删（MySQL 是事实源，兜底 ZSET 时差） ==========
-        List<Content> candidates = loadVisibleContents(unexposedIds);
+        List<ContentSnapshotVO> candidates = loadVisibleContents(unexposedIds);
         if (candidates.isEmpty()) {
             return new RerankResult(new ArrayList<>(), false);
         }
@@ -81,11 +81,11 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
         // ========== 步骤 5：算分——行为画像基础分 + 独立显式偏好项 ==========
         Map<String, Double> explicitProfile = userId == null
                 ? Collections.emptyMap() : userProfileService.getExplicitProfile(userId);
-        List<Content> ranked = scoreAndSort(candidates, profile, explicitProfile, profileConfig);
+        List<ContentSnapshotVO> ranked = scoreAndSort(candidates, profile, explicitProfile, profileConfig);
 
         // ========== 步骤 6：排序截断（finalScore 降序已在 scoreAndSort 完成） ==========
         boolean hasMore = ranked.size() > pageSize;
-        List<Content> pageContents = hasMore
+        List<ContentSnapshotVO> pageContents = hasMore
                 ? new ArrayList<>(ranked.subList(0, pageSize))
                 : ranked;
 
@@ -134,16 +134,16 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
     /**
      * 批量查帖并只保留审核通过且未删除的内容（MySQL 是事实源，兜底 ZSET 与数据库的时差）。
      */
-    private List<Content> loadVisibleContents(List<Long> contentIds) {
+    private List<ContentSnapshotVO> loadVisibleContents(List<Long> contentIds) {
         if (contentIds.isEmpty()) {
             return new ArrayList<>();
         }
-        List<Content> contents = contentMapper.selectBatchIds(contentIds);
+        List<ContentSnapshotVO> contents = contentQueryService.getContentFactSnapshots(contentIds);
         if (contents == null) {
             return new ArrayList<>();
         }
-        List<Content> visibleContents = new ArrayList<>();
-        for (Content content : contents) {
+        List<ContentSnapshotVO> visibleContents = new ArrayList<>();
+        for (ContentSnapshotVO content : contents) {
             if (content == null || content.getContentId() == null) {
                 continue; // 防御脏数据
             }
@@ -159,14 +159,14 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
      * 算分与排序：候选集内 min-max 热度归一化 + 画像匹配分 + α 过渡，finalScore 降序。
      * 同分按 contentId 降序（稳定排序，与 hot 池 filterAndSort 的二级排序语义一致）。
      */
-    private List<Content> scoreAndSort(
-            List<Content> candidates, Map<String, Double> profile, Map<String, Double> explicitProfile,
+    private List<ContentSnapshotVO> scoreAndSort(
+            List<ContentSnapshotVO> candidates, Map<String, Double> profile, Map<String, Double> explicitProfile,
             RecommendProperties.Profile profileConfig) {
         // 5.1 热度分现算（公式唯一真源 HotScoreCalculator，不读 ZSET score）
         Map<Long, Double> hotScores = new HashMap<>();
         double maxHotScore = Double.NEGATIVE_INFINITY;
         double minHotScore = Double.POSITIVE_INFINITY;
-        for (Content content : candidates) {
+        for (ContentSnapshotVO content : candidates) {
             double hotScore = HotScoreCalculator.calculate(content);
             hotScores.put(content.getContentId(), hotScore);
             maxHotScore = Math.max(maxHotScore, hotScore);
@@ -191,7 +191,7 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
 
         // 5.4 显式项独立加分：最强负偏好优先，避免多个正标签抵消明确厌恶。
         Map<Long, Double> finalScores = new HashMap<>();
-        for (Content content : candidates) {
+        for (ContentSnapshotVO content : candidates) {
             double normHot = normalizeHotScore(
                     hotScores.get(content.getContentId()), minHotScore, maxHotScore);
             double matchScore = calculateMatchScore(content, profile, profileTagWeightSum);
@@ -200,7 +200,7 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
         }
 
         // 5.5 排序：finalScore 降序，同分 contentId 降序
-        List<Content> ranked = new ArrayList<>(candidates);
+        List<ContentSnapshotVO> ranked = new ArrayList<>(candidates);
         ranked.sort((left, right) -> {
             int byScore = Double.compare(
                     finalScores.get(right.getContentId()), finalScores.get(left.getContentId()));
@@ -223,7 +223,7 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
     }
 
     /** 同帖多个标签不叠加放大；有明确负反馈则用最强惩罚，否则取最大喜好增益。 */
-    private double calculateExplicitScore(Content content, Map<String, Double> profile) {
+    private double calculateExplicitScore(ContentSnapshotVO content, Map<String, Double> profile) {
         if (profile == null || profile.isEmpty()) {
             return 0.0;
         }
@@ -241,7 +241,7 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
      * 匹配分：帖子标签与画像 field 交集的权重和 ÷ 画像标签总权重（不含 __total），归一到 [0,1]。
      * 无画像或画像无标签权重时返回 0（新用户/兴趣全衰减用户，排序退化为热度）。
      */
-    private double calculateMatchScore(Content content, Map<String, Double> profile, double profileTagWeightSum) {
+    private double calculateMatchScore(ContentSnapshotVO content, Map<String, Double> profile, double profileTagWeightSum) {
         if (profile.isEmpty() || profileTagWeightSum <= 0) {
             return 0.0;
         }
@@ -268,7 +268,7 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
      * 回写曝光 set（从 ContentServiceImpl 既有 saveExposedSet 迁移，语义逐字保留）：
      * 记录本页 contentId、TTL 24 小时、超 1000 条随机 pop 100（FIFO 近似）。
      */
-    private void saveExposedSet(Long userId, List<Content> pageContents) {
+    private void saveExposedSet(Long userId, List<ContentSnapshotVO> pageContents) {
         String exposedKey = RedisConstants.RECOMMEND_EXPOSED_KEY_PREFIX + userId;
         String[] contentIds = pageContents.stream()
                 .map(content -> content.getContentId().toString())

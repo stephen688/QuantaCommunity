@@ -1,9 +1,9 @@
 package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.interaction.entity.BrowseHistory;
-import com.quanta.demo0.interaction.mapper.BrowseHistoryMapper;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.interaction.service.BrowseHistoryService;
+import com.quanta.demo0.interaction.vo.BrowseHistorySnapshotVO;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
 import com.quanta.demo0.platform.redis.utils.RedisTaskLockAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,9 +50,9 @@ class BrowseBehaviorSyncTaskTest {
     private static final String LOCK_KEY = RedisConstants.USER_PROFILE_SYNC_LOCK_KEY;
 
     @Mock
-    private BrowseHistoryMapper browseHistoryMapper;
+    private BrowseHistoryService browseHistoryService;
     @Mock
-    private OutboxEventService outboxEventService;
+    private FeedEventProducer feedEventProducer;
     @Mock
     private RedisTaskLockAdapter taskLockAdapter;
     @Mock
@@ -67,11 +67,11 @@ class BrowseBehaviorSyncTaskTest {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         // 默认抢锁成功；个别用例单独覆盖失败分支
         when(taskLockAdapter.tryLock(eq(LOCK_KEY), anyLong(), anyString())).thenReturn(true);
-        task = new BrowseBehaviorSyncTask(browseHistoryMapper, outboxEventService, taskLockAdapter, stringRedisTemplate);
+        task = new BrowseBehaviorSyncTask(browseHistoryService, feedEventProducer, taskLockAdapter, stringRedisTemplate);
     }
 
-    private BrowseHistory row(Long id, Long userId, Long contentId, LocalDate browseDate) {
-        return BrowseHistory.builder()
+    private BrowseHistorySnapshotVO row(Long id, Long userId, Long contentId, LocalDate browseDate) {
+        return BrowseHistorySnapshotVO.builder()
                 .id(id)
                 .userId(userId)
                 .contentId(contentId)
@@ -83,7 +83,7 @@ class BrowseBehaviorSyncTaskTest {
     @Test
     void 正常流_watermark零起步_三行三事件_watermark推进到最大id() {
         when(valueOperations.get(WATERMARK_KEY)).thenReturn(null);
-        when(browseHistoryMapper.selectIncrementalFirstViews(0L, 500)).thenReturn(List.of(
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(0L, 500)).thenReturn(List.of(
                 row(1L, 3L, 10L, LocalDate.of(2026, 9, 23)),
                 row(2L, 4L, 20L, LocalDate.of(2026, 9, 23)),
                 row(3L, 5L, 30L, LocalDate.of(2026, 9, 22))
@@ -92,9 +92,9 @@ class BrowseBehaviorSyncTaskTest {
         task.syncBrowseHistory();
 
         // 三个 VIEW 事件，eventId 必须是稳定格式 user.behavior.browse:{browseHistoryId}
-        verify(outboxEventService).createUserBehaviorEvent(3L, 10L, "VIEW", "user.behavior.browse:1");
-        verify(outboxEventService).createUserBehaviorEvent(4L, 20L, "VIEW", "user.behavior.browse:2");
-        verify(outboxEventService).createUserBehaviorEvent(5L, 30L, "VIEW", "user.behavior.browse:3");
+        verify(feedEventProducer).createUserBehaviorEvent(3L, 10L, "VIEW", "user.behavior.browse:1");
+        verify(feedEventProducer).createUserBehaviorEvent(4L, 20L, "VIEW", "user.behavior.browse:2");
+        verify(feedEventProducer).createUserBehaviorEvent(5L, 30L, "VIEW", "user.behavior.browse:3");
         // 全批发送成功后 watermark 推进到本批最大 id
         verify(valueOperations).set(WATERMARK_KEY, "3");
         // 任务结束释放锁
@@ -106,7 +106,7 @@ class BrowseBehaviorSyncTaskTest {
         // 真实唯一键 (user_id, content_id, browse_date)：u3/c10 跨三天三行 + u4/c20 一行；
         // NOT EXISTS 过滤后 Mapper 只返回首看行，任务只按返回行转发
         when(valueOperations.get(WATERMARK_KEY)).thenReturn(null);
-        when(browseHistoryMapper.selectIncrementalFirstViews(0L, 500)).thenReturn(List.of(
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(0L, 500)).thenReturn(List.of(
                 row(1L, 3L, 10L, LocalDate.of(2026, 9, 21)),
                 row(4L, 4L, 20L, LocalDate.of(2026, 9, 23))
         ));
@@ -114,23 +114,23 @@ class BrowseBehaviorSyncTaskTest {
         task.syncBrowseHistory();
 
         // (3,10) 只发一次（id=1 首看行），(4,20) 一次
-        verify(outboxEventService, times(1)).createUserBehaviorEvent(eq(3L), eq(10L), eq("VIEW"), anyString());
-        verify(outboxEventService, times(1)).createUserBehaviorEvent(eq(4L), eq(20L), eq("VIEW"), anyString());
-        verify(outboxEventService, times(1)).createUserBehaviorEvent(3L, 10L, "VIEW", "user.behavior.browse:1");
+        verify(feedEventProducer, times(1)).createUserBehaviorEvent(eq(3L), eq(10L), eq("VIEW"), anyString());
+        verify(feedEventProducer, times(1)).createUserBehaviorEvent(eq(4L), eq(20L), eq("VIEW"), anyString());
+        verify(feedEventProducer, times(1)).createUserBehaviorEvent(3L, 10L, "VIEW", "user.behavior.browse:1");
         verify(valueOperations).set(WATERMARK_KEY, "4");
     }
 
     @Test
     void 中途发送异常_watermark不推进_锁仍释放() {
         when(valueOperations.get(WATERMARK_KEY)).thenReturn(null);
-        when(browseHistoryMapper.selectIncrementalFirstViews(0L, 500)).thenReturn(List.of(
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(0L, 500)).thenReturn(List.of(
                 row(1L, 3L, 10L, LocalDate.of(2026, 9, 23)),
                 row(2L, 4L, 20L, LocalDate.of(2026, 9, 23)),
                 row(3L, 5L, 30L, LocalDate.of(2026, 9, 23))
         ));
-        when(outboxEventService.createUserBehaviorEvent(eq(3L), eq(10L), eq("VIEW"), anyString()))
+        when(feedEventProducer.createUserBehaviorEvent(eq(3L), eq(10L), eq("VIEW"), anyString()))
                 .thenReturn("evt-1");
-        when(outboxEventService.createUserBehaviorEvent(eq(4L), eq(20L), eq("VIEW"), anyString()))
+        when(feedEventProducer.createUserBehaviorEvent(eq(4L), eq(20L), eq("VIEW"), anyString()))
                 .thenThrow(new RuntimeException("outbox insert failed"));
 
         // 异常向上抛（Spring 调度记录），watermark 保持旧值，下轮重扫重叠区间
@@ -144,11 +144,11 @@ class BrowseBehaviorSyncTaskTest {
     @Test
     void 无增量_零事件_watermark不动() {
         when(valueOperations.get(WATERMARK_KEY)).thenReturn("7");
-        when(browseHistoryMapper.selectIncrementalFirstViews(7L, 500)).thenReturn(List.of());
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(7L, 500)).thenReturn(List.of());
 
         task.syncBrowseHistory();
 
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any(), any());
         verify(valueOperations, never()).set(eq(WATERMARK_KEY), anyString());
         verify(taskLockAdapter).unlock(LOCK_KEY);
     }
@@ -159,7 +159,7 @@ class BrowseBehaviorSyncTaskTest {
 
         task.syncBrowseHistory();
 
-        verifyNoInteractions(browseHistoryMapper, outboxEventService);
+        verifyNoInteractions(browseHistoryService, feedEventProducer);
         verify(stringRedisTemplate, never()).opsForValue();
         verify(taskLockAdapter, never()).unlock(LOCK_KEY);
     }
@@ -168,21 +168,21 @@ class BrowseBehaviorSyncTaskTest {
     void 多批循环_五行批大小二_三批全处理() {
         ReflectionTestUtils.setField(task, "batchSize", 2);
         when(valueOperations.get(WATERMARK_KEY)).thenReturn(null);
-        when(browseHistoryMapper.selectIncrementalFirstViews(0L, 2)).thenReturn(List.of(
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(0L, 2)).thenReturn(List.of(
                 row(1L, 3L, 10L, LocalDate.of(2026, 9, 23)),
                 row(2L, 4L, 20L, LocalDate.of(2026, 9, 23))
         ));
-        when(browseHistoryMapper.selectIncrementalFirstViews(2L, 2)).thenReturn(List.of(
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(2L, 2)).thenReturn(List.of(
                 row(3L, 5L, 30L, LocalDate.of(2026, 9, 23)),
                 row(4L, 6L, 40L, LocalDate.of(2026, 9, 23))
         ));
-        when(browseHistoryMapper.selectIncrementalFirstViews(4L, 2)).thenReturn(List.of(
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(4L, 2)).thenReturn(List.of(
                 row(5L, 7L, 50L, LocalDate.of(2026, 9, 23))
         ));
 
         task.syncBrowseHistory();
 
-        verify(outboxEventService, times(5)).createUserBehaviorEvent(any(), any(), eq("VIEW"), anyString());
+        verify(feedEventProducer, times(5)).createUserBehaviorEvent(any(), any(), eq("VIEW"), anyString());
         // watermark 逐批推进：2 → 4 → 5
         InOrder inOrder = inOrder(valueOperations);
         inOrder.verify(valueOperations).set(WATERMARK_KEY, "2");
@@ -193,25 +193,25 @@ class BrowseBehaviorSyncTaskTest {
     @Test
     void watermark非零起点_从watermark之后扫描() {
         when(valueOperations.get(WATERMARK_KEY)).thenReturn("10");
-        when(browseHistoryMapper.selectIncrementalFirstViews(10L, 500)).thenReturn(List.of(
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(10L, 500)).thenReturn(List.of(
                 row(11L, 3L, 10L, LocalDate.of(2026, 9, 23))
         ));
 
         task.syncBrowseHistory();
 
-        verify(browseHistoryMapper).selectIncrementalFirstViews(10L, 500);
-        verify(outboxEventService).createUserBehaviorEvent(3L, 10L, "VIEW", "user.behavior.browse:11");
+        verify(browseHistoryService).getIncrementalFirstViewSnapshots(10L, 500);
+        verify(feedEventProducer).createUserBehaviorEvent(3L, 10L, "VIEW", "user.behavior.browse:11");
         verify(valueOperations).set(WATERMARK_KEY, "11");
     }
 
     @Test
     void watermark脏数据_按零起步防御不抛异常() {
         when(valueOperations.get(WATERMARK_KEY)).thenReturn("not-a-number");
-        when(browseHistoryMapper.selectIncrementalFirstViews(0L, 500)).thenReturn(List.of());
+        when(browseHistoryService.getIncrementalFirstViewSnapshots(0L, 500)).thenReturn(List.of());
 
         // 辅助值脏数据不能让任务永久停摆：按 0 重扫，重复事件由 Inbox 幂等消化
         assertDoesNotThrow(() -> task.syncBrowseHistory());
 
-        verify(browseHistoryMapper).selectIncrementalFirstViews(0L, 500);
+        verify(browseHistoryService).getIncrementalFirstViewSnapshots(0L, 500);
     }
 }

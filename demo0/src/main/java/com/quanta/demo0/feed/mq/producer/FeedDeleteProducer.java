@@ -1,7 +1,7 @@
 package com.quanta.demo0.feed.mq.producer;
 
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.feed.mq.message.FeedDeleteMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +20,8 @@ public class FeedDeleteProducer {
         public boolean sendRetryTask(FeedDeleteMessage message) {
             try {
                 if (!reliableRabbitPublisher.send(
-                        RabbitMQConfig.FEED_DELETE_RETRY_EXCHANGE,
-                        RabbitMQConfig.FEED_DELETE_RETRY_ROUTING_KEY,
+                        FeedMQConfig.FEED_DELETE_RETRY_EXCHANGE,
+                        FeedMQConfig.FEED_DELETE_RETRY_ROUTING_KEY,
                         message,
                         message.getEventId())) {
                     return false;
@@ -37,8 +37,8 @@ public class FeedDeleteProducer {
         public boolean sendDeadTask(FeedDeleteMessage message) {
             try {
                 if (!reliableRabbitPublisher.send(
-                        RabbitMQConfig.FEED_DELETE_DLX_EXCHANGE,
-                        RabbitMQConfig.FEED_DELETE_DLX_ROUTING_KEY,
+                        FeedMQConfig.FEED_DELETE_DLX_EXCHANGE,
+                        FeedMQConfig.FEED_DELETE_DLX_ROUTING_KEY,
                         message,
                         message.getEventId())) {
                     return false;

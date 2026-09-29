@@ -2,14 +2,20 @@ package com.quanta.demo0.content.service.impl;
 
 import com.quanta.demo0.content.dto.ContentAuditDTO;
 import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.content.mapper.ContentMapper;
+import com.quanta.demo0.interaction.service.ContentInteractionService;
+import com.quanta.demo0.answer.service.AnswerCommandService;
+import com.quanta.demo0.answer.service.AnswerCounterService;
+import com.quanta.demo0.comment.service.CommentCommandService;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.feed.service.ContentExposureService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -33,13 +39,23 @@ class AdminContentServiceImplTrendingCacheTest {
     @Mock
     private ContentMapper contentMapper;
     @Mock
+    private ContentInteractionService contentInteractionService;
+    @Mock
     private ContentVectorSyncService contentVectorSyncService;
     @Mock
     private StringRedisTemplate stringRedisTemplate;
     @Mock
-    private QuestionMapper questionMapper;
+    private AnswerCounterService answerCounterService;
     @Mock
-    private OutboxEventService outboxEventService;
+    private AnswerCommandService answerCommandService;
+    @Mock
+    private CommentCommandService commentCommandService;
+    @Mock
+    private ContentEventProducer contentEventProducer;
+    @Mock
+    private SearchEventProducer searchEventProducer;
+    @Mock
+    private NotificationEventProducer notificationEventProducer;
     @Mock
     private ContentExposureService contentExposureService;
     @Mock
@@ -63,8 +79,8 @@ class AdminContentServiceImplTrendingCacheTest {
                 .build());
 
         if (newStatus == 1) {
-            verify(contentExposureService).exposeApprovedContent(any(Content.class));
-            verify(outboxEventService).createContentTopicTagEvent(7L);
+            verify(contentExposureService).exposeApprovedContent(any(ContentSnapshotVO.class));
+            verify(contentEventProducer).createContentTopicTagEvent(7L);
         } else {
             verify(contentExposureService).hideRejectedContent(7L);
         }
@@ -81,7 +97,7 @@ class AdminContentServiceImplTrendingCacheTest {
                 .build());
 
         verify(trendingCacheInvalidator, never()).evictAfterCommit(any());
-        verify(outboxEventService, never()).createContentTopicTagEvent(any());
+        verify(contentEventProducer, never()).createContentTopicTagEvent(any());
     }
 
     @Test

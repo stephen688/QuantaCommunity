@@ -9,8 +9,8 @@ import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.interaction.service.ContentInteractionService;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
-import com.quanta.demo0.follow.mapper.FollowMapper;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.follow.service.FollowQueryService;
+import com.quanta.demo0.user.mapper.UserMapper;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.user.service.impl.AuthorProfileCacheImpl;
@@ -57,7 +57,7 @@ class FollowFeedServiceImplAuthorCacheTest {
         contentQueryService = mock(ContentQueryService.class);
         contentInteractionService = mock(ContentInteractionService.class);
         userMapper = mock(UserMapper.class);
-        FollowMapper followMapper = mock(FollowMapper.class);
+        FollowQueryService followQueryService = mock(FollowQueryService.class);
 
         when(redisTemplate.opsForZSet().zCard(FEED_ALL_KEY + VIEWER_ID)).thenReturn(1L);
         when(redisTemplate.opsForZSet().reverseRangeByScoreWithScores(
@@ -68,7 +68,7 @@ class FollowFeedServiceImplAuthorCacheTest {
         when(contentInteractionService.isContentCollected(anyLong(), eq(VIEWER_ID))).thenReturn(false);
 
         service = new FollowFeedServiceImpl();
-        ReflectionTestUtils.setField(service, "followMapper", followMapper);
+        ReflectionTestUtils.setField(service, "followQueryService", followQueryService);
         ReflectionTestUtils.setField(service, "stringRedisTemplate", redisTemplate);
         ReflectionTestUtils.setField(service, "contentQueryService", contentQueryService);
         ReflectionTestUtils.setField(service, "contentInteractionService", contentInteractionService);

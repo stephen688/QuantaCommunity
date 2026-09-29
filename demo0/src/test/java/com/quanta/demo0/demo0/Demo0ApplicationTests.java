@@ -5,7 +5,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.quanta.demo0.feed.config.RecommendFeedInitializer;
-import com.quanta.demo0.es.initializer.ElasticsearchIndexInitializer;
+import com.quanta.demo0.search.es.initializer.ElasticsearchIndexInitializer;
 import com.quanta.demo0.rag.vector.VectorStoreInitializer;
 
 @SpringBootTest(properties = {

@@ -1,7 +1,7 @@
 package com.quanta.demo0.notification.mq.producer;
 
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.notification.config.NotificationMQConfig;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,8 +24,8 @@ public class NotificationProducer {
     public boolean sendRetryTask(NotificationEventMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.NOTIFICATION_RETRY_EXCHANGE,
-                    RabbitMQConfig.NOTIFICATION_RETRY_ROUTING_KEY,
+                    NotificationMQConfig.NOTIFICATION_RETRY_EXCHANGE,
+                    NotificationMQConfig.NOTIFICATION_RETRY_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;
@@ -44,8 +44,8 @@ public class NotificationProducer {
     public boolean sendDeadTask(NotificationEventMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.NOTIFICATION_DLX_EXCHANGE,
-                    RabbitMQConfig.NOTIFICATION_DLX_ROUTING_KEY,
+                    NotificationMQConfig.NOTIFICATION_DLX_EXCHANGE,
+                    NotificationMQConfig.NOTIFICATION_DLX_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;

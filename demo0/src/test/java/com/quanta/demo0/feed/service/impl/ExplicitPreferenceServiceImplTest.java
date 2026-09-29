@@ -6,7 +6,7 @@ import com.quanta.demo0.feed.entity.UserProfileSignal;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.feed.mapper.UserProfileSignalMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -20,9 +20,9 @@ import static org.mockito.Mockito.*;
 /** 显式偏好事实服务：拒绝未知标签、同事件重投不新增事实、冲突事件不得假成功。 */
 class ExplicitPreferenceServiceImplTest {
     private final UserProfileSignalMapper mapper = mock(UserProfileSignalMapper.class);
-    private final OutboxEventService outbox = mock(OutboxEventService.class);
+    private final FeedEventProducer feedEventProducer = mock(FeedEventProducer.class);
     private final ExplicitPreferenceServiceImpl service = new ExplicitPreferenceServiceImpl(
-            mapper, outbox, new ObjectMapper(), mock(StringRedisTemplate.class), new RecommendProperties());
+            mapper, feedEventProducer, new ObjectMapper(), mock(StringRedisTemplate.class), new RecommendProperties());
 
     @Test
     void duplicateEventReturnsIdempotentResultWithoutAnotherWrite() {
@@ -38,7 +38,7 @@ class ExplicitPreferenceServiceImplTest {
         when(mapper.findEvent(request.getEventId())).thenReturn(persisted);
         assertThat(service.accept(request)).isFalse();
         verify(mapper, times(1)).insert(any());
-        verify(outbox, times(1)).createProfileUpdatedEvent(123L, request.getEventId());
+        verify(feedEventProducer, times(1)).createProfileUpdatedEvent(123L, request.getEventId());
     }
 
     @Test
@@ -46,7 +46,7 @@ class ExplicitPreferenceServiceImplTest {
         BotProfileEventDTO request = event();
         request.setTopics(List.of("invented-interest"));
         assertThatThrownBy(() -> service.accept(request)).isInstanceOf(ContentFailedException.class);
-        verifyNoInteractions(mapper, outbox);
+        verifyNoInteractions(mapper, feedEventProducer);
     }
 
     @Test
@@ -57,7 +57,7 @@ class ExplicitPreferenceServiceImplTest {
                 .personaVersion("v1").revision(100L).operation("UPSERT")
                 .topics("[\"basketball\"]").valence("negative").build());
         assertThatThrownBy(() -> service.accept(request)).isInstanceOf(ContentFailedException.class);
-        verifyNoInteractions(outbox);
+        verifyNoInteractions(feedEventProducer);
     }
 
     @Test
@@ -65,7 +65,7 @@ class ExplicitPreferenceServiceImplTest {
         when(mapper.lockUser(123L)).thenReturn(1);
         assertThatThrownBy(() -> service.accept(event())).isInstanceOf(ContentFailedException.class);
         verify(mapper, never()).insert(any());
-        verifyNoInteractions(outbox);
+        verifyNoInteractions(feedEventProducer);
     }
 
     static BotProfileEventDTO event() {

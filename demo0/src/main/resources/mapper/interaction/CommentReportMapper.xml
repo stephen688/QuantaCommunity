@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.interaction.mapper.CommentReportMapper">
+    <update id="updateReport">
+        UPDATE tb_comment_report
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="handlerId != null">handler_id = #{handlerId},</if>
+            <if test="handleResult != null">handle_result = #{handleResult},</if>
+            <if test="handleRemark != null and handleRemark != ''">handle_remark = #{handleRemark},</if>
+            <if test="handleTime != null">handle_time = #{handleTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+    <select id="pageReport" resultType="com.quanta.demo0.interaction.entity.CommentReport">
+        SELECT * FROM tb_comment_report
+        <where>
+            is_deleted = 0
+            <if test="query.status != null">
+                AND status = #{query.status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+</mapper>

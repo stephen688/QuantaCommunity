@@ -9,7 +9,7 @@ import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.feed.mapper.UserProfileSignalMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.feed.service.ExplicitPreferenceService;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
 import com.quanta.demo0.feed.service.TopicCatalog;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -24,7 +24,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ExplicitPreferenceServiceImpl implements ExplicitPreferenceService {
     private final UserProfileSignalMapper mapper;
-    private final OutboxEventService outbox;
+    private final FeedEventProducer feedEventProducer;
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redis;
     private final RecommendProperties properties;
@@ -60,7 +60,7 @@ public class ExplicitPreferenceServiceImpl implements ExplicitPreferenceService 
         if (mapper.insert(signal) != 1) {
             throw new IllegalStateException("显式偏好事实写入失败");
         }
-        outbox.createProfileUpdatedEvent(signal.getUserId(), signal.getEventId());
+        feedEventProducer.createProfileUpdatedEvent(signal.getUserId(), signal.getEventId());
         return true;
     }
 

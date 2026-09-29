@@ -2,9 +2,9 @@ package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.utils.RedisTaskLockAdapter;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.interaction.entity.BrowseHistory;
-import com.quanta.demo0.interaction.mapper.BrowseHistoryMapper;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.interaction.service.BrowseHistoryService;
+import com.quanta.demo0.interaction.vo.BrowseHistorySnapshotVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,8 +42,8 @@ public class BrowseBehaviorSyncTask {
     /** 实例标识：写入锁 value，排查当前持有任务的实例 */
     private final String instanceId = "browse-sync-" + UUID.randomUUID();
 
-    private final BrowseHistoryMapper browseHistoryMapper;
-    private final OutboxEventService outboxEventService;
+    private final BrowseHistoryService browseHistoryService;
+    private final FeedEventProducer feedEventProducer;
     private final RedisTaskLockAdapter taskLockAdapter;
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -72,16 +72,16 @@ public class BrowseBehaviorSyncTask {
 
         for (int round = 0; round < MAX_BATCH_ROUNDS; round++) {
             // D11：SQL 用 NOT EXISTS 只取每对 (userId, contentId) 的首看行，封死"刷详情页刷画像"
-            List<BrowseHistory> batch =
-                    browseHistoryMapper.selectIncrementalFirstViews(watermarkId, batchSize);
+            List<BrowseHistorySnapshotVO> batch =
+                    browseHistoryService.getIncrementalFirstViewSnapshots(watermarkId, batchSize);
             if (batch.isEmpty()) {
                 break;
             }
 
             long batchMaxId = watermarkId;
-            for (BrowseHistory row : batch) {
+            for (BrowseHistorySnapshotVO row : batch) {
                 // 稳定 eventId：watermark 未推进重扫时，同一行重复转发被 Inbox 幂等挡住
-                outboxEventService.createUserBehaviorEvent(
+                feedEventProducer.createUserBehaviorEvent(
                         row.getUserId(),
                         row.getContentId(),
                         "VIEW",

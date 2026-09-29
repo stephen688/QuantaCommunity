@@ -1,8 +1,9 @@
 package com.quanta.demo0.interaction.service.impl;
 
-import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.service.CommentCounterService;
+import com.quanta.demo0.comment.vo.CommentSnapshotVO;
 import com.quanta.demo0.interaction.mapper.CommentInteractionMapper;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -20,16 +21,13 @@ import static org.mockito.Mockito.when;
 class CommentInteractionServiceImplCounterTest {
 
     @Mock
-    private com.quanta.demo0.mapper.CommentMapper commentMapper;
-
-    @Mock
     private CommentInteractionMapper commentInteractionMapper;
 
     @Mock
     private CommentCounterService commentCounterService;
 
     @Mock
-    private com.quanta.demo0.platform.mq.service.OutboxEventService outboxEventService;
+    private NotificationEventProducer notificationEventProducer;
 
     @Mock
     private StringRedisTemplate stringRedisTemplate;
@@ -45,13 +43,13 @@ class CommentInteractionServiceImplCounterTest {
     @Test
     void likeComment_updatesLikeCountThroughCounterService() {
         BaseContext.setCurrentId(3L);
-        ContentComment comment = ContentComment.builder()
+        CommentSnapshotVO comment = CommentSnapshotVO.builder()
                 .commentId(10L)
                 .contentId(20L)
                 .userId(99L)
                 .likeCount(0)
                 .build();
-        when(commentMapper.selectById(10L)).thenReturn(comment);
+        when(commentCounterService.getCommentSnapshot(10L)).thenReturn(comment);
         when(commentInteractionMapper.insertCommentLikes(10L, 3L)).thenReturn(1);
         when(commentCounterService.changeCommentLikeCount(10L, 1)).thenReturn(1);
 

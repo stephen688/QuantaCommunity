@@ -6,7 +6,9 @@ import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.interaction.entity.ContentLiked;
 import com.quanta.demo0.interaction.entity.ContentCollect;
 import com.quanta.demo0.interaction.mapper.ContentInteractionMapper;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +37,11 @@ class ContentInteractionServiceImplTest {
     @Mock
     private ContentCounterService contentCounterService;
     @Mock
-    private OutboxEventService outboxEventService;
+    private FeedEventProducer feedEventProducer;
+    @Mock
+    private NotificationEventProducer notificationEventProducer;
+    @Mock
+    private SearchEventProducer searchEventProducer;
     @Mock
     private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
@@ -63,7 +69,7 @@ class ContentInteractionServiceImplTest {
         InOrder inOrder = inOrder(contentInteractionMapper, contentCounterService);
         inOrder.verify(contentInteractionMapper).insertContentLiked(any(ContentLiked.class));
         inOrder.verify(contentCounterService).changeLikedCount(CONTENT_ID, 1);
-        verify(outboxEventService).createUserBehaviorEvent(USER_ID, CONTENT_ID, "LIKE");
+        verify(feedEventProducer).createUserBehaviorEvent(USER_ID, CONTENT_ID, "LIKE");
     }
 
     @Test
@@ -75,7 +81,7 @@ class ContentInteractionServiceImplTest {
         service.likeContent(CONTENT_ID, false);
 
         verify(contentCounterService).changeLikedCount(CONTENT_ID, -1);
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 
     @Test
@@ -86,7 +92,7 @@ class ContentInteractionServiceImplTest {
         service.likeContent(CONTENT_ID, true);
 
         verify(contentCounterService, never()).changeLikedCount(any(), any(Integer.class));
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 
     @Test
@@ -97,7 +103,7 @@ class ContentInteractionServiceImplTest {
 
         service.likeContent(CONTENT_ID, true);
 
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 
     @Test
@@ -111,7 +117,7 @@ class ContentInteractionServiceImplTest {
         InOrder inOrder = inOrder(contentInteractionMapper, contentCounterService);
         inOrder.verify(contentInteractionMapper).insertCollect(any(ContentCollect.class));
         inOrder.verify(contentCounterService).changeCollectCount(CONTENT_ID, 1);
-        verify(outboxEventService).createUserBehaviorEvent(USER_ID, CONTENT_ID, "COLLECT");
+        verify(feedEventProducer).createUserBehaviorEvent(USER_ID, CONTENT_ID, "COLLECT");
     }
 
     @Test
@@ -122,7 +128,7 @@ class ContentInteractionServiceImplTest {
 
         service.collect(CONTENT_ID, false);
 
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 
     @Test
@@ -133,7 +139,7 @@ class ContentInteractionServiceImplTest {
         service.collect(CONTENT_ID, true);
 
         verify(contentCounterService, never()).changeCollectCount(any(), any(Integer.class));
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 
     private ContentSnapshotVO snapshot(long publishUserId) {

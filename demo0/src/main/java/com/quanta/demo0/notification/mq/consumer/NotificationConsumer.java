@@ -1,7 +1,7 @@
 package com.quanta.demo0.notification.mq.consumer;
 
 import com.alibaba.fastjson.JSON;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.notification.config.NotificationMQConfig;
 import com.quanta.demo0.notification.entity.Notification;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.notification.enums.NotificationType;
@@ -56,7 +56,7 @@ class NotificationConsumer {
 
 
 
-    @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
+    @RabbitListener(queues = NotificationMQConfig.NOTIFICATION_QUEUE)
     public void handleNotificationMessage(NotificationEventMessage message, Message mqMessage, Channel channel) {
         long deliveryTag = mqMessage.getMessageProperties().getDeliveryTag();
 

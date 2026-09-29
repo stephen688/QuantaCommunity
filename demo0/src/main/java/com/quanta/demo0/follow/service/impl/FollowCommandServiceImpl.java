@@ -8,7 +8,7 @@ import com.quanta.demo0.follow.vo.FollowResultVO;
 import com.quanta.demo0.feed.service.FollowFeedService;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +39,7 @@ public class FollowCommandServiceImpl implements FollowCommandService {
     @Autowired
     private FollowFeedService followFeedService;
     @Autowired
-    private OutboxEventService outboxEventService;
+    private NotificationEventProducer notificationEventProducer;
 
     @Transactional
     @Override
@@ -100,7 +100,7 @@ public class FollowCommandServiceImpl implements FollowCommandService {
                     .content("关注了你")
                     .payload(Map.of())
                     .build();
-            outboxEventService.createNotificationEvent(followNotification, USER_AGGREGATE_TYPE, followUserId);
+            notificationEventProducer.createNotificationEvent(followNotification, USER_AGGREGATE_TYPE, followUserId);
         }
 
         if (changed && TransactionSynchronizationManager.isActualTransactionActive()) {

@@ -1,4 +1,5 @@
 package com.quanta.demo0.search.service.impl;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 
 import com.quanta.demo0.search.service.TrendingCacheService;
 import org.junit.jupiter.api.AfterEach;
@@ -22,7 +23,7 @@ class TrendingCacheInvalidatorTest {
     @BeforeEach
     void setUp() {
         trendingCacheService = mock(TrendingCacheService.class);
-        invalidator = new TrendingCacheInvalidator(trendingCacheService);
+        invalidator = new TrendingCacheInvalidatorImpl(trendingCacheService);
     }
 
     @AfterEach

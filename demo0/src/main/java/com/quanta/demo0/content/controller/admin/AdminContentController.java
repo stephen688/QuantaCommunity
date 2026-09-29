@@ -10,6 +10,7 @@ import com.quanta.demo0.interaction.dto.ContentReportQueryDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.content.service.AdminContentService;
+import com.quanta.demo0.interaction.service.ReportGovernanceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +27,8 @@ public class AdminContentController {
 
     @Autowired
     private AdminContentService adminContentService;
+    @Autowired
+    private ReportGovernanceService reportGovernanceService;
 
     /**
      * 分页查询内容列表
@@ -131,7 +134,7 @@ public class AdminContentController {
     @GetMapping("/report/page")
     public Result<PageResult> pageReport(ContentReportQueryDTO query) {
         log.info("管理端分页查询帖子举报，查询条件：{}", query);
-        PageResult pageResult = adminContentService.pageReport(query);
+        PageResult pageResult = reportGovernanceService.pageReport(query);
         return Result.success(pageResult);
     }
 
@@ -164,7 +167,7 @@ public class AdminContentController {
     @PostMapping("/report/handle")
     public Result handleReport(@RequestBody ContentReportHandleDTO handleDTO) {
         log.info("管理端处理帖子举报，处理信息：{}", handleDTO);
-        adminContentService.handleReport(handleDTO);
+        reportGovernanceService.handleReport(handleDTO);
         return Result.success();
     }
 }

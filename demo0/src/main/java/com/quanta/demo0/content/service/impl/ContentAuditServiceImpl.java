@@ -1,16 +1,19 @@
 package com.quanta.demo0.content.service.impl;
 
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.notification.enums.NotificationType;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.content.service.ContentAuditService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.feed.service.ContentExposureService;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,7 +43,9 @@ public class ContentAuditServiceImpl implements ContentAuditService {
 
     private final ContentExposureService contentExposureService;
 
-    private final OutboxEventService outboxEventService;
+    private final ContentEventProducer contentEventProducer;
+    private final SearchEventProducer searchEventProducer;
+    private final NotificationEventProducer notificationEventProducer;
 
     private final TrendingCacheInvalidator trendingCacheInvalidator;
 
@@ -90,16 +95,16 @@ public class ContentAuditServiceImpl implements ContentAuditService {
         content.setAuditStatus(AuditStatus.APPROVED.getCode());
 
         // 审核通过与主题标签 Outbox 同事务；模型处理在独立消费者中异步执行，不阻塞审核。
-        outboxEventService.createContentTopicTagEvent(contentId);
+        contentEventProducer.createContentTopicTagEvent(contentId);
 
         // 审核状态和 Feed Outbox 在同一个事务中提交。
-        outboxEventService.createFeedUpsertEvent(content);
+        contentEventProducer.createFeedUpsertEvent(content);
 
         // 审核状态和 ES 校准 Outbox 在同一个事务中提交。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, "AUDIT_APPROVED");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, "AUDIT_APPROVED");
 
         // 4. 写入推荐池
-        contentExposureService.exposeApprovedContent(content);
+        contentExposureService.exposeApprovedContent(toSnapshot(content));
 
         // 5. 在当前事务中创建通知 Outbox
         createAuditNotificationEvent(content, AuditStatus.APPROVED.getCode(), null);
@@ -142,7 +147,7 @@ public class ContentAuditServiceImpl implements ContentAuditService {
         }
 
         // 即使 ES 中原本没有文档，也用统一校准事件保证最终状态为删除。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, "AUDIT_REJECTED");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, "AUDIT_REJECTED");
 
         // 4. 在当前事务中创建通知 Outbox
         createAuditNotificationEvent(content, AuditStatus.REJECTED.getCode(), rejectReason);
@@ -198,10 +203,28 @@ public class ContentAuditServiceImpl implements ContentAuditService {
                         )
                         .build();
 
-        outboxEventService.createNotificationEvent(
+        notificationEventProducer.createNotificationEvent(
                 message,
                 ModerationTargetType.CONTENT.name(),
                 content.getContentId()
         );
+    }
+
+    private ContentSnapshotVO toSnapshot(Content content) {
+        return ContentSnapshotVO.builder()
+                .contentId(content.getContentId())
+                .contentType(content.getContentType())
+                .title(content.getTitle())
+                .content(content.getContent())
+                .tags(content.getTags())
+                .publishUserId(content.getPublishUserId())
+                .auditStatus(content.getAuditStatus())
+                .isDeleted(content.getIsDeleted())
+                .createTime(content.getCreateTime())
+                .updateTime(content.getUpdateTime())
+                .likedCount(content.getLiked())
+                .commentCount(content.getCommentCount())
+                .collectCount(content.getCollectCount())
+                .build();
     }
 }

@@ -6,20 +6,22 @@ import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
 import com.quanta.demo0.identity.dto.IdentityAuditDTO;
 import com.quanta.demo0.identity.dto.IdentityExamDTO;
-import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.identity.enums.UserAuthDisplayStatus;
 import com.quanta.demo0.platform.security.exception.AuthFailedException;
 import com.quanta.demo0.identity.mapper.IdentityExamMapper;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.identity.mapper.IdentityMapper;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.platform.common.result.PageResult;
+import com.quanta.demo0.user.service.UserAccountService;
+import com.quanta.demo0.user.service.UserQueryService;
+import com.quanta.demo0.user.vo.UserAccountVO;
 import com.quanta.demo0.user.service.UserReadCacheInvalidator;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.identity.service.IdentityExamService;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import com.quanta.demo0.identity.vo.IdentityDetailVO;
 import com.quanta.demo0.identity.vo.IdentityExamVO;
 import lombok.extern.slf4j.Slf4j;
@@ -50,9 +52,13 @@ public class IdentityExamServiceImpl implements IdentityExamService {
     @Autowired
     private IdentityExamMapper identityExamMapper;
     @Autowired
-    private UserMapper userMapper;
+    private IdentityMapper identityMapper;
     @Autowired
-    private OutboxEventService outboxEventService;
+    private UserQueryService userQueryService;
+    @Autowired
+    private UserAccountService userAccountService;
+    @Autowired
+    private NotificationEventProducer notificationEventProducer;
 
     /**
      * 用户认证状态缓存失效器。
@@ -92,12 +98,15 @@ public class IdentityExamServiceImpl implements IdentityExamService {
 
             throw new AuthFailedException("authId不能为空");
         }
-        UserAuth auth = userMapper.getUserAuthByAuthId(authId);
+        UserAuth auth = identityMapper.getUserAuthByAuthId(authId);
         if (auth == null) {
             throw new AuthFailedException("用户身份认证信息不存在");
         }
         Long userId = auth.getUserId();
-        User user = userMapper.getById(userId);
+        UserAccountVO user = userQueryService.getAccount(userId);
+        if (user == null) {
+            throw new AuthFailedException("用户不存在");
+        }
         IdentityDetailVO identityDetailVO = IdentityDetailVO.builder()
                 .authId(auth.getAuthId())
                 .userId(userId)
@@ -125,28 +134,23 @@ public class IdentityExamServiceImpl implements IdentityExamService {
         if (identityAuditDTO.getAuthId() == null) {
             throw new AuthFailedException("authId不能为空");
         }
-        UserAuth auth = userMapper.getUserAuthByAuthId(identityAuditDTO.getAuthId());
+        UserAuth auth = identityMapper.getUserAuthByAuthId(identityAuditDTO.getAuthId());
         if (auth == null) {
             throw new AuthFailedException("用户身份认证信息不存在");
         }
-        User user=new User();
         //认证成功
         if (identityAuditDTO.getAuditResult() == AuditStatus.APPROVED.getCode()) {
-            user.setId(auth.getUserId());
             auth.setAuditTime(LocalDateTime.now());
             auth.setAuditStatus(AuditStatus.APPROVED.getCode());
-            userMapper.updateUserAuth(auth);
-            user.setAuthStatus(UserAuthDisplayStatus.VERIFIED.getCode());
-            userMapper.updateById(user);
+            identityMapper.updateUserAuth(auth);
+            userAccountService.updateAuthStatus(auth.getUserId(), UserAuthDisplayStatus.VERIFIED.getCode());
         } else if (identityAuditDTO.getAuditResult() == AuditStatus.REJECTED.getCode()) {
             //认证驳回
             auth.setAuditStatus(AuditStatus.REJECTED.getCode());
             auth.setAuditRemark(identityAuditDTO.getAuditRemark());
             auth.setAuditTime(LocalDateTime.now());
-            userMapper.updateUserAuth(auth);
-            user.setId(auth.getUserId());
-            user.setAuthStatus(UserAuthDisplayStatus.REJECTED.getCode());
-            userMapper.updateById(user);
+            identityMapper.updateUserAuth(auth);
+            userAccountService.updateAuthStatus(auth.getUserId(), UserAuthDisplayStatus.REJECTED.getCode());
 
         } else {
             throw new AuthFailedException("审核状态只能为" + AuditStatus.APPROVED.getCode() + " 或者 " + AuditStatus.REJECTED.getCode() + " 之间的");
@@ -168,7 +172,7 @@ public class IdentityExamServiceImpl implements IdentityExamService {
                 .build();
 
         // 认证表、用户展示状态和通知 Outbox 在同一个事务中提交。
-        outboxEventService.createNotificationEvent(identityNotification, USER_AUTH_AGGREGATE_TYPE, identityAuditDTO.getAuthId());
+        notificationEventProducer.createNotificationEvent(identityNotification, USER_AUTH_AGGREGATE_TYPE, identityAuditDTO.getAuthId());
 
         /*
          * 认证通过或驳回后，使旧的认证状态缓存失效。

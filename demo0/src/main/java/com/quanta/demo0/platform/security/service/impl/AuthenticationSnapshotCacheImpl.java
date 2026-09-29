@@ -4,15 +4,16 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.platform.security.constant.RolePermissionMapping;
-import com.quanta.demo0.user.entity.User;
-import com.quanta.demo0.identity.entity.UserAuth;
+import com.quanta.demo0.identity.service.IdentityQueryService;
+import com.quanta.demo0.identity.vo.UserAuthStatusVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.security.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.platform.security.service.AuthenticationSnapshotCache;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
+import com.quanta.demo0.user.service.UserQueryService;
+import com.quanta.demo0.user.vo.UserAccountVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -34,18 +35,21 @@ import java.util.Set;
 public class AuthenticationSnapshotCacheImpl
         implements AuthenticationSnapshotCache {
 
-    private final UserMapper userMapper;
+    private final UserQueryService userQueryService;
+    private final IdentityQueryService identityQueryService;
     private final UserRoleMapper userRoleMapper;
     private final QuantabotProperties quantabotProperties;
     private final Cache<AuthenticationCacheKey, AuthenticationSnapshot> cache;
 
     public AuthenticationSnapshotCacheImpl(
-            UserMapper userMapper,
+            UserQueryService userQueryService,
+            IdentityQueryService identityQueryService,
             UserRoleMapper userRoleMapper,
             QuantabotProperties quantabotProperties,
             ReadPathCacheProperties cacheProperties
     ) {
-        this.userMapper = userMapper;
+        this.userQueryService = userQueryService;
+        this.identityQueryService = identityQueryService;
         this.userRoleMapper = userRoleMapper;
         this.quantabotProperties = quantabotProperties;
 
@@ -78,12 +82,12 @@ public class AuthenticationSnapshotCacheImpl
     }
 
     private AuthenticationSnapshot load(Long userId, boolean serviceToken) {
-        User user = userMapper.getById(userId);
+        UserAccountVO user = userQueryService.getAccount(userId);
         if (user == null) {
             return null;
         }
 
-        UserAuth userAuth = userMapper.getUserAuthByUserId(userId);
+        UserAuthStatusVO userAuth = identityQueryService.getAuthStatus(userId);
         boolean verified = userAuth != null
                 && Objects.equals(
                 userAuth.getAuditStatus(),

@@ -1,7 +1,7 @@
 package com.quanta.demo0.feed.mq.producer;
 
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.feed.mq.message.UserBehaviorMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,8 +25,8 @@ public class UserBehaviorProducer {
     public boolean sendRetryTask(UserBehaviorMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.USER_BEHAVIOR_RETRY_EXCHANGE,
-                    RabbitMQConfig.USER_BEHAVIOR_RETRY_ROUTING_KEY,
+                    FeedMQConfig.USER_BEHAVIOR_RETRY_EXCHANGE,
+                    FeedMQConfig.USER_BEHAVIOR_RETRY_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;
@@ -45,8 +45,8 @@ public class UserBehaviorProducer {
     public boolean sendDeadTask(UserBehaviorMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.USER_BEHAVIOR_DLX_EXCHANGE,
-                    RabbitMQConfig.USER_BEHAVIOR_DLX_ROUTING_KEY,
+                    FeedMQConfig.USER_BEHAVIOR_DLX_EXCHANGE,
+                    FeedMQConfig.USER_BEHAVIOR_DLX_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;

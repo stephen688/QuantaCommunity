@@ -1,30 +1,33 @@
 package com.quanta.demo0.content.service.impl;
 
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
 import com.quanta.demo0.content.dto.ContentAdminQueryDTO;
 import com.quanta.demo0.content.dto.ContentAuditDTO;
-import com.quanta.demo0.interaction.dto.ContentReportHandleDTO;
-import com.quanta.demo0.interaction.dto.ContentReportQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.interaction.entity.ContentReport;
-import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.answer.vo.AnswerSnapshotVO;
+import com.quanta.demo0.answer.service.AnswerCounterService;
+import com.quanta.demo0.answer.service.AnswerCommandService;
+import com.quanta.demo0.comment.service.CommentCommandService;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.content.service.AdminContentService;
+import com.quanta.demo0.interaction.service.ContentInteractionService;
 import com.quanta.demo0.feed.service.ContentExposureService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -57,13 +60,23 @@ public class AdminContentServiceImpl  implements AdminContentService {
     @Autowired
     private ContentMapper contentMapper;
     @Autowired
+    private ContentInteractionService contentInteractionService;
+    @Autowired
     private ContentVectorSyncService contentVectorSyncService;
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
-    private QuestionMapper questionMapper;
+    private AnswerCounterService answerCounterService;
     @Autowired
-    private OutboxEventService outboxEventService;
+    private AnswerCommandService answerCommandService;
+    @Autowired
+    private CommentCommandService commentCommandService;
+    @Autowired
+    private ContentEventProducer contentEventProducer;
+    @Autowired
+    private SearchEventProducer searchEventProducer;
+    @Autowired
+    private NotificationEventProducer notificationEventProducer;
     @Autowired
     private ContentExposureService contentExposureService;
     @Autowired
@@ -152,17 +165,17 @@ public class AdminContentServiceImpl  implements AdminContentService {
 
             // 人工待审/驳回→通过也属于增量打标入口；仅可见内容，标签任务与审核同事务。
             if (auditDTO.getAuditResult() == 1 && Integer.valueOf(0).equals(content.getIsDeleted())) {
-                outboxEventService.createContentTopicTagEvent(auditDTO.getContentId());
+                contentEventProducer.createContentTopicTagEvent(auditDTO.getContentId());
             }
 
             // 帖子审核状态和 ES 校准事件在同一个事务中提交。
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), auditDTO.getContentId(), triggerType);
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), auditDTO.getContentId(), triggerType);
 
             // 专业区帖子状态变化时，其已通过回答也需要根据父帖当前状态重新校准。
             if (content.getContentType() != null && content.getContentType() == 2) {
-                List<QuestionAnswer> answers = questionMapper.selectAnswersByQuestionId(auditDTO.getContentId());
-                for (QuestionAnswer answer : answers) {
-                    outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_" + triggerType);
+                List<AnswerSnapshotVO> answers = answerCounterService.getAnswerSnapshotsByQuestionId(auditDTO.getContentId());
+                for (AnswerSnapshotVO answer : answers) {
+                    searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_" + triggerType);
                 }
             }
         }
@@ -171,18 +184,18 @@ public class AdminContentServiceImpl  implements AdminContentService {
         if (oldAuditStatus == 0 && auditDTO.getAuditResult() == 1) {
             content.setAuditStatus(auditDTO.getAuditResult());
             // 人工审核状态和 Feed UPSERT Outbox 在同一个事务中提交。
-            outboxEventService.createFeedUpsertEvent(content);
-            contentExposureService.exposeApprovedContent(content);
+            contentEventProducer.createFeedUpsertEvent(content);
+            contentExposureService.exposeApprovedContent(toSnapshot(content));
             log.info("审核通过（待审→通过），已执行曝光，contentId={}", auditDTO.getContentId());
         } else if (oldAuditStatus == 1 && auditDTO.getAuditResult() == 2) {
             // 已曝光帖子改为驳回时，可靠登记 Feed DELETE 事件。
-            outboxEventService.createFeedDeleteEvent(content);
+            contentEventProducer.createFeedDeleteEvent(content);
             contentExposureService.hideRejectedContent(auditDTO.getContentId());
             log.info("审核驳回（通过→驳回），已清理曝光，contentId={}", auditDTO.getContentId());
         } else if (oldAuditStatus == 2 && auditDTO.getAuditResult() == 1) {
             content.setAuditStatus(auditDTO.getAuditResult());
-            outboxEventService.createFeedUpsertEvent(content);
-            contentExposureService.exposeApprovedContent(content);
+            contentEventProducer.createFeedUpsertEvent(content);
+            contentExposureService.exposeApprovedContent(toSnapshot(content));
             log.info("审核通过（驳回→通过），已执行曝光，contentId={}", auditDTO.getContentId());
         }
 
@@ -206,7 +219,7 @@ public class AdminContentServiceImpl  implements AdminContentService {
                     ))
                     .build();
             // 帖子审核状态和审核结果通知 Outbox 在同一个事务中提交。
-            outboxEventService.createNotificationEvent(auditNotification, ModerationTargetType.CONTENT.name(), auditDTO.getContentId());
+            notificationEventProducer.createNotificationEvent(auditNotification, ModerationTargetType.CONTENT.name(), auditDTO.getContentId());
         }
 
     }
@@ -236,34 +249,25 @@ public class AdminContentServiceImpl  implements AdminContentService {
         // 4. 物理删除内容图片
         contentMapper.deleteContentImages(contentId);
         // 5. 物理删除内容点赞记录
-        contentMapper.deleteContentLikedByContentId(contentId);
-        // 补：删除收藏记录
-        contentMapper.deleteContentCollectByContentId(contentId);
-        // 6. 物理删除评论下面的图片
-        contentMapper.deleteContentCommentImages(contentId);
-        // 7. 物理删除评论下面的点赞记录
-        contentMapper.deleteContentCommentLiked(contentId);
-        // 8. 软删除评论
-        contentMapper.softDeleteContentComment(contentId);
+        contentInteractionService.deleteByContentId(contentId);
+        // 评论图片、点赞关联与软删除仍加入当前内容删除事务。
+        commentCommandService.deleteByContentId(contentId);
         // 删除前先记住已经进入 ES 的回答，软删除后由校准事件清理回答索引。
-        List<QuestionAnswer> answers = content.getContentType() != null && content.getContentType() == 2
-                ? questionMapper.selectAnswersByQuestionId(contentId)
+        List<Long> answerIds = content.getContentType() != null && content.getContentType() == 2
+                ? answerCommandService.deleteByQuestionId(contentId)
                 : List.of();
 
         // 9. 如果是专业区，删除专业区内容
-        if (content.getContentType() != null && content.getContentType() == 2) {
-            questionMapper.softDeleteAnswers(contentId);
-        }
         // 10. 软删除内容本身
         contentMapper.softDeleteContent(contentId);
 
         // 删除状态和 Feed DELETE Outbox 在同一个事务中提交。
-        outboxEventService.createFeedDeleteEvent(content);
+        contentEventProducer.createFeedDeleteEvent(content);
 
         // 帖子和关联回答删除状态与 ES 校准事件一起提交。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, "DELETE");
-        for (QuestionAnswer answer : answers) {
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_DELETE");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, "DELETE");
+        for (Long answerId : answerIds) {
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "PARENT_CONTENT_DELETE");
         }
 
         trendingCacheInvalidator.evictAfterCommit("admin-content-delete:" + contentId);
@@ -309,104 +313,21 @@ public class AdminContentServiceImpl  implements AdminContentService {
         }
     }
 
-    /**
-     * 分页查询帖子举报列表
-     * 执行流程：
-     * 1. PageHelper.startPage() 开启分页
-     * 2. 调用 Mapper 执行 SQL 查询
-     * 3. 封装为 PageResult 返回
-     *
-     * @param query 查询条件
-     * @return 分页结果
-     */
-    @Override
-    public PageResult pageReport(ContentReportQueryDTO query) {
-        PageHelper.startPage(query.getPageNum(), query.getPageSize());
-        Page<ContentReport> page = contentMapper.pageReport(query);
-        return new PageResult(page.getTotal(), page.getResult());
-    }
-
-    /**
-     * 处理帖子举报
-     * 执行流程：
-     * 1. 校验参数
-     * 2. 查询举报记录是否存在
-     * 3. 更新举报处理信息（状态、处理人、处理结果、备注、时间）
-     * 4. 如果处理结果包含删除帖子，调用删除方法
-     * @param handleDTO 处理信息
-     */
-    @Override
-    @Transactional
-    public void handleReport(ContentReportHandleDTO handleDTO) {
-        // 1. 校验参数
-        if (handleDTO.getReportId() == null) {
-            throw new ContentFailedException("举报记录 ID 不能为空");
-        }
-        if (handleDTO.getHandleResult() == null ||
-                handleDTO.getHandleResult() < 1 || handleDTO.getHandleResult() > 4) {
-            throw new ContentFailedException("处理结果不合法（1-删除帖子 2-警告用户 3-删除+警告 4-驳回举报）");
-        }
-
-        // 2. 查询举报记录是否存在
-        ContentReport report = contentMapper.getReportById(handleDTO.getReportId());
-        if (report == null) {
-            throw new ContentFailedException("举报记录不存在");
-        }
-
-        // 3. 更新举报处理信息
-        ContentReport updateReport = new ContentReport();
-        updateReport.setId(handleDTO.getReportId());
-        updateReport.setStatus(2); // 已处理
-        updateReport.setHandlerId(BaseContext.getCurrentId()); // 当前管理员 ID
-        updateReport.setHandleResult(handleDTO.getHandleResult());
-        updateReport.setHandleRemark(handleDTO.getHandleRemark());
-        updateReport.setHandleTime(LocalDateTime.now());
-        updateReport.setUpdateTime(LocalDateTime.now());
-        contentMapper.updateReport(updateReport);
-
-        // 4. 如果处理结果包含删除帖子（1 或 3），执行删除
-        if (handleDTO.getHandleResult() == 1 || handleDTO.getHandleResult() == 3) {
-            deleteContent(report.getContentId());
-            log.info("处理举报：已删除帖子，reportId={}, contentId={}", handleDTO.getReportId(), report.getContentId());
-        }
-
-        log.info("处理举报成功，reportId={}, handleResult={}", handleDTO.getReportId(), handleDTO.getHandleResult());
-
-
-        // ========== 新增：举报处理结果通知 ==========
-        String handleResultText = switch (handleDTO.getHandleResult()) {
-            case 1 -> "你举报的帖子已被删除";
-            case 2 -> "你举报的帖子已处理，已警告用户";
-            case 3 -> "你举报的帖子已处理，已删除并警告用户";
-            case 4 -> "你举报的帖子经核实无需处理";
-            default -> "你举报的帖子已处理";
-        };
-        if (handleDTO.getHandleRemark() != null && !handleDTO.getHandleRemark().isEmpty()) {
-            handleResultText += "，备注：" + handleDTO.getHandleRemark();
-        }
-
-        NotificationEventMessage reportNotification = NotificationEventMessage.builder()
-                .recipientUserId(report.getReporterId())
-                .actorUserId(null) // 系统通知
-                .type(NotificationType.CONTENT_REPORT_RESULT.getCode())
-                .content(handleResultText)
-                .payload(Map.of(
-                        "contentId", report.getContentId(),
-                        "reportId", handleDTO.getReportId(),
-                        "handleResult", handleDTO.getHandleResult()
-                ))
+    private ContentSnapshotVO toSnapshot(Content content) {
+        return ContentSnapshotVO.builder()
+                .contentId(content.getContentId())
+                .contentType(content.getContentType())
+                .title(content.getTitle())
+                .content(content.getContent())
+                .tags(content.getTags())
+                .publishUserId(content.getPublishUserId())
+                .auditStatus(content.getAuditStatus())
+                .isDeleted(content.getIsDeleted())
+                .createTime(content.getCreateTime())
+                .updateTime(content.getUpdateTime())
+                .likedCount(content.getLiked())
+                .commentCount(content.getCommentCount())
+                .collectCount(content.getCollectCount())
                 .build();
-        // 举报处理状态和结果通知 Outbox 在同一个事务中提交。
-        outboxEventService.createNotificationEvent(reportNotification, ModerationTargetType.CONTENT.name(), report.getContentId());
-
-        // 审计：举报处理成功
-        adminAuditRecorder.recordSuccess(
-                AdminAuditActionConstants.REPORT_HANDLE,
-                "REPORT",
-                String.valueOf(handleDTO.getReportId()),
-                "reportStatus=PENDING",
-                "reportStatus=HANDLED"
-        );
     }
 }
-

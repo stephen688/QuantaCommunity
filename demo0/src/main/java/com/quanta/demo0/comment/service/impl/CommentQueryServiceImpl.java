@@ -2,21 +2,24 @@ package com.quanta.demo0.comment.service.impl;
 
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.answer.service.AnswerQueryService;
+import com.quanta.demo0.answer.vo.AnswerSnapshotVO;
 import com.quanta.demo0.comment.dto.CommentPageDTO;
 import com.quanta.demo0.comment.dto.ReplyPageDTO;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.entity.ReplyCountRow;
 import com.quanta.demo0.comment.exception.CommentFailedException;
+import com.quanta.demo0.comment.service.CommentCounterService;
 import com.quanta.demo0.comment.service.CommentQueryService;
 import com.quanta.demo0.comment.vo.CommentPageVO;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.comment.vo.CommentSnapshotVO;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.interaction.service.CommentInteractionService;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
+import com.quanta.demo0.user.service.UserQueryService;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -45,10 +48,18 @@ public class CommentQueryServiceImpl implements CommentQueryService {
             = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final CommentMapper commentMapper;
-    private final ContentMapper contentMapper;
-    private final QuestionMapper questionMapper;
-    private final UserMapper userMapper;
+    private final ContentQueryService contentQueryService;
+    private final AnswerQueryService answerQueryService;
+    private final UserQueryService userQueryService;
+    private final CommentInteractionService commentInteractionService;
+    private final CommentCounterService commentCounterService;
     private final QuantabotProperties quantabotProperties;
+
+    /** 返回评论事实快照，供其他域通过查询端口读取。 */
+    @Override
+    public CommentSnapshotVO getCommentSnapshot(Long commentId) {
+        return commentCounterService.getCommentSnapshot(commentId);
+    }
 
     /**
      * 查询一级评论、回复预览、点赞状态和用户展示信息。
@@ -71,7 +82,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
 
 
         //2. 查询内容是否存在，且审核状态为通过
-        Content content = contentMapper.selectById(commentPageDTO.getContentId());
+        ContentSnapshotVO content = contentQueryService.getContentSnapshot(commentPageDTO.getContentId());
         if (content == null) {
             throw new CommentFailedException("内容不存在");
         }
@@ -83,7 +94,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
             throw new CommentFailedException("专业问答评论查询必须传 answerId");
         }
         if (commentPageDTO.getAnswerId() != null) {
-            QuestionAnswer qa = questionMapper.selectById(commentPageDTO.getAnswerId());
+            AnswerSnapshotVO qa = answerQueryService.getAnswerSnapshot(commentPageDTO.getAnswerId());
             if (qa == null || !commentPageDTO.getContentId().equals(qa.getQuestionId())) {
                 throw new CommentFailedException("回答与问题不匹配");
             }
@@ -216,7 +227,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         Long contentAuthorId = content.getPublishUserId();  // 题主 ID
         Long answerAuthorId = null;  // 答主 ID（仅专业区有）
         if (commentPageDTO.getAnswerId() != null) {
-            QuestionAnswer answer = questionMapper.selectById(commentPageDTO.getAnswerId());
+            AnswerSnapshotVO answer = answerQueryService.getAnswerSnapshot(commentPageDTO.getAnswerId());
             if (answer != null) {
                 answerAuthorId = answer.getUserId();
             }
@@ -359,13 +370,13 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         Map<Long, UserAuthInfoVO> userInfoMap = queryUserInfoMap(userIds);
 // 6.5 查询题主和答主 ID（用于身份标识）
 // 查询内容信息获取题主 ID
-        Content content = contentMapper.selectById(replyPageDTO.getContentId());
+        ContentSnapshotVO content = contentQueryService.getContentSnapshot(replyPageDTO.getContentId());
         Long contentAuthorId = content != null ? content.getPublishUserId() : null;
 
 // 查询答主 ID（仅专业区有）
         Long answerAuthorId = null;
         if (parentComment.getAnswerId() != null) {
-            QuestionAnswer answer = questionMapper.selectById(parentComment.getAnswerId());
+            AnswerSnapshotVO answer = answerQueryService.getAnswerSnapshot(parentComment.getAnswerId());
             if (answer != null) {
                 answerAuthorId = answer.getUserId();
             }
@@ -388,7 +399,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         if (userIds.isEmpty()) {
             return new HashMap<>();
         }
-        List<UserAuthInfoVO> userAuthInfos = userMapper.selectUserAuthInfoByIds(new ArrayList<>(userIds));
+        List<UserAuthInfoVO> userAuthInfos = userQueryService.getUserAuthInfos(new ArrayList<>(userIds));
         return userAuthInfos.stream()
                 .collect(Collectors.toMap(
                         UserAuthInfoVO::getUserId,
@@ -404,7 +415,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         if (userId == null || commentIds.isEmpty()) {
             return new HashSet<>();
         }
-        return commentMapper.selectCommentLikeIds(userId, commentIds);
+        return commentInteractionService.getLikedCommentIds(userId, commentIds);
     }
 
     //封装二级评论列表

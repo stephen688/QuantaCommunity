@@ -15,8 +15,8 @@ import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.interaction.service.BrowseHistoryService;
 import com.quanta.demo0.interaction.service.ContentInteractionService;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
+import com.quanta.demo0.user.service.UserQueryService;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.common.result.PageVO;
 import com.quanta.demo0.platform.security.context.BaseContext;
@@ -37,8 +37,7 @@ import java.util.stream.Collectors;
 /**
  * 内容读模型服务。
  *
- * <p>这是从旧内容门面抽取出的独立副本，先保留原有查询语义，待调用方迁移完成后
- * 再删除旧门面中的重复实现。</p>
+ * <p>提供稳定事实快照和访问者读模型；缓存仅保存稳定字段，互动状态逐请求补齐。</p>
  */
 @Service
 public class ContentQueryServiceImpl implements ContentQueryService {
@@ -46,7 +45,7 @@ public class ContentQueryServiceImpl implements ContentQueryService {
     @Autowired
     private ContentMapper contentMapper;
     @Autowired
-    private UserMapper userMapper;
+    private UserQueryService userQueryService;
     @Autowired
     private ContentInteractionService contentInteractionService;
     @Autowired
@@ -126,6 +125,58 @@ public class ContentQueryServiceImpl implements ContentQueryService {
     }
 
     @Override
+    public ContentSnapshotVO getContentSnapshot(Long contentId) {
+        Content content = contentMapper.selectById(contentId);
+        return content == null ? null : toSnapshot(content);
+    }
+
+    @Override
+    public List<ContentSnapshotVO> getContentFactSnapshots(Collection<Long> contentIds) {
+        if (contentIds == null || contentIds.isEmpty()) {
+            return List.of();
+        }
+        List<Content> contents = contentMapper.selectBatchIds(new ArrayList<>(contentIds));
+        return contents == null ? List.of() : contents.stream().map(this::toSnapshot).toList();
+    }
+
+    @Override
+    public ContentSnapshotVO lockContentSnapshot(Long contentId) {
+        Content content = contentMapper.selectByIdForUpdate(contentId);
+        return content == null ? null : toSnapshot(content);
+    }
+
+    @Override
+    public List<ContentSnapshotVO> getContentSnapshotsForReindex(int offset, int limit) {
+        List<Content> contents = contentMapper.selectAllForReindex(offset, limit);
+        return contents == null ? List.of() : contents.stream().map(this::toSnapshot).toList();
+    }
+
+    @Override
+    public List<ContentSnapshotVO> getTopLikedContentSnapshots(int limit) {
+        List<Content> contents = contentMapper.selectTopLikedContents(limit);
+        return contents == null ? List.of() : contents.stream().map(this::toSnapshot).toList();
+    }
+
+    @Override
+    public Integer countUserPublicContents(Long userId) {
+        return contentMapper.countUserPublicContents(userId);
+    }
+
+    @Override
+    public List<ContentSnapshotVO> getApprovedContentSnapshotsForReindex(int offset, int limit) {
+        List<Content> contents = contentMapper.selectApprovedForRecommendWarmup(offset, limit);
+        if (contents == null || contents.isEmpty()) {
+            return List.of();
+        }
+        return contents.stream()
+                .filter(Objects::nonNull)
+                .filter(content -> Integer.valueOf(0).equals(content.getIsDeleted()))
+                .filter(content -> AuditStatus.APPROVED.getCode().equals(content.getAuditStatus()))
+                .map(this::toSnapshot)
+                .toList();
+    }
+
+    @Override
     public List<ContentSnapshotVO> getApprovedContentSnapshotsByAuthor(Long publishUserId, int limit) {
         List<Content> contents = contentMapper.selectApprovedByPublishUserId(publishUserId, limit);
         if (contents == null || contents.isEmpty()) {
@@ -146,16 +197,29 @@ public class ContentQueryServiceImpl implements ContentQueryService {
                 .toList();
     }
 
+    /** 保留原 Mapper 图片投影的顺序、重复项和空值，不复用审核用的 URL 过滤规则。 */
+    @Override
+    public List<String> getContentFactImageUrls(Long contentId) {
+        List<ContentImage> images = contentMapper.selectImagesByContentIds(contentId);
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+        return images.stream().map(ContentImage::getImageUrl)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     private ContentSnapshotVO toSnapshot(Content content) {
         return ContentSnapshotVO.builder()
                 .contentId(content.getContentId())
                 .contentType(content.getContentType())
                 .title(content.getTitle())
                 .content(content.getContent())
+                .tags(content.getTags())
                 .publishUserId(content.getPublishUserId())
                 .auditStatus(content.getAuditStatus())
                 .isDeleted(content.getIsDeleted())
                 .createTime(content.getCreateTime())
+                .updateTime(content.getUpdateTime())
                 .likedCount(content.getLiked())
                 .commentCount(content.getCommentCount())
                 .collectCount(content.getCollectCount())
@@ -250,7 +314,7 @@ public class ContentQueryServiceImpl implements ContentQueryService {
                 .distinct()
                 .toList();
         List<UserAuthInfoVO> users = userIds.isEmpty()
-                ? new ArrayList<>() : userMapper.selectUserAuthInfoByIds(userIds);
+                ? new ArrayList<>() : userQueryService.getUserAuthInfos(userIds);
         Map<Long, UserAuthInfoVO> userMap = users == null ? Collections.emptyMap() : users.stream()
                 .collect(Collectors.toMap(UserAuthInfoVO::getUserId, Function.identity(), (left, right) -> left));
         contents.forEach(this::markLiked);

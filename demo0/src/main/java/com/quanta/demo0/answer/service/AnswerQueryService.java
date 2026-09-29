@@ -2,11 +2,15 @@ package com.quanta.demo0.answer.service;
 
 import com.quanta.demo0.answer.vo.AnswerRagSnapshotVO;
 import com.quanta.demo0.answer.vo.AnswerVO;
+import com.quanta.demo0.answer.vo.AnswerSnapshotVO;
 
 import java.util.List;
 
 /** 回答列表和详情查询服务。 */
 public interface AnswerQueryService {
+
+    /** 返回当前回答事实；不存在时返回 null。 */
+    AnswerSnapshotVO getAnswerSnapshot(Long answerId);
 
     List<AnswerVO> getAnswersByQuestionId(Long questionId);
 

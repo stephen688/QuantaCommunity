@@ -1,6 +1,6 @@
 package com.quanta.demo0.feed.mq.consumer;
 
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.feed.mq.message.HotScoreMessage;
 import com.quanta.demo0.feed.mq.producer.HotScoreUpdateProducer;
@@ -37,7 +37,7 @@ public class HotScoreUpdateConsumer {
     @Autowired
     private HotScoreUpdateProducer hotScoreUpdateProducer;
 
-    @RabbitListener(queues = RabbitMQConfig.HOT_SCORE_UPDATE_QUEUE)
+    @RabbitListener(queues = FeedMQConfig.HOT_SCORE_UPDATE_QUEUE)
     public void handleHotScoreUpdate(HotScoreMessage message, Message mqMessage, Channel channel) {
         long deliveryTag = mqMessage.getMessageProperties().getDeliveryTag();
 

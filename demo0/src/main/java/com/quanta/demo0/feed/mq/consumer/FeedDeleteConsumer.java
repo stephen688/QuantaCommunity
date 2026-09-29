@@ -1,6 +1,6 @@
 package com.quanta.demo0.feed.mq.consumer;
 
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.feed.mq.message.FeedDeleteMessage;
 import com.quanta.demo0.feed.mq.producer.FeedDeleteProducer;
@@ -33,7 +33,7 @@ public class FeedDeleteConsumer {
     @Autowired
     private FeedDeleteProducer feedDeleteProducer;
 
-    @RabbitListener(queues = RabbitMQConfig.FEED_DELETE_QUEUE)
+    @RabbitListener(queues = FeedMQConfig.FEED_DELETE_QUEUE)
     public void handleFeedDeleteMessage(FeedDeleteMessage message, Message mqMessage, Channel channel) {
         long deliveryTag = mqMessage.getMessageProperties().getDeliveryTag();
 

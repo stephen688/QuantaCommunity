@@ -1,7 +1,7 @@
 package com.quanta.demo0.user.service.impl;
 
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.user.mapper.UserMapper;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -2,7 +2,7 @@ package com.quanta.demo0.platform.mq.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 import com.quanta.demo0.platform.mq.message.OutboxRoute;
@@ -50,8 +50,8 @@ class OutboxRouteRegistryUserBehaviorTest {
         OutboxRoute route = registry.resolve(event(payload()));
 
         assertNotNull(route);
-        assertEquals(RabbitMQConfig.USER_BEHAVIOR_EXCHANGE, route.getExchange());
-        assertEquals(RabbitMQConfig.USER_BEHAVIOR_ROUTING_KEY, route.getRoutingKey());
+        assertEquals(FeedMQConfig.USER_BEHAVIOR_EXCHANGE, route.getExchange());
+        assertEquals(FeedMQConfig.USER_BEHAVIOR_ROUTING_KEY, route.getRoutingKey());
         assertInstanceOf(UserBehaviorMessage.class, route.getMessage());
         assertEquals(3L, ((UserBehaviorMessage) route.getMessage()).getUserId());
         assertEquals(10L, ((UserBehaviorMessage) route.getMessage()).getContentId());

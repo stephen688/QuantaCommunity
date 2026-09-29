@@ -1,6 +1,5 @@
 package com.quanta.demo0.comment.service.impl;
 
-import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.comment.dto.CommentAddDTO;
 import com.quanta.demo0.comment.entity.CommentImage;
 import com.quanta.demo0.comment.entity.ContentComment;
@@ -9,16 +8,20 @@ import com.quanta.demo0.comment.policy.CommentZonePolicy;
 import com.quanta.demo0.comment.service.CommentAuditService;
 import com.quanta.demo0.comment.service.CommentCommandService;
 import com.quanta.demo0.comment.service.CommentCounterService;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.answer.service.AnswerQueryService;
+import com.quanta.demo0.answer.vo.AnswerSnapshotVO;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.interaction.service.CommentInteractionService;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.comment.mq.producer.CommentEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
@@ -49,14 +52,17 @@ import java.util.Objects;
 public class CommentCommandServiceImpl implements CommentCommandService {
 
     private final CommentMapper commentMapper;
-    private final ContentMapper contentMapper;
-    private final QuestionMapper questionMapper;
+    private final ContentQueryService contentQueryService;
+    private final AnswerQueryService answerQueryService;
+    private final CommentInteractionService commentInteractionService;
     private final SensitiveWordChecker sensitiveWordChecker;
     private final CommentZonePolicy commentZonePolicy;
     private final AliyunModerationProperties moderationProperties;
     private final QuantabotProperties quantabotProperties;
     private final CommentAuditService commentAuditService;
-    private final OutboxEventService outboxEventService;
+    private final FeedEventProducer feedEventProducer;
+    private final SearchEventProducer searchEventProducer;
+    private final CommentEventProducer commentEventProducer;
     private final ContentDetailCacheInvalidator contentDetailCacheInvalidator;
     private final StringRedisTemplate stringRedisTemplate;
     private final CommentCounterService commentCounterService;
@@ -76,7 +82,7 @@ public class CommentCommandServiceImpl implements CommentCommandService {
 
         //1.校验内容（是否不为空且未被删除，是否通过审核，是否超过500，是否有敏感词）
         Long contentId = commentAddDTO.getContentId();
-        Content content = contentMapper.selectById(contentId);
+        ContentSnapshotVO content = contentQueryService.getContentSnapshot(contentId);
         if (content == null || content.getAuditStatus() != 1) {
             throw new CommentFailedException("内容不存在或未通过审核");
         }
@@ -113,7 +119,7 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         commentZonePolicy.validateAnswerId(content.getContentType(), commentAddDTO.getAnswerId());
        //3.2 如果 answerId 不为空，校验回答是否存在，校验回答所属问题id与前端传入的一致
         if (commentAddDTO.getAnswerId() != null) {
-            QuestionAnswer questionAnswer = questionMapper.selectById(commentAddDTO.getAnswerId());
+            AnswerSnapshotVO questionAnswer = answerQueryService.getAnswerSnapshot(commentAddDTO.getAnswerId());
             if (questionAnswer == null) {
                 throw new CommentFailedException("回答的问题不存在或已被删除");
 
@@ -223,11 +229,11 @@ public class CommentCommandServiceImpl implements CommentCommandService {
 
         // 用户新增评论成功：画像行为事件与评论写入同一个事务提交（D2）。
         // 管理员删除/审核驳回路径不经过此处，不重复发事件。
-        outboxEventService.createUserBehaviorEvent(userId, contentId, "COMMENT");
+        feedEventProducer.createUserBehaviorEvent(userId, contentId, "COMMENT");
 
         // 7. 审核开启时，评论、图片和审核 Outbox 在同一个事务中提交。
         if (shouldModerateComment()) {
-            outboxEventService.createCommentModerationEvent(contentComment, imageUrls);
+            commentEventProducer.createCommentModerationEvent(contentComment, imageUrls);
         } else if (isAutoApproveWhenModerationDisabled()) {
             // 审核关闭且策略为 APPROVED 时，直接加入当前事务完成自动通过。
             commentAuditService.approveComment(commentId);
@@ -304,14 +310,14 @@ public class CommentCommandServiceImpl implements CommentCommandService {
             // 权限通过，继续执行删除逻辑
         } else {
             // 3.2 查询内容信息，判断是否为题主
-            Content content = contentMapper.selectById(comment.getContentId());
+            ContentSnapshotVO content = contentQueryService.getContentSnapshot(comment.getContentId());
             if (content != null && content.getPublishUserId().equals(currentUserId)) {
                 isContentAuthor = true;
             }
 
             // 3.3 如果是专业区评论，查询回答信息，判断是否为答主
             if (!isContentAuthor && comment.getAnswerId() != null) {
-                QuestionAnswer answer = questionMapper.selectById(comment.getAnswerId());
+                AnswerSnapshotVO answer = answerQueryService.getAnswerSnapshot(comment.getAnswerId());
                 if (answer != null && answer.getUserId().equals(currentUserId)) {
                     isAnswerAuthor = true;
                 }
@@ -332,16 +338,32 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         }
 
         // 评论删除和热度 Outbox 在同一个事务中提交。
-        outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
+        feedEventProducer.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
         createCommentSearchEvents(comment, "COMMENT_DELETE");
 
     }
 
+    /**
+     * 清理指定内容下的评论关联数据并软删除评论。
+     *
+     * <p>该方法只处理评论域自身数据，调用方可将其加入内容删除事务。</p>
+     */
+    @Transactional
+    @Override
+    public void deleteByContentId(Long contentId) {
+        if (contentId == null) {
+            throw new CommentFailedException("contentId 不能为空");
+        }
+        commentMapper.deleteContentCommentImages(contentId);
+        commentInteractionService.deleteByContentId(contentId);
+        commentMapper.softDeleteContentComment(contentId);
+    }
+
     /** 评论数变化后，帖子搜索文档和所属回答搜索文档都需要按 MySQL 最新值重建。 */
     private void createCommentSearchEvents(ContentComment comment, String triggerType) {
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), comment.getContentId(), triggerType);
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), comment.getContentId(), triggerType);
         if (comment.getAnswerId() != null) {
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), comment.getAnswerId(), triggerType);
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), comment.getAnswerId(), triggerType);
         }
     }
 
@@ -387,7 +409,7 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         //删除二级评论的图片（物理）
         commentMapper.deleteCommentImages(comment.getCommentId());
         //删除二级评论的点赞记录（物理）
-        commentMapper.deleteCommentLikes(comment.getCommentId());
+        commentInteractionService.deleteByCommentId(comment.getCommentId());
         //更新内容表评论数
         commentCounterService.changeCommentCount(comment.getContentId(), -1);
         contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "comment-reply-delete");
@@ -417,7 +439,7 @@ public class CommentCommandServiceImpl implements CommentCommandService {
             commentMapper.deleteCommentImagesByCommentIds(replyCommentIds);
 
             //    删除回复的点赞记录（物理）
-            commentMapper.deleteCommentLikesByCommentIds(replyCommentIds);
+            commentInteractionService.deleteByCommentIds(replyCommentIds);
         }
         //更新内容表评论数
         int totalDeleteCount = 1 + replyCommentIds.size();
@@ -435,7 +457,7 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         commentMapper.deleteCommentImages(comment.getCommentId());
         //   删除一级评论的点赞记录（物理）
 
-        commentMapper.deleteCommentLikes(comment.getCommentId());
+        commentInteractionService.deleteByCommentId(comment.getCommentId());
         //   删除一级评论（软删除）
         commentMapper.softDeleteById(comment.getCommentId());
 

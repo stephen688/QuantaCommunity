@@ -2,9 +2,9 @@ package com.quanta.demo0.user.service.impl;
 
 import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.platform.common.exception.NoFoundException;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.user.mapper.UserMapper;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import com.quanta.demo0.user.service.UserReadCacheInvalidator;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;

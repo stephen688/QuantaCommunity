@@ -6,7 +6,7 @@ import com.quanta.demo0.platform.security.exception.AuthFailedException;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.service.SessionService;
 import com.quanta.demo0.platform.security.utils.JwtUtil;
-import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.user.vo.UserAccountVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,7 +23,7 @@ import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER
  * JWT/Redis 会话服务实现。
  *
  * 该类只负责会话令牌和会话存储，不读取用户数据库；账号封禁状态由登录入口传入的
- * User 快照判定，后续请求则由 OptionalJwtAuthenticationFilter/UserAccessStateService 复核。
+ * UserAccountVO 快照判定，后续请求则由 OptionalJwtAuthenticationFilter/UserAccessStateService 复核。
  */
 @Service
 @Slf4j
@@ -37,7 +37,7 @@ public class SessionServiceImpl implements SessionService {
      * 为用户签发 JWT 并保存登录态。
      */
     @Override
-    public String login(User user) {
+    public String login(UserAccountVO user) {
         if (user == null || user.getId() == null) {
             throw new AuthFailedException("登录用户不存在");
         }

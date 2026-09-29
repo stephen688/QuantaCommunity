@@ -3,9 +3,9 @@ package com.quanta.demo0.content.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.content.properties.ContentTopicProperties;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -34,7 +34,7 @@ class ContentTopicTagServiceImplTest {
     @Mock
     private ContentMapper contentMapper;
     @Mock
-    private OutboxEventService outboxEventService;
+    private ContentEventProducer contentEventProducer;
     @Mock
     private ChatModel chatModel;
 
@@ -103,7 +103,7 @@ class ContentTopicTagServiceImplTest {
 
         assertThat(nextCursor).isEqualTo(18L);
         verify(contentMapper, never()).selectApprovedWithoutTags(anyLong(), anyInt());
-        verify(outboxEventService, never()).createContentTopicTagEvent(anyLong());
+        verify(contentEventProducer, never()).createContentTopicTagEvent(anyLong());
     }
 
     @Test
@@ -158,8 +158,8 @@ class ContentTopicTagServiceImplTest {
         long nextCursor = service.enqueueBackfill(10L, 3);
 
         assertThat(nextCursor).isEqualTo(18L);
-        verify(outboxEventService).createContentTopicTagEvent(12L);
-        verify(outboxEventService).createContentTopicTagEvent(18L);
+        verify(contentEventProducer).createContentTopicTagEvent(12L);
+        verify(contentEventProducer).createContentTopicTagEvent(18L);
     }
 
     private ContentTopicTagServiceImpl service() {
@@ -173,7 +173,7 @@ class ContentTopicTagServiceImplTest {
     private ContentTopicTagServiceImpl service(ContentTopicProperties properties) {
         return new ContentTopicTagServiceImpl(
                 contentMapper,
-                outboxEventService,
+                contentEventProducer,
                 chatModel,
                 new ObjectMapper(),
                 properties);

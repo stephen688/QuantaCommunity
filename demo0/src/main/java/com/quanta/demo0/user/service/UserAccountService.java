@@ -26,4 +26,12 @@ public interface UserAccountService {
      * @return 0 表示正常，1 表示封禁，用户不存在时返回 null
      */
     Integer getAccountStatus(Long userId);
+
+    /**
+     * 更新用户表中的认证展示状态。
+     *
+     * @param userId 用户 ID
+     * @param authStatus 展示状态编码
+     */
+    void updateAuthStatus(Long userId, Integer authStatus);
 }

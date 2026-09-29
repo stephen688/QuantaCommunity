@@ -1,6 +1,6 @@
 package com.quanta.demo0.feed.utils;
 
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -18,10 +18,10 @@ class HotScoreCalculatorTest {
 
     private static final LocalDateTime FIXED_CREATE_TIME = LocalDateTime.of(2026, 9, 24, 0, 0, 0);
 
-    private Content content(Integer liked, Integer commentCount, Integer collectCount, LocalDateTime createTime) {
-        return Content.builder()
+    private ContentSnapshotVO content(Integer liked, Integer commentCount, Integer collectCount, LocalDateTime createTime) {
+        return ContentSnapshotVO.builder()
                 .contentId(1L)
-                .liked(liked)
+                .likedCount(liked)
                 .commentCount(commentCount)
                 .collectCount(collectCount)
                 .createTime(createTime)
@@ -31,7 +31,7 @@ class HotScoreCalculatorTest {
     @Test
     void 基础公式_加权求和除以时间衰减() {
         // 发布 10 小时：liked=10,comment=2,collect=4 → baseScore=10×3+2×2+4×5=54；decay=(10+2)^1.5
-        Content content = content(10, 2, 4, LocalDateTime.now().minusHours(10));
+        ContentSnapshotVO content = content(10, 2, 4, LocalDateTime.now().minusHours(10));
 
         double hotScore = HotScoreCalculator.calculate(content);
 
@@ -46,7 +46,7 @@ class HotScoreCalculatorTest {
     @Test
     void 无互动内容_20分保底不完全沉底() {
         // baseScore=0 → hotScore = 20 / decay，而非 0
-        Content content = content(0, 0, 0, LocalDateTime.now().minusHours(2));
+        ContentSnapshotVO content = content(0, 0, 0, LocalDateTime.now().minusHours(2));
 
         double hotScore = HotScoreCalculator.calculate(content);
 
@@ -59,7 +59,7 @@ class HotScoreCalculatorTest {
     @Test
     void 计数与时间null安全_按零计数当前时间处理() {
         // liked/comment/collect 全 null 按 0 → 保底分；createTime null 按当前时间 → decay=(0+2)^1.5 附近
-        Content content = content(null, null, null, null);
+        ContentSnapshotVO content = content(null, null, null, null);
 
         double hotScore = HotScoreCalculator.calculate(content);
 
@@ -71,8 +71,8 @@ class HotScoreCalculatorTest {
     @Test
     void 新帖比旧帖同计数热度高() {
         LocalDateTime now = LocalDateTime.now();
-        Content fresh = content(5, 0, 0, now.minusMinutes(1));
-        Content stale = content(5, 0, 0, now.minusHours(100));
+        ContentSnapshotVO fresh = content(5, 0, 0, now.minusMinutes(1));
+        ContentSnapshotVO stale = content(5, 0, 0, now.minusHours(100));
 
         // 同计数下时间衰减单调：新帖热度必然更高
         assertTrue(HotScoreCalculator.calculate(fresh) > HotScoreCalculator.calculate(stale));

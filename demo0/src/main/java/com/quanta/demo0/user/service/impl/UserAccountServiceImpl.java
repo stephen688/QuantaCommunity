@@ -2,7 +2,7 @@ package com.quanta.demo0.user.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
 import com.alibaba.fastjson.JSONObject;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.user.mapper.UserMapper;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import com.quanta.demo0.user.dto.UserLoginDTO;
 import com.quanta.demo0.user.entity.User;
@@ -46,6 +46,22 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public Integer getAccountStatus(Long userId) {
         return userMapper.getAccountStatusById(userId);
+    }
+
+    /**
+     * 更新用户表中的认证展示状态。
+     */
+    @Override
+    public void updateAuthStatus(Long userId, Integer authStatus) {
+        if (userId == null || authStatus == null) {
+            return;
+        }
+        User patch = User.builder()
+                .id(userId)
+                .authStatus(authStatus)
+                .updateTime(LocalDateTime.now())
+                .build();
+        userMapper.updateById(patch);
     }
 
     /**

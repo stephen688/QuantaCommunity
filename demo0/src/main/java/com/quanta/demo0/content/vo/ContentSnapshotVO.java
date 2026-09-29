@@ -19,10 +19,13 @@ public class ContentSnapshotVO {
     private Integer contentType;
     private String title;
     private String content;
+    /** 原始主题 JSON；NULL 与空数组分别表示未处理与无匹配主题。 */
+    private String tags;
     private Long publishUserId;
     private Integer auditStatus;
     private Integer isDeleted;
     private LocalDateTime createTime;
+    private LocalDateTime updateTime;
     private Integer likedCount;
     private Integer commentCount;
     private Integer collectCount;

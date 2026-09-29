@@ -10,6 +10,7 @@ import com.quanta.demo0.interaction.dto.CommentReportQueryDTO;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.comment.service.AdminCommentService;
+import com.quanta.demo0.interaction.service.ReportGovernanceService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +27,8 @@ public class AdminCommentController {
 
     @Autowired
     private AdminCommentService adminCommentService;
+    @Autowired
+    private ReportGovernanceService reportGovernanceService;
 
     /**
      * 分页查询评论列表
@@ -117,7 +120,7 @@ public class AdminCommentController {
     @GetMapping("/report/page")
     public Result<PageResult> pageReport(CommentReportQueryDTO query) {
         log.info("管理端分页查询评论举报，查询条件：{}", query);
-        PageResult pageResult = adminCommentService.pageReport(query);
+        PageResult pageResult = reportGovernanceService.pageReport(query);
         return Result.success(pageResult);
     }
 
@@ -149,7 +152,7 @@ public class AdminCommentController {
     @PostMapping("/report/handle")
     public Result handleReport(@RequestBody CommentReportHandleDTO handleDTO) {
         log.info("管理端处理评论举报，处理信息：{}", handleDTO);
-        adminCommentService.handleReport(handleDTO);
+        reportGovernanceService.handleReport(handleDTO);
         return Result.success();
     }
 }

@@ -8,16 +8,17 @@ import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.answer.dto.AnswerAdminQueryDTO;
 import com.quanta.demo0.content.dto.ContentAuditDTO;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
-import com.quanta.demo0.interaction.mapper.AnswerInteractionMapper;
+import com.quanta.demo0.interaction.service.AnswerInteractionService;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.answer.mapper.QuestionMapper;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
 import com.quanta.demo0.rag.vector.AnswerVectorSyncService;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.answer.service.AdminAnswerService;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -48,7 +49,7 @@ public class AdminAnswerServiceImpl  implements AdminAnswerService {
     private QuestionMapper questionMapper;
 
     @Autowired
-    private AnswerInteractionMapper answerInteractionMapper;
+    private AnswerInteractionService answerInteractionService;
 
     @Autowired
     private AnswerVectorSyncService answerVectorSyncService;
@@ -56,7 +57,10 @@ public class AdminAnswerServiceImpl  implements AdminAnswerService {
     private StringRedisTemplate stringRedisTemplate;
 
     @Autowired
-    private OutboxEventService outboxEventService;
+    private SearchEventProducer searchEventProducer;
+
+    @Autowired
+    private NotificationEventProducer notificationEventProducer;
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
@@ -83,12 +87,9 @@ public class AdminAnswerServiceImpl  implements AdminAnswerService {
      * 执行流程：
      * 1. 参数校验
      * 2. 查询回答是否存在
-     * 3. 软删除回答下的评论
-     * 4. 物理删除回答评论下的图片
-     * 5. 物理删除回答评论下的点赞记录
-     * 6. 物理删除回答点赞记录
-     * 7. 软删除回答本身
-     * 8. 更新帖子评论数（需要查询回答关联的帖子ID）
+     * 3. 通过互动端口清理回答点赞及评论关联数据
+     * 4. 软删除回答本身
+     * 5. 更新帖子评论数（需要查询回答关联的帖子ID）
      *
      * @param answerId 回答 ID
      */
@@ -106,23 +107,14 @@ public class AdminAnswerServiceImpl  implements AdminAnswerService {
             throw new ContentFailedException("回答不存在");
         }
 
-        // 3. 软删除回答下的评论
-        answerInteractionMapper.softDeleteAnswerComments(answerId);
+        // 3. 通过 interaction 端口清理回答及其评论关联数据
+        answerInteractionService.deleteByAnswerId(answerId);
 
-        // 4. 物理删除回答评论下的图片
-        answerInteractionMapper.deleteAnswerCommentImages(answerId);
-
-        // 5. 物理删除回答评论下的点赞记录
-        answerInteractionMapper.deleteAnswerCommentLiked(answerId);
-
-        // 6. 物理删除回答点赞记录
-        answerInteractionMapper.deleteAnswerLikedByAnswerId(answerId);
-
-        // 7. 软删除回答本身
+        // 4. 软删除回答本身
         questionMapper.softDeleteAnswer(answerId);
 
         // 回答删除和搜索删除事件使用同一个 MySQL 事务。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "DELETE");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "DELETE");
 
         // 8. 事务提交后：删除 Redis 点赞并同步向量库。
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -212,7 +204,7 @@ public class AdminAnswerServiceImpl  implements AdminAnswerService {
         }
 
         // 审核结果和 Search Outbox 一起提交；消费者会根据 MySQL 最新状态决定写入或删除 ES。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, auditDTO.getAuditResult() == 1 ? "AUDIT_APPROVED" : "AUDIT_REJECTED");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, auditDTO.getAuditResult() == 1 ? "AUDIT_APPROVED" : "AUDIT_REJECTED");
 
         // 6. 向量库仍沿用原有提交后同步，ES 已由 Search Outbox 负责。
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -259,7 +251,7 @@ public class AdminAnswerServiceImpl  implements AdminAnswerService {
                 .payload(Map.of("answerId", answerId, "auditResult", auditDTO.getAuditResult(), "rejectReason", rejectReason != null ? rejectReason : ""))
                 .build();
 
-        outboxEventService.createNotificationEvent(auditNotification, ModerationTargetType.ANSWER.name(), answerId);
+        notificationEventProducer.createNotificationEvent(auditNotification, ModerationTargetType.ANSWER.name(), answerId);
 
         // 审计：回答审核成功
         adminAuditRecorder.recordSuccess(

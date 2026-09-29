@@ -5,9 +5,10 @@ import com.quanta.demo0.feed.mq.consumer.FeedPushConsumer;
 import com.quanta.demo0.feed.mq.consumer.HotScoreUpdateConsumer;
 import com.quanta.demo0.moderation.enums.ModerationDecision;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
-import com.quanta.demo0.mq.consumer.ModerationConsumer;
+import com.quanta.demo0.moderation.mq.consumer.ModerationConsumer;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
-import com.quanta.demo0.search.es.service.ElasticSearchService;
+import com.quanta.demo0.search.service.AnswerSearchService;
+import com.quanta.demo0.search.service.ContentIndexService;
 import com.quanta.demo0.moderation.result.ModerationResult;
 import com.quanta.demo0.feed.mq.message.FeedDeleteMessage;
 import com.quanta.demo0.feed.mq.message.FeedPushMessage;
@@ -18,57 +19,172 @@ import com.quanta.demo0.feed.mq.producer.FeedDeleteProducer;
 import com.quanta.demo0.feed.mq.producer.FeedPushProducer;
 import com.quanta.demo0.feed.mq.producer.HotScoreUpdateProducer;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
+import com.quanta.demo0.moderation.result.ModerationWorkflowResult;
 import com.quanta.demo0.moderation.service.ContentModerationService;
+import com.quanta.demo0.answer.service.AnswerAuditService;
+import com.quanta.demo0.comment.service.CommentAuditService;
+import com.quanta.demo0.content.service.ContentAuditService;
 import com.quanta.demo0.feed.service.HotContentService;
 import com.quanta.demo0.feed.service.FollowFeedService;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
-import com.quanta.demo0.moderation.service.ModerationResultService;
+import com.quanta.demo0.moderation.service.ModerationWorkflowService;
+import com.quanta.demo0.moderation.service.impl.ModerationWorkflowServiceImpl;
 import com.quanta.demo0.search.service.impl.SearchReconcileServiceImpl;
 import com.rabbitmq.client.Channel;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ConsumerReliabilityTests {
 
     @Test
+    void moderationListenerOnlyDependsOnWorkflowForBusinessProcessing() {
+        assertThat(Arrays.stream(ModerationConsumer.class.getDeclaredFields())
+                .map(Field::getType)
+                .map(Class::getName))
+                .contains("com.quanta.demo0.moderation.service.ModerationWorkflowService")
+                .doesNotContain(
+                        ContentModerationService.class.getName(),
+                        "com.quanta.demo0.moderation.service.ModerationResultService",
+                        InboxEventService.class.getName(),
+                        ModerationProducer.class.getName(),
+                        AliyunModerationProperties.class.getName()
+                );
+    }
+
+    @Test
     void duplicateModerationEventOnlyAcknowledgesWithoutRunningBusinessAgain() throws Exception {
-        InboxEventService inboxEventService = mock(InboxEventService.class);
-        ContentModerationService moderationService = mock(ContentModerationService.class);
-        ModerationResultService resultService = mock(ModerationResultService.class);
+        ModerationWorkflowService workflowService = mock(ModerationWorkflowService.class);
         Channel channel = mock(Channel.class);
+        ModerationTaskMessage task = moderationTask(0);
+
+        when(workflowService.process(task)).thenReturn(ModerationWorkflowResult.ACK);
+
+        ModerationConsumer consumer = moderationConsumer(workflowService);
+
+        consumer.handleModerationTask(task, channel, 1L);
+
+        verify(channel).basicAck(1L, false);
+        verify(workflowService).process(task);
+    }
+
+    @Test
+    void exhaustedModerationRetryMarksInboxDeadAndRejectsToDlq() throws Exception {
+        ModerationWorkflowService workflowService = mock(ModerationWorkflowService.class);
+        Channel channel = mock(Channel.class);
+        ModerationTaskMessage task = moderationTask(3);
+
+        when(workflowService.process(task)).thenReturn(ModerationWorkflowResult.DEAD);
+
+        ModerationConsumer consumer = moderationConsumer(workflowService);
+
+        consumer.handleModerationTask(task, channel, 3L);
+
+        verify(channel).basicNack(3L, false, false);
+        verify(workflowService).process(task);
+    }
+
+    @Test
+    void approvedTargetAndInboxSuccessShareWorkflowTransactionBoundary() throws Exception {
+        ContentModerationService moderationService = mock(ContentModerationService.class);
+        ContentAuditService contentAuditService = mock(ContentAuditService.class);
+        AnswerAuditService answerAuditService = mock(AnswerAuditService.class);
+        CommentAuditService commentAuditService = mock(CommentAuditService.class);
+        InboxEventService inboxEventService = mock(InboxEventService.class);
+        ModerationProducer moderationProducer = mock(ModerationProducer.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        TransactionStatus transactionStatus = mock(TransactionStatus.class);
+        AliyunModerationProperties properties = moderationProperties(3);
+        ModerationTaskMessage task = moderationTask(0);
+        ModerationResult passedResult = ModerationResult.builder()
+                .decision(ModerationDecision.PASS)
+                .build();
+
+        when(inboxEventService.acquire(eq("moderation-consumer"), anyString(), eq(task)))
+                .thenReturn(InboxAcquireResult.ACQUIRED);
+        when(moderationService.moderate(task)).thenReturn(passedResult);
+        when(inboxEventService.markSuccess(eq("moderation-consumer"), eq(task.getEventId()), anyString()))
+                .thenReturn(true);
+        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
+                .thenReturn(transactionStatus);
+
+        ModerationWorkflowServiceImpl workflow = new ModerationWorkflowServiceImpl(
+                moderationService,
+                contentAuditService,
+                answerAuditService,
+                commentAuditService,
+                inboxEventService,
+                moderationProducer,
+                properties,
+                transactionManager
+        );
+
+        assertThat(workflow.process(task)).isEqualTo(ModerationWorkflowResult.ACK);
+
+        InOrder order = inOrder(transactionManager, contentAuditService, inboxEventService);
+        order.verify(transactionManager).getTransaction(any(TransactionDefinition.class));
+        order.verify(contentAuditService).approveContent(task.getTargetId());
+        order.verify(inboxEventService).markSuccess(
+                eq("moderation-consumer"),
+                eq(task.getEventId()),
+                anyString()
+        );
+        order.verify(transactionManager).commit(transactionStatus);
+    }
+
+    @Test
+    void moderationWorkflowTreatsAlreadySuccessfulInboxEventAsIdempotentAck() {
+        ContentModerationService moderationService = mock(ContentModerationService.class);
+        ContentAuditService contentAuditService = mock(ContentAuditService.class);
+        AnswerAuditService answerAuditService = mock(AnswerAuditService.class);
+        CommentAuditService commentAuditService = mock(CommentAuditService.class);
+        InboxEventService inboxEventService = mock(InboxEventService.class);
+        ModerationProducer moderationProducer = mock(ModerationProducer.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         ModerationTaskMessage task = moderationTask(0);
 
         when(inboxEventService.acquire(eq("moderation-consumer"), anyString(), eq(task)))
                 .thenReturn(InboxAcquireResult.ALREADY_SUCCESS);
 
-        ModerationConsumer consumer = moderationConsumer(
-                inboxEventService,
+        ModerationWorkflowServiceImpl workflow = new ModerationWorkflowServiceImpl(
                 moderationService,
-                resultService,
-                mock(ModerationProducer.class),
-                moderationProperties(3)
+                contentAuditService,
+                answerAuditService,
+                commentAuditService,
+                inboxEventService,
+                moderationProducer,
+                moderationProperties(3),
+                transactionManager
         );
 
-        consumer.handleModerationTask(task, channel, 1L);
-
-        verify(channel).basicAck(1L, false);
-        verifyNoInteractions(moderationService, resultService);
+        assertThat(workflow.process(task)).isEqualTo(ModerationWorkflowResult.ACK);
+        verifyNoInteractions(moderationService, contentAuditService, answerAuditService,
+                commentAuditService, moderationProducer, transactionManager);
     }
 
     @Test
-    void exhaustedModerationRetryMarksInboxDeadAndRejectsToDlq() throws Exception {
-        InboxEventService inboxEventService = mock(InboxEventService.class);
+    void moderationWorkflowMarksExhaustedRetryDeadAndSavesFailureRecord() {
         ContentModerationService moderationService = mock(ContentModerationService.class);
-        ModerationResultService resultService = mock(ModerationResultService.class);
-        Channel channel = mock(Channel.class);
+        ContentAuditService contentAuditService = mock(ContentAuditService.class);
+        AnswerAuditService answerAuditService = mock(AnswerAuditService.class);
+        CommentAuditService commentAuditService = mock(CommentAuditService.class);
+        InboxEventService inboxEventService = mock(InboxEventService.class);
+        ModerationProducer moderationProducer = mock(ModerationProducer.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         ModerationTaskMessage task = moderationTask(3);
         ModerationResult failedResult = ModerationResult.builder()
                 .decision(ModerationDecision.ERROR)
@@ -78,32 +194,27 @@ class ConsumerReliabilityTests {
         when(inboxEventService.acquire(eq("moderation-consumer"), anyString(), eq(task)))
                 .thenReturn(InboxAcquireResult.ACQUIRED);
         when(moderationService.moderate(task)).thenReturn(failedResult);
-        when(inboxEventService.markDead(
-                eq("moderation-consumer"),
-                eq(task.getEventId()),
-                anyString(),
-                eq("模拟审核服务异常")
-        )).thenReturn(true);
+        when(inboxEventService.markDead(eq("moderation-consumer"), eq(task.getEventId()),
+                anyString(), eq("模拟审核服务异常")))
+                .thenReturn(true);
 
-        ModerationConsumer consumer = moderationConsumer(
-                inboxEventService,
+        ModerationWorkflowServiceImpl workflow = new ModerationWorkflowServiceImpl(
                 moderationService,
-                resultService,
-                mock(ModerationProducer.class),
-                moderationProperties(3)
+                contentAuditService,
+                answerAuditService,
+                commentAuditService,
+                inboxEventService,
+                moderationProducer,
+                moderationProperties(3),
+                transactionManager
         );
 
-        consumer.handleModerationTask(task, channel, 3L);
-
+        assertThat(workflow.process(task)).isEqualTo(ModerationWorkflowResult.DEAD);
         verify(moderationService).saveFailedRecord(task, failedResult);
-        verify(inboxEventService).markDead(
-                eq("moderation-consumer"),
-                eq(task.getEventId()),
-                anyString(),
-                eq("模拟审核服务异常")
-        );
-        verify(channel).basicNack(3L, false, false);
-        verifyNoInteractions(resultService);
+        verify(inboxEventService).markDead(eq("moderation-consumer"), eq(task.getEventId()),
+                anyString(), eq("模拟审核服务异常"));
+        verifyNoInteractions(contentAuditService, answerAuditService, commentAuditService,
+                moderationProducer, transactionManager);
     }
 
     @Test
@@ -176,27 +287,20 @@ class ConsumerReliabilityTests {
 
         verify(hotContentService, times(2)).reconcileHotScore(10L);
 
-        ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
-        SearchReconcileServiceImpl searchService = new SearchReconcileServiceImpl(elasticSearchService);
+        ContentIndexService contentIndexService = mock(ContentIndexService.class);
+        AnswerSearchService answerSearchService = mock(AnswerSearchService.class);
+        SearchReconcileServiceImpl searchService = new SearchReconcileServiceImpl(contentIndexService, answerSearchService);
         searchService.reconcileSearchIndex(ModerationTargetType.CONTENT.name(), 10L);
         searchService.reconcileSearchIndex(ModerationTargetType.CONTENT.name(), 10L);
 
-        verify(elasticSearchService, times(2)).upsertByContentId(10L);
+        verify(contentIndexService, times(2)).upsertByContentId(10L);
     }
 
     private ModerationConsumer moderationConsumer(
-            InboxEventService inboxEventService,
-            ContentModerationService moderationService,
-            ModerationResultService resultService,
-            ModerationProducer producer,
-            AliyunModerationProperties properties
+            ModerationWorkflowService workflowService
     ) {
         ModerationConsumer consumer = new ModerationConsumer();
-        ReflectionTestUtils.setField(consumer, "inboxEventService", inboxEventService);
-        ReflectionTestUtils.setField(consumer, "moderationService", moderationService);
-        ReflectionTestUtils.setField(consumer, "moderationResultService", resultService);
-        ReflectionTestUtils.setField(consumer, "moderationProducer", producer);
-        ReflectionTestUtils.setField(consumer, "moderationProperties", properties);
+        ReflectionTestUtils.setField(consumer, "workflowService", workflowService);
         return consumer;
     }
 

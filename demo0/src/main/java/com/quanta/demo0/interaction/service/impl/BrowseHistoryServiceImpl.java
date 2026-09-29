@@ -6,12 +6,14 @@ import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.interaction.entity.BrowseHistory;
 import com.quanta.demo0.interaction.mapper.BrowseHistoryMapper;
 import com.quanta.demo0.interaction.service.BrowseHistoryService;
+import com.quanta.demo0.interaction.vo.BrowseHistorySnapshotVO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 互动域浏览历史实现。
@@ -58,6 +60,32 @@ public class BrowseHistoryServiceImpl implements BrowseHistoryService {
         int pageSize = size == null || size <= 0 ? 10 : size;
         PageHelper.startPage(pageNum, pageSize);
         return browseHistoryMapper.selectBrowseHistoryContentIds(userId);
+    }
+
+    /**
+     * 查询浏览对账首看增量并转换为跨域稳定快照，保留 Mapper 的排序与分页语义。
+     */
+    @Override
+    public List<BrowseHistorySnapshotVO> getIncrementalFirstViewSnapshots(Long watermarkId, int batchSize) {
+        long safeWatermarkId = watermarkId == null || watermarkId < 0 ? 0L : watermarkId;
+        int safeBatchSize = batchSize <= 0 ? 500 : batchSize;
+        List<BrowseHistory> rows = browseHistoryMapper.selectIncrementalFirstViews(
+                safeWatermarkId, safeBatchSize);
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .filter(row -> row != null)
+                .map(row -> BrowseHistorySnapshotVO.builder()
+                        .id(row.getId())
+                        .userId(row.getUserId())
+                        .contentId(row.getContentId())
+                        .browseDate(row.getBrowseDate())
+                        .createTime(row.getCreateTime())
+                        .updateTime(row.getUpdateTime())
+                        .isDeleted(row.getIsDeleted())
+                        .build())
+                .toList();
     }
 
     /**

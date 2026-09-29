@@ -18,13 +18,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.dto.ContentDTO;
 import com.quanta.demo0.feed.dto.RecommendQueryDTO;
 import com.quanta.demo0.interaction.dto.CollectStateDTO;
 import com.quanta.demo0.interaction.dto.ContentReportDTO;
 import com.quanta.demo0.interaction.dto.LikeStateDTO;
-import com.quanta.demo0.user.entity.User;
 
 /**
  * 内容接口

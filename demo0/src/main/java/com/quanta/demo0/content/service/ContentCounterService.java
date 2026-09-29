@@ -12,4 +12,7 @@ public interface ContentCounterService {
     int changeLikedCount(Long contentId, int delta);
 
     int changeCollectCount(Long contentId, int delta);
+
+    /** 调整内容的可见评论数；与评论主事务同步提交。 */
+    int changeCommentCount(Long contentId, int delta);
 }

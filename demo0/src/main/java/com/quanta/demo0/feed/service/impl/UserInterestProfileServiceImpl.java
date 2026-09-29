@@ -1,9 +1,9 @@
 package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.feed.service.UserInterestProfileService;
 import com.quanta.demo0.feed.service.TopicCatalog;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +31,8 @@ import java.util.LinkedHashSet;
 @RequiredArgsConstructor
 public class UserInterestProfileServiceImpl implements UserInterestProfileService {
 
-    /** 内容 Mapper：查帖子当前状态（事实源校验，防脏画像） */
-    private final ContentMapper contentMapper;
+    /** 内容查询端口：查帖子当前状态（事实源校验，防脏画像） */
+    private final ContentQueryService contentQueryService;
 
     /** Redis 操作模板：画像 Hash 读写 */
     private final StringRedisTemplate stringRedisTemplate;
@@ -45,7 +45,7 @@ public class UserInterestProfileServiceImpl implements UserInterestProfileServic
     @Override
     public void applyBehavior(Long userId, Long contentId, double weight) {
         // 1. 查帖子当前状态：MySQL 是事实源，画像累加前必须校验
-        Content content = contentMapper.selectById(contentId);
+        ContentSnapshotVO content = contentQueryService.getContentSnapshot(contentId);
         if (content == null
                 || !AuditStatus.APPROVED.getCode().equals(content.getAuditStatus())
                 || !Integer.valueOf(0).equals(content.getIsDeleted())) {
@@ -106,7 +106,7 @@ public class UserInterestProfileServiceImpl implements UserInterestProfileServic
      * 行为画像与重排共用本方法，禁止另写标签口径；不回填历史行为。
      */
     @Override
-    public List<String> resolveContentTags(Content content) {
+    public List<String> resolveContentTags(ContentSnapshotVO content) {
         if (content == null) {
             return List.of();
         }

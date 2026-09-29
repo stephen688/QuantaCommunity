@@ -2,14 +2,14 @@ package com.quanta.demo0.platform.security.service.impl;
 
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
 import com.quanta.demo0.platform.security.constant.RoleConstants;
-import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.security.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.platform.security.service.AdminRoleService;
 import com.quanta.demo0.user.service.UserReadCacheInvalidator;
+import com.quanta.demo0.user.service.UserQueryService;
+import com.quanta.demo0.user.vo.UserAccountVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,7 +42,7 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     );
 
     @Autowired
-    private UserMapper userMapper;
+    private UserQueryService userQueryService;
 
     @Autowired
     private UserRoleMapper userRoleMapper;
@@ -60,7 +60,7 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     @Transactional
     public void grantRole(Long userId, String roleCode) {
         // 1. 校验用户存在
-        User user = userMapper.getById(userId);
+        UserAccountVO user = userQueryService.getAccount(userId);
         if (user == null) {
             throw new ContentFailedException("用户不存在");
         }
@@ -95,7 +95,7 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     @Transactional
     public void revokeRole(Long userId, String roleCode) {
         // 1. 校验用户存在
-        User user = userMapper.getById(userId);
+        UserAccountVO user = userQueryService.getAccount(userId);
         if (user == null) {
             throw new ContentFailedException("用户不存在");
         }

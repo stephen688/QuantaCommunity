@@ -1,8 +1,8 @@
 package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.feed.service.RecommendRerankService;
 import com.quanta.demo0.feed.service.UserInterestProfileService;
@@ -66,7 +66,7 @@ class RecommendRerankServiceImplTest {
     @Mock
     private SetOperations<String, String> setOperations;
     @Mock
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
     @Mock
     private UserInterestProfileService userProfileService;
 
@@ -79,17 +79,17 @@ class RecommendRerankServiceImplTest {
         when(stringRedisTemplate.opsForZSet()).thenReturn(zSetOperations);
         when(stringRedisTemplate.opsForSet()).thenReturn(setOperations);
         service = new RecommendRerankServiceImpl(
-                stringRedisTemplate, contentMapper, userProfileService, recommendProperties);
+                stringRedisTemplate, contentQueryService, userProfileService, recommendProperties);
     }
 
     // ------------------------- 测试数据构造 -------------------------
 
     /** 审核通过、未删除的帖子（createTime 统一 1 小时前，热度差异只来自互动计数） */
-    private Content content(Long contentId, Integer contentType, int liked, int commentCount, int collectCount) {
-        return Content.builder()
+    private ContentSnapshotVO content(Long contentId, Integer contentType, int liked, int commentCount, int collectCount) {
+        return ContentSnapshotVO.builder()
                 .contentId(contentId)
                 .contentType(contentType)
-                .liked(liked)
+                .likedCount(liked)
                 .commentCount(commentCount)
                 .collectCount(collectCount)
                 .auditStatus(1)
@@ -99,7 +99,7 @@ class RecommendRerankServiceImplTest {
     }
 
     /** 互动全零的帖子（保底分，热度最低档） */
-    private Content zeroContent(Long contentId, Integer contentType) {
+    private ContentSnapshotVO zeroContent(Long contentId, Integer contentType) {
         return content(contentId, contentType, 0, 0, 0);
     }
 
@@ -115,8 +115,8 @@ class RecommendRerankServiceImplTest {
 
     /** mock 画像服务的标签解析：contentType 1→life / 2→professional（对齐 D5 真实语义） */
     private void stubTagResolution() {
-        when(userProfileService.resolveContentTags(any(Content.class))).thenAnswer(invocation -> {
-            Content content = invocation.getArgument(0);
+        when(userProfileService.resolveContentTags(any(ContentSnapshotVO.class))).thenAnswer(invocation -> {
+            ContentSnapshotVO content = invocation.getArgument(0);
             if (content.getContentType() == null) {
                 return List.of();
             }
@@ -131,7 +131,7 @@ class RecommendRerankServiceImplTest {
     }
 
     private List<Long> resultIds(RecommendRerankService.RerankResult result) {
-        return result.contents().stream().map(Content::getContentId).collect(Collectors.toList());
+        return result.contents().stream().map(ContentSnapshotVO::getContentId).collect(Collectors.toList());
     }
 
     // ------------------------- 召回与过滤 -------------------------
@@ -140,7 +140,7 @@ class RecommendRerankServiceImplTest {
     void 双池召回_同帖去重只留一份() {
         // hot 池 [1,2,3]、latest 池 [3,4,5]：contentId=3 两池重复，合并后 5 个候选
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3")), new LinkedHashSet<>(List.of("3", "4", "5")));
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(2L, 2, 20, 0, 0),
                 content(3L, 1, 30, 0, 0),
@@ -164,7 +164,7 @@ class RecommendRerankServiceImplTest {
                 .thenReturn(new LinkedHashSet<>(List.of("1")));
         when(zSetOperations.reverseRange(LIFE_KEY, 0, 149))
                 .thenReturn(new LinkedHashSet<>(List.of("2")));
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(2L, 1, 20, 0, 0)
         ));
@@ -183,7 +183,7 @@ class RecommendRerankServiceImplTest {
         // 用户已曝光 contentId=2（隐式游标）
         when(setOperations.members(EXPOSED_KEY)).thenReturn(new LinkedHashSet<>(List.of("2")));
         when(setOperations.size(EXPOSED_KEY)).thenReturn(1L);
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(3L, 1, 30, 0, 0)
         ));
@@ -197,11 +197,11 @@ class RecommendRerankServiceImplTest {
     @Test
     void MySQL可见性兜底_驳回与已删帖被过滤() {
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3")), new LinkedHashSet<>());
-        Content rejected = content(2L, 1, 999, 0, 0);
+        ContentSnapshotVO rejected = content(2L, 1, 999, 0, 0);
         rejected.setAuditStatus(2); // 驳回
-        Content deleted = content(3L, 1, 999, 0, 0);
+        ContentSnapshotVO deleted = content(3L, 1, 999, 0, 0);
         deleted.setIsDeleted(1); // 已删
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0), rejected, deleted));
 
         RecommendRerankService.RerankResult result = service.rerank(null, null, 5);
@@ -216,7 +216,7 @@ class RecommendRerankServiceImplTest {
     void 热度归一化_候选集内最热优先最低殿后_单候选正常返回() {
         // 3 候选不同计数：id2=50 最热(normHot=1.0)、id1=30 居中、id3=20 最低(normHot=0)
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),      // baseScore=30
                 content(2L, 1, 0, 0, 10),      // baseScore=50
                 content(3L, 1, 0, 10, 0)       // baseScore=20
@@ -229,7 +229,7 @@ class RecommendRerankServiceImplTest {
 
         // 单候选=1.0：只剩一个候选时仍正常返回（归一化分母为 0 的边界）
         stubRecall(new LinkedHashSet<>(List.of("9")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(zeroContent(9L, 1)));
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(zeroContent(9L, 1)));
         RecommendRerankService.RerankResult single = service.rerank(null, null, 5);
         assertEquals(List.of(9L), resultIds(single));
         assertFalse(single.hasMore());
@@ -243,7 +243,7 @@ class RecommendRerankServiceImplTest {
                 "life", 8.0, "professional", 2.0, "__total", 100.0));
         stubTagResolution();
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),        // life 中热帖：hotScore=30/3^1.5≈5.77，normHot=(5.77-3.85)/(9.62-3.85)≈0.33
                 content(2L, 2, 0, 0, 10),        // professional 最热帖：hotScore=50/3^1.5≈9.62 → normHot=1.0
                 zeroContent(3L, 1)               // life 零互动帖：保底分 20/3^1.5≈3.85（候选集最低）→ normHot=0
@@ -265,7 +265,7 @@ class RecommendRerankServiceImplTest {
                 "life", 10.0, "__total", 100.0));
         stubTagResolution();
         stubRecall(new LinkedHashSet<>(List.of("1", "2")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 zeroContent(1L, 1),                // life 帖：normHot=0
                 content(2L, 2, 0, 0, 10)           // professional 帖：baseScore=50 → normHot=1.0
         ));
@@ -284,7 +284,7 @@ class RecommendRerankServiceImplTest {
                 "life", 5.0, "__total", 5.0));
         stubTagResolution();
         stubRecall(new LinkedHashSet<>(List.of("1", "2")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 zeroContent(1L, 1),                // life 帖：normHot=0
                 content(2L, 2, 0, 0, 10)           // professional 帖：normHot=1.0
         ));
@@ -300,7 +300,7 @@ class RecommendRerankServiceImplTest {
     void 同分候选_contentId降序稳定排序() {
         // 两帖计数完全相同（finalScore 相同）→ contentId 降序，召回顺序不影响结果
         stubRecall(new LinkedHashSet<>(List.of("7", "9")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(7L, 1, 10, 0, 0),
                 content(9L, 1, 10, 0, 0)
         ));
@@ -315,7 +315,7 @@ class RecommendRerankServiceImplTest {
     @Test
     void 候选超页大小_截断到pageSize且hasMore为true() {
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3", "4", "5", "6")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(2L, 1, 20, 0, 0),
                 content(3L, 1, 30, 0, 0),
@@ -334,7 +334,7 @@ class RecommendRerankServiceImplTest {
     @Test
     void 候选等于页大小_hasMore为false() {
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3", "4", "5")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(2L, 1, 20, 0, 0),
                 content(3L, 1, 30, 0, 0),
@@ -352,7 +352,7 @@ class RecommendRerankServiceImplTest {
     @Test
     void 登录用户_本页内容回写曝光set含TTL() {
         stubRecall(new LinkedHashSet<>(List.of("1", "2", "3")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(2L, 1, 20, 0, 0),
                 content(3L, 1, 30, 0, 0)
@@ -372,7 +372,7 @@ class RecommendRerankServiceImplTest {
     @Test
     void 匿名用户_不读画像不读写曝光_纯热度序() {
         stubRecall(new LinkedHashSet<>(List.of("1", "2")), new LinkedHashSet<>());
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(2L, 1, 20, 0, 0)
         ));
@@ -395,7 +395,7 @@ class RecommendRerankServiceImplTest {
         // 池子耗尽：零召回短路返回，不触发 DB/画像/曝光
         assertEquals(new ArrayList<>(), result.contents());
         assertFalse(result.hasMore());
-        verify(contentMapper, never()).selectBatchIds(anyList());
+        verify(contentQueryService, never()).getContentFactSnapshots(anyList());
         verify(userProfileService, never()).getProfile(any());
         verifyNoInteractions(setOperations);
     }
@@ -426,7 +426,7 @@ class RecommendRerankServiceImplTest {
                 .thenReturn(new LinkedHashSet<>(List.of("1")));
         when(zSetOperations.reverseRange(LATEST_ALL_KEY, 0, 19))
                 .thenReturn(new LinkedHashSet<>(List.of("2")));
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenReturn(List.of(
                 content(1L, 1, 10, 0, 0),
                 content(2L, 1, 20, 0, 0)
         ));

@@ -1,12 +1,15 @@
 package com.quanta.demo0.content.service.impl;
 
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.feed.service.ContentExposureService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -29,7 +32,11 @@ class ContentAuditServiceImplTrendingCacheTest {
     @Mock
     private ContentExposureService contentExposureService;
     @Mock
-    private OutboxEventService outboxEventService;
+    private ContentEventProducer contentEventProducer;
+    @Mock
+    private SearchEventProducer searchEventProducer;
+    @Mock
+    private NotificationEventProducer notificationEventProducer;
     @Mock
     private TrendingCacheInvalidator trendingCacheInvalidator;
     @Mock
@@ -47,8 +54,8 @@ class ContentAuditServiceImplTrendingCacheTest {
 
         verify(trendingCacheInvalidator).evictAfterCommit("content-audit-approved");
         verify(contentDetailCacheInvalidator).evictAfterCommit(42L, "content-audit-approved");
-        verify(contentExposureService).exposeApprovedContent(any(Content.class));
-        verify(outboxEventService).createContentTopicTagEvent(42L);
+        verify(contentExposureService).exposeApprovedContent(any(ContentSnapshotVO.class));
+        verify(contentEventProducer).createContentTopicTagEvent(42L);
     }
 
     @Test
@@ -59,8 +66,8 @@ class ContentAuditServiceImplTrendingCacheTest {
 
         service.approveContent(42L);
 
-        verify(contentExposureService, never()).exposeApprovedContent(any(Content.class));
-        verify(outboxEventService, never()).createContentTopicTagEvent(42L);
+        verify(contentExposureService, never()).exposeApprovedContent(any(ContentSnapshotVO.class));
+        verify(contentEventProducer, never()).createContentTopicTagEvent(42L);
         verify(trendingCacheInvalidator, never()).evictAfterCommit(anyString());
         verify(contentDetailCacheInvalidator, never()).evictAfterCommit(any(), anyString());
     }
@@ -71,7 +78,7 @@ class ContentAuditServiceImplTrendingCacheTest {
         when(contentMapper.updateAuditStatusIfPending(42L, AuditStatus.APPROVED.getCode()))
                 .thenReturn(1);
         doThrow(new IllegalStateException("outbox unavailable"))
-                .when(outboxEventService).createFeedUpsertEvent(any(Content.class));
+                .when(contentEventProducer).createFeedUpsertEvent(any(Content.class));
 
         assertThatThrownBy(() -> service.approveContent(42L))
                 .isInstanceOf(IllegalStateException.class);

@@ -1,6 +1,6 @@
 package com.quanta.demo0.feed.mq.consumer;
 
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.feed.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.feed.mq.producer.UserBehaviorProducer;
@@ -49,7 +49,7 @@ public class UserBehaviorConsumer {
      * 消费用户行为消息：先经 Inbox 幂等抢占，再按行为权重累加画像。
      * 缺 eventId 的消息直接死信；抢占异常 nack requeue 交还 MQ。
      */
-    @RabbitListener(queues = RabbitMQConfig.USER_BEHAVIOR_QUEUE)
+    @RabbitListener(queues = FeedMQConfig.USER_BEHAVIOR_QUEUE)
     public void handleUserBehaviorMessage(UserBehaviorMessage message, Message mqMessage, Channel channel) {
         long deliveryTag = mqMessage.getMessageProperties().getDeliveryTag();
 

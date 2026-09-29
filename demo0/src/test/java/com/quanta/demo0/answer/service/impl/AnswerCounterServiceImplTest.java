@@ -1,6 +1,6 @@
 package com.quanta.demo0.answer.service.impl;
 
-import com.quanta.demo0.interaction.mapper.AnswerInteractionMapper;
+import com.quanta.demo0.answer.mapper.QuestionMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,15 +13,15 @@ import static org.mockito.Mockito.verify;
 class AnswerCounterServiceImplTest {
 
     @Mock
-    private AnswerInteractionMapper answerInteractionMapper;
+    private QuestionMapper questionMapper;
 
     @InjectMocks
     private AnswerCounterServiceImpl answerCounterService;
 
     @Test
-    void updateCommentCountDelegatesToSynchronousInteractionMapper() {
+    void updateCommentCountDelegatesToAnswerMapper() {
         answerCounterService.updateCommentCount(7L, 1);
 
-        verify(answerInteractionMapper).updateAnswerCommentCount(7L, 1);
+        verify(questionMapper).updateAnswerCommentCount(7L, 1);
     }
 }

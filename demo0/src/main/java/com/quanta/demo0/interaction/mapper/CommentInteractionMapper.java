@@ -1,6 +1,5 @@
 package com.quanta.demo0.interaction.mapper;
 
-import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.interaction.entity.CommentReport;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -21,6 +20,15 @@ public interface CommentInteractionMapper {
 
     /** 删除当前用户的评论点赞关系。 */
     int deleteCommentLikeByUser(@Param("commentId") Long commentId, @Param("userId") Long userId);
+
+    /** 删除单条评论的全部点赞关系。 */
+    void deleteCommentLikes(@Param("commentId") Long commentId);
+
+    /** 删除指定回复集合的全部点赞关系。 */
+    void deleteCommentLikesByCommentIds(@Param("replyCommentIds") List<Long> replyCommentIds);
+
+    /** 删除指定内容下全部评论的点赞关系。 */
+    void deleteCommentLikesByContentId(@Param("contentId") Long contentId);
 
     /** 查询当前用户对评论的有效举报。 */
     CommentReport selectValidReportByCommentAndUser(@Param("commentId") Long commentId,

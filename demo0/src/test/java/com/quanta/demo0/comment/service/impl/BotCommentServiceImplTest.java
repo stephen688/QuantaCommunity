@@ -4,11 +4,11 @@ import com.quanta.demo0.comment.vo.BotCommentChainVO;
 import com.quanta.demo0.comment.vo.BotCommentHistoryVO;
 import com.quanta.demo0.comment.vo.BotCommentTreeVO;
 import com.quanta.demo0.comment.entity.CommentImage;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.exception.CommentFailedException;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.comment.service.impl.BotCommentServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,7 +37,7 @@ class BotCommentServiceImplTest {
     private CommentMapper commentMapper;
 
     @Mock
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
 
     @InjectMocks
     private BotCommentServiceImpl botCommentService;
@@ -66,7 +66,7 @@ class BotCommentServiceImplTest {
         when(commentMapper.selectVisibleById(9103L)).thenReturn(trigger);
         when(commentMapper.selectVisibleById(9102L)).thenReturn(middle);
         when(commentMapper.selectVisibleById(9101L)).thenReturn(top);
-        when(contentMapper.selectById(9001L)).thenReturn(Content.builder()
+        when(contentQueryService.getContentSnapshot(9001L)).thenReturn(ContentSnapshotVO.builder()
                 .contentId(9001L)
                 .contentType(1)
                 .title("选课帖")

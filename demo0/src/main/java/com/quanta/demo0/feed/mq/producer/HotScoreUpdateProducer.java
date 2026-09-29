@@ -1,7 +1,7 @@
 package com.quanta.demo0.feed.mq.producer;
 
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.feed.mq.message.HotScoreMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +20,8 @@ public class HotScoreUpdateProducer {
     public boolean sendRetryTask(HotScoreMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.HOT_SCORE_RETRY_EXCHANGE,
-                    RabbitMQConfig.HOT_SCORE_RETRY_ROUTING_KEY,
+                    FeedMQConfig.HOT_SCORE_RETRY_EXCHANGE,
+                    FeedMQConfig.HOT_SCORE_RETRY_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;
@@ -40,8 +40,8 @@ public class HotScoreUpdateProducer {
     public boolean sendDeadTask(HotScoreMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.HOT_SCORE_DLX_EXCHANGE,
-                    RabbitMQConfig.HOT_SCORE_DLX_ROUTING_KEY,
+                    FeedMQConfig.HOT_SCORE_DLX_EXCHANGE,
+                    FeedMQConfig.HOT_SCORE_DLX_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;

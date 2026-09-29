@@ -3,7 +3,7 @@ package com.quanta.demo0.content.service.impl;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.entity.ContentImage;
 import com.quanta.demo0.content.enums.ContentDetailState;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
 import com.quanta.demo0.content.vo.ContentDetailSnapshot;
 import org.apache.commons.lang3.StringUtils;

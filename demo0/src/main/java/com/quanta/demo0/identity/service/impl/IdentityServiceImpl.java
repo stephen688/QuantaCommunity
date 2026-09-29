@@ -4,13 +4,14 @@ import cn.hutool.core.bean.BeanUtil;
 import com.quanta.demo0.identity.dto.UserAuthDTO;
 import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.identity.enums.UserAuthDisplayStatus;
+import com.quanta.demo0.identity.mapper.IdentityMapper;
 import com.quanta.demo0.identity.service.IdentityService;
+import com.quanta.demo0.identity.service.IdentityQueryService;
 import com.quanta.demo0.identity.vo.UserAuthStatusVO;
-import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.security.exception.AuthFailedException;
-import com.quanta.demo0.user.entity.User;
+import com.quanta.demo0.user.service.UserAccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +28,9 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class IdentityServiceImpl implements IdentityService {
 
-    private final UserMapper userMapper;
+    private final IdentityMapper identityMapper;
+    private final IdentityQueryService identityQueryService;
+    private final UserAccountService userAccountService;
 
     /**
      * 新建认证申请，或允许被驳回的用户重新提交。
@@ -47,14 +50,14 @@ public class IdentityServiceImpl implements IdentityService {
         }
 
         Long userId = BaseContext.getCurrentId();
-        UserAuth userAuth = userMapper.getUserAuthByUserId(userId);
+        UserAuth userAuth = identityMapper.getUserAuthByUserId(userId);
         if (userAuth == null) {
             userAuth = BeanUtil.copyProperties(userAuthDTO, UserAuth.class);
             userAuth.setUserId(userId);
             userAuth.setAuditStatus(AuditStatus.PENDING.getCode());
             userAuth.setCreateTime(LocalDateTime.now());
             userAuth.setUpdateTime(LocalDateTime.now());
-            userMapper.insertUserAuth(userAuth);
+            identityMapper.insertUserAuth(userAuth);
             syncUserAuthDisplayStatus(userId, UserAuthDisplayStatus.PENDING);
             return userAuth;
         }
@@ -69,7 +72,7 @@ public class IdentityServiceImpl implements IdentityService {
             userAuth.setAuditRemark(null);
             userAuth.setAuditTime(null);
             userAuth.setUpdateTime(LocalDateTime.now());
-            userMapper.updateUserAuth(userAuth);
+            identityMapper.updateUserAuth(userAuth);
             syncUserAuthDisplayStatus(userId, UserAuthDisplayStatus.PENDING);
             return userAuth;
         }
@@ -88,21 +91,7 @@ public class IdentityServiceImpl implements IdentityService {
      */
     @Override
     public UserAuthStatusVO getAuthStatus(Long currentId) {
-        UserAuth userAuth = userMapper.getUserAuthByUserId(currentId);
-        if (userAuth == null) {
-            return UserAuthStatusVO.builder()
-                    .auditStatus(AuditStatus.UNSUBMITTED.getCode())
-                    .build();
-        }
-        if (Objects.equals(userAuth.getAuditStatus(), AuditStatus.REJECTED.getCode())) {
-            return UserAuthStatusVO.builder()
-                    .auditStatus(userAuth.getAuditStatus())
-                    .auditRemark(userAuth.getAuditRemark())
-                    .build();
-        }
-        return UserAuthStatusVO.builder()
-                .auditStatus(userAuth.getAuditStatus())
-                .build();
+        return identityQueryService.getAuthStatus(currentId);
     }
 
     /**
@@ -110,7 +99,7 @@ public class IdentityServiceImpl implements IdentityService {
      */
     @Override
     public UserAuth getAuthDetail(Long currentId) {
-        UserAuth userAuth = userMapper.getUserAuthByUserId(currentId);
+        UserAuth userAuth = identityMapper.getUserAuthByUserId(currentId);
         if (userAuth == null) {
             throw new AuthFailedException("用户认证信息不存在");
         }
@@ -124,10 +113,6 @@ public class IdentityServiceImpl implements IdentityService {
         if (userId == null || displayStatus == null) {
             return;
         }
-        User patch = new User();
-        patch.setId(userId);
-        patch.setAuthStatus(displayStatus.getCode());
-        patch.setUpdateTime(LocalDateTime.now());
-        userMapper.updateById(patch);
+        userAccountService.updateAuthStatus(userId, displayStatus.getCode());
     }
 }

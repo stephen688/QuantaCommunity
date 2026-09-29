@@ -1,7 +1,7 @@
 package com.quanta.demo0.feed.mq.producer;
 
 import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
 import com.quanta.demo0.feed.mq.message.FeedPushMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,8 +24,8 @@ public class FeedPushProducer {
     public boolean sendRetryTask(FeedPushMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.FEED_PUSH_RETRY_EXCHANGE,
-                    RabbitMQConfig.FEED_PUSH_RETRY_ROUTING_KEY,
+                    FeedMQConfig.FEED_PUSH_RETRY_EXCHANGE,
+                    FeedMQConfig.FEED_PUSH_RETRY_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;
@@ -41,8 +41,8 @@ public class FeedPushProducer {
     public boolean sendDeadTask(FeedPushMessage message) {
         try {
             if (!reliableRabbitPublisher.send(
-                    RabbitMQConfig.FEED_PUSH_DLX_EXCHANGE,
-                    RabbitMQConfig.FEED_PUSH_DLX_ROUTING_KEY,
+                    FeedMQConfig.FEED_PUSH_DLX_EXCHANGE,
+                    FeedMQConfig.FEED_PUSH_DLX_ROUTING_KEY,
                     message,
                     message.getEventId())) {
                 return false;

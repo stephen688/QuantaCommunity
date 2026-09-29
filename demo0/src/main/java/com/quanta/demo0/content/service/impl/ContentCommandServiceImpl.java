@@ -1,6 +1,7 @@
 package com.quanta.demo0.content.service.impl;
 
-import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.answer.service.AnswerCommandService;
+import com.quanta.demo0.comment.service.CommentCommandService;
 import com.quanta.demo0.content.dto.ContentDTO;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.entity.ContentImage;
@@ -9,18 +10,18 @@ import com.quanta.demo0.content.service.ContentAuditService;
 import com.quanta.demo0.content.service.ContentCommandService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.content.vo.ContentVO;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
 import com.quanta.demo0.interaction.service.ContentInteractionService;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
-import com.quanta.demo0.search.service.impl.TrendingCacheInvalidator;
+import com.quanta.demo0.search.service.TrendingCacheInvalidator;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,11 +59,15 @@ public class ContentCommandServiceImpl implements ContentCommandService {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
-    private QuestionMapper questionMapper;
+    private AnswerCommandService answerCommandService;
+    @Autowired
+    private CommentCommandService commentCommandService;
     @Autowired
     private SensitiveWordChecker sensitiveWordChecker;
     @Autowired
-    private OutboxEventService outboxEventService;
+    private ContentEventProducer contentEventProducer;
+    @Autowired
+    private SearchEventProducer searchEventProducer;
     @Autowired
     private AliyunModerationProperties moderationProperties;
     @Autowired
@@ -179,7 +184,7 @@ public class ContentCommandServiceImpl implements ContentCommandService {
      */
     private void schedulePostPublishActions(Content content, List<String> images) {
         if (shouldModerateContent()) {
-            outboxEventService.createContentModerationEvent(content, images);
+            contentEventProducer.createContentModerationEvent(content, images);
             return;
         }
 
@@ -242,25 +247,20 @@ public class ContentCommandServiceImpl implements ContentCommandService {
 
         contentMapper.deleteContentImages(contentId);
         contentInteractionService.deleteByContentId(contentId);
-        contentMapper.deleteContentCommentImages(contentId);
-        contentMapper.deleteContentCommentLiked(contentId);
-        contentMapper.softDeleteContentComment(contentId);
+        commentCommandService.deleteByContentId(contentId);
 
-        List<QuestionAnswer> answers = content.getContentType() != null && content.getContentType() == 2
-                ? questionMapper.selectAnswersByQuestionId(contentId)
+        List<Long> answerIds = content.getContentType() != null && content.getContentType() == 2
+                ? answerCommandService.deleteByQuestionId(contentId)
                 : List.of();
 
-        if (content.getContentType() != null && content.getContentType() == 2) {
-            questionMapper.softDeleteAnswers(contentId);
-        }
         contentMapper.softDeleteContent(contentId);
 
-        outboxEventService.createFeedDeleteEvent(content);
-        outboxEventService.createSearchReconcileEvent(
+        contentEventProducer.createFeedDeleteEvent(content);
+        searchEventProducer.createSearchReconcileEvent(
                 ModerationTargetType.CONTENT.name(), contentId, "DELETE");
-        for (QuestionAnswer answer : answers) {
-            outboxEventService.createSearchReconcileEvent(
-                    ModerationTargetType.ANSWER.name(), answer.getAnswerId(), "PARENT_CONTENT_DELETE");
+        for (Long answerId : answerIds) {
+            searchEventProducer.createSearchReconcileEvent(
+                    ModerationTargetType.ANSWER.name(), answerId, "PARENT_CONTENT_DELETE");
         }
 
         trendingCacheInvalidator.evictAfterCommit("content-delete");

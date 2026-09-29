@@ -1,0 +1,171 @@
+package com.quanta.demo0.content.mapper;
+
+import com.github.pagehelper.Page;
+import com.quanta.demo0.content.dto.ContentAdminQueryDTO;
+import org.apache.ibatis.annotations.*;
+
+import java.util.List;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.entity.ContentImage;
+
+@Mapper
+public interface ContentMapper {
+
+
+    /**
+     * 插入内容
+     * @param content
+     */
+    void insert(Content content);
+
+   /**
+    * 批量插入内容图片
+    * @param images
+    */
+    void batchInsertImages(@Param("images") List<ContentImage> images);
+
+    /**
+     * 根据内容 ID 列表查询对应的图片列表
+     * @param contentId 内容 ID 列表
+     * @return 图片列表
+     */
+    @Select("select * from tb_content_image where content_id = #{contentId}")
+    List<ContentImage> selectImagesByContentIds(Long contentId);
+
+    /**
+     * 根据内容 IDs 列表查询对应的内容列表
+     * @param ids 内容 ID 列表
+     * @return 内容列表
+     */
+    List<Content> selectBatchIds( List<Long> ids);
+
+    /**
+     * 根据内容 ID 查询内容详情
+     * @param contentId 内容 ID
+     * @return 内容详情
+     */
+    @Select("select * from tb_content where content_id = #{contentId} and is_deleted = 0")
+    Content selectById(Long contentId);
+
+    /**
+     * 根据内容 ID 查询内容详情（加锁）
+     * @param contentId 内容 ID
+     * @return 内容详情
+     */
+    @Select("select * from tb_content where content_id = #{contentId} and is_deleted = 0 for update")
+    Content selectByIdForUpdate(Long contentId);
+
+    boolean updateLiked(@Param("contentId") Long contentId, @Param("i") int i);
+
+    /**
+     * 根据内容 ID 和用户 ID 删除点赞记录
+     * @param contentId 内容 ID
+     * @param userId 用户 ID
+     */
+
+
+
+
+    Page<Content> getMyContentsList(@Param("userId") Long userId, @Param("auditStatus") Integer auditStatus);
+
+    void softDeleteContent(Long contentId);
+
+    @Delete("delete from tb_content_image where content_id = #{contentId}")
+    void deleteContentImages(Long contentId);
+
+
+
+    @Select("select * from tb_content where content_id in (select content_id from tb_content_like where user_id = #{userId}) and is_deleted = 0 order by create_time desc")
+    Page<Content> getMyLikedContentList(Long userId);
+
+    @Select("select * from tb_content where content_id in (select content_id from tb_content_collect where user_id = #{userId}) and is_deleted = 0 order by create_time desc")
+    Page<Content> getMyCollectContentList(Long userId);
+
+    Page<Content> searchContent(@Param("keyword") String keyword,@Param("contentType") Integer contentType);
+
+
+
+    int updateCollectCount(@Param("contentId") Long contentId, @Param("i") int i);
+
+    /** 同步更新内容可见评论数。 */
+    @Update("update tb_content set comment_count = GREATEST(0, comment_count + #{i}) where content_id = #{contentId} and is_deleted = 0")
+    int updateCommentCount(@Param("contentId") Long contentId, @Param("i") int i);
+
+    @Select("select * from tb_content   order by create_time desc limit #{offset}, #{batchSize}")
+    List<Content> selectAllForReindex(int offset, int batchSize);
+
+    /**
+     * 分页查询已通过且未删除的内容，用于推荐流 Redis 冷启动预热。
+     */
+    @Select("SELECT * FROM tb_content WHERE is_deleted = 0 AND audit_status = 1 ORDER BY create_time DESC LIMIT #{offset}, #{batchSize}")
+    List<Content> selectApprovedForRecommendWarmup(@Param("offset") int offset, @Param("batchSize") int batchSize);
+
+
+   
+    Page<Content> pageAdmin(@Param("query") ContentAdminQueryDTO query);
+
+    void update(Content updateContent);
+
+
+
+    /**
+     * 分页查询用户已审核通过且未删除的帖子
+     * @param userId 用户 ID
+     * @return 帖子列表（分页）
+     */
+    Page<Content> pageUserPublicContents(@Param("userId") Long userId);
+
+    /**
+     * 统计用户已审核通过且未删除的帖子数量
+     * @param userId 用户 ID
+     * @return 帖子数量
+     */
+    @Select("SELECT COUNT(*) FROM tb_content WHERE publish_user_id = #{userId} AND is_deleted = 0 AND audit_status = 1")
+    Integer countUserPublicContents(@Param("userId") Long userId);
+
+    /**
+     * 查询点赞数最高的内容（热门问题兜底）
+     *
+     * @param limit 限制数量
+     * @return 内容列表
+     */
+    @Select("SELECT * FROM tb_content WHERE is_deleted = 0 AND audit_status = 1 ORDER BY liked DESC, create_time DESC LIMIT #{limit}")
+    List<Content> selectTopLikedContents(@Param("limit") int limit);
+
+    /**
+     * 查询某用户已审核通过的公开帖子（用于关注流回填）
+     */
+    @Select("SELECT * FROM tb_content WHERE publish_user_id = #{publishUserId} AND is_deleted = 0 AND audit_status = 1 ORDER BY create_time DESC LIMIT #{limit}")
+    List<Content> selectApprovedByPublishUserId(@Param("publishUserId") Long publishUserId, @Param("limit") int limit);
+
+    /**
+     * 按内容 ID 游标查询审核通过且尚未完成主题标签处理的帖子。
+     *
+     * @param afterId 上一次批次最后一个内容 ID（不含）
+     * @param limit 本批最大条数
+     * @return 按内容 ID 升序排列的帖子
+     */
+    List<Content> selectApprovedWithoutTags(@Param("afterId") long afterId, @Param("limit") int limit);
+
+    /**
+     * 条件写入主题标签，只有可见内容且 tags 仍为 NULL 时才会成功。
+     *
+     * @param contentId 内容 ID
+     * @param tags JSON 数组字符串
+     * @return 实际更新行数
+     */
+    int updateTags(@Param("contentId") Long contentId, @Param("tags") String tags);
+
+
+    /**
+     * AI 审核只允许把待审核状态修改为最终状态。
+     *
+     * 返回 1：当前线程修改成功。
+     * 返回 0：帖子不存在、已删除或者已经被别人审核。
+     */
+    int updateAuditStatusIfPending(
+            @Param("contentId") Long contentId,
+            @Param("auditStatus") Integer auditStatus
+    );
+
+}

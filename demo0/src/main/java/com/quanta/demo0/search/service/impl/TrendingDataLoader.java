@@ -1,11 +1,11 @@
 package com.quanta.demo0.search.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.search.mapper.SearchMapper;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.user.service.UserQueryService;
 import com.quanta.demo0.search.properties.SearchTrendingProperties;
 import com.quanta.demo0.search.vo.HotAlumniVO;
 import com.quanta.demo0.search.vo.HotQuestionVO;
@@ -44,21 +44,21 @@ public class TrendingDataLoader {
     private final SearchMapper searchMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final SearchTrendingProperties searchTrendingProperties;
-    private final ContentMapper contentMapper;
-    private final UserMapper userMapper;
+    private final ContentQueryService contentQueryService;
+    private final UserQueryService userQueryService;
 
     public TrendingDataLoader(
             SearchMapper searchMapper,
             StringRedisTemplate stringRedisTemplate,
             SearchTrendingProperties searchTrendingProperties,
-            ContentMapper contentMapper,
-            UserMapper userMapper
+            ContentQueryService contentQueryService,
+            UserQueryService userQueryService
     ) {
         this.searchMapper = searchMapper;
         this.stringRedisTemplate = stringRedisTemplate;
         this.searchTrendingProperties = searchTrendingProperties;
-        this.contentMapper = contentMapper;
-        this.userMapper = userMapper;
+        this.contentQueryService = contentQueryService;
+        this.userQueryService = userQueryService;
     }
 
     public SearchTrendingVO load() {
@@ -95,15 +95,15 @@ public class TrendingDataLoader {
                 RedisConstants.RECOMMEND_HOT_ALL_KEY,
                 limit
         );
-        List<Content> rankedContents = rankedIds.isEmpty()
+        List<ContentSnapshotVO> rankedContents = rankedIds.isEmpty()
                 ? Collections.emptyList()
-                : contentMapper.selectBatchIds(rankedIds);
-        Map<Long, Content> contentsById = indexContents(rankedContents);
+                : contentQueryService.getContentFactSnapshots(rankedIds);
+        Map<Long, ContentSnapshotVO> contentsById = indexContents(rankedContents);
 
         List<HotQuestionVO> questions = new ArrayList<>(limit);
         Set<Long> selectedIds = new HashSet<>();
         for (Long rankedId : rankedIds) {
-            Content content = contentsById.get(rankedId);
+            ContentSnapshotVO content = contentsById.get(rankedId);
             if (isApprovedContent(content) && selectedIds.add(rankedId)) {
                 questions.add(toHotQuestion(content));
                 if (questions.size() == limit) {
@@ -113,11 +113,11 @@ public class TrendingDataLoader {
         }
 
         // 查询完整 limit，避免 DB TopN 前几项与排行结果重复时补不满。
-        List<Content> fallbackContents = contentMapper.selectTopLikedContents(limit);
+        List<ContentSnapshotVO> fallbackContents = contentQueryService.getTopLikedContentSnapshots(limit);
         if (fallbackContents == null) {
             return questions;
         }
-        for (Content content : fallbackContents) {
+        for (ContentSnapshotVO content : fallbackContents) {
             if (isApprovedContent(content)
                     && selectedIds.add(content.getContentId())) {
                 questions.add(toHotQuestion(content));
@@ -140,7 +140,7 @@ public class TrendingDataLoader {
         );
         List<UserAuthInfoVO> rankedUsers = rankedIds.isEmpty()
                 ? Collections.emptyList()
-                : userMapper.selectUserAuthInfoByIds(rankedIds);
+                : userQueryService.getUserAuthInfos(rankedIds);
         Map<Long, UserAuthInfoVO> usersById = indexUsers(rankedUsers);
 
         List<HotAlumniVO> alumni = new ArrayList<>(limit);
@@ -156,7 +156,7 @@ public class TrendingDataLoader {
         }
 
         // 查询完整 limit，避免 DB TopN 前几项与排行结果重复时补不满。
-        List<UserAuthInfoVO> fallbackUsers = userMapper.selectTopFollowedUsers(limit);
+        List<UserAuthInfoVO> fallbackUsers = userQueryService.getTopFollowedUsers(limit);
         if (fallbackUsers == null) {
             return alumni;
         }
@@ -207,12 +207,12 @@ public class TrendingDataLoader {
         }
     }
 
-    private Map<Long, Content> indexContents(List<Content> contents) {
-        Map<Long, Content> indexed = new HashMap<>();
+    private Map<Long, ContentSnapshotVO> indexContents(List<ContentSnapshotVO> contents) {
+        Map<Long, ContentSnapshotVO> indexed = new HashMap<>();
         if (contents == null) {
             return indexed;
         }
-        for (Content content : contents) {
+        for (ContentSnapshotVO content : contents) {
             if (content != null && content.getContentId() != null) {
                 indexed.putIfAbsent(content.getContentId(), content);
             }
@@ -233,7 +233,7 @@ public class TrendingDataLoader {
         return indexed;
     }
 
-    private boolean isApprovedContent(Content content) {
+    private boolean isApprovedContent(ContentSnapshotVO content) {
         return content != null
                 && content.getContentId() != null
                 && Integer.valueOf(0).equals(content.getIsDeleted())
@@ -247,11 +247,11 @@ public class TrendingDataLoader {
                 && (accountStatus == null || accountStatus == 0);
     }
 
-    private HotQuestionVO toHotQuestion(Content content) {
+    private HotQuestionVO toHotQuestion(ContentSnapshotVO content) {
         return HotQuestionVO.builder()
                 .contentId(content.getContentId())
                 .title(content.getTitle())
-                .liked(content.getLiked())
+                .liked(content.getLikedCount())
                 .build();
     }
 

@@ -2,7 +2,11 @@ package com.quanta.demo0.platform.mq.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.content.config.ContentMQConfig;
+import com.quanta.demo0.feed.config.FeedMQConfig;
+import com.quanta.demo0.moderation.config.ModerationMQConfig;
+import com.quanta.demo0.notification.config.NotificationMQConfig;
+import com.quanta.demo0.search.config.SearchMQConfig;
 import com.quanta.demo0.content.config.TopicTagMQConfig;
 import com.quanta.demo0.feed.config.ProfileMQConfig;
 import com.quanta.demo0.platform.mq.entity.OutboxEvent;
@@ -50,10 +54,10 @@ public class OutboxRouteRegistry {
 
             return OutboxRoute.builder()
                     .exchange(
-                            RabbitMQConfig.MODERATION_EXCHANGE
+ModerationMQConfig.MODERATION_EXCHANGE
                     )
                     .routingKey(
-                            RabbitMQConfig.MODERATION_ROUTING_KEY
+ModerationMQConfig.MODERATION_ROUTING_KEY
                     )
                     .message(message)
                     .build();
@@ -72,10 +76,10 @@ public class OutboxRouteRegistry {
 
             return OutboxRoute.builder()
                     .exchange(
-                            RabbitMQConfig.NOTIFICATION_EXCHANGE
+NotificationMQConfig.NOTIFICATION_EXCHANGE
                     )
                     .routingKey(
-                            RabbitMQConfig.NOTIFICATION_ROUTING_KEY
+NotificationMQConfig.NOTIFICATION_ROUTING_KEY
                     )
                     .message(message)
                     .build();
@@ -87,8 +91,8 @@ public class OutboxRouteRegistry {
             FeedPushMessage message = deserializePayload(event.getPayload(), FeedPushMessage.class);
 
             return OutboxRoute.builder()
-                    .exchange(RabbitMQConfig.FEED_PUSH_EXCHANGE)
-                    .routingKey(RabbitMQConfig.FEED_PUSH_ROUTING_KEY)
+                    .exchange(FeedMQConfig.FEED_PUSH_EXCHANGE)
+                    .routingKey(FeedMQConfig.FEED_PUSH_ROUTING_KEY)
                     .message(message)
                     .build();
         }
@@ -100,8 +104,8 @@ public class OutboxRouteRegistry {
             FeedDeleteMessage message = deserializePayload(event.getPayload(), FeedDeleteMessage.class);
 
             return OutboxRoute.builder()
-                    .exchange(RabbitMQConfig.FEED_DELETE_EXCHANGE)
-                    .routingKey(RabbitMQConfig.FEED_DELETE_ROUTING_KEY)
+                    .exchange(FeedMQConfig.FEED_DELETE_EXCHANGE)
+                    .routingKey(FeedMQConfig.FEED_DELETE_ROUTING_KEY)
                     .message(message)
                     .build();
         }
@@ -114,8 +118,8 @@ public class OutboxRouteRegistry {
             HotScoreMessage message = deserializePayload(event.getPayload(), HotScoreMessage.class);
 
             return OutboxRoute.builder()
-                    .exchange(RabbitMQConfig.HOT_SCORE_UPDATE_EXCHANGE)
-                    .routingKey(RabbitMQConfig.HOT_SCORE_UPDATE_ROUTING_KEY)
+                    .exchange(FeedMQConfig.HOT_SCORE_UPDATE_EXCHANGE)
+                    .routingKey(FeedMQConfig.HOT_SCORE_UPDATE_ROUTING_KEY)
                     .message(message)
                     .build();
         }
@@ -128,8 +132,8 @@ public class OutboxRouteRegistry {
             SearchReconcileMessage message = deserializePayload(event.getPayload(), SearchReconcileMessage.class);
 
             return OutboxRoute.builder()
-                    .exchange(RabbitMQConfig.SEARCH_RECONCILE_EXCHANGE)
-                    .routingKey(RabbitMQConfig.SEARCH_RECONCILE_ROUTING_KEY)
+                    .exchange(SearchMQConfig.SEARCH_RECONCILE_EXCHANGE)
+                    .routingKey(SearchMQConfig.SEARCH_RECONCILE_ROUTING_KEY)
                     .message(message)
                     .build();
         }
@@ -141,8 +145,8 @@ public class OutboxRouteRegistry {
             BotMentionMessage message = deserializePayload(event.getPayload(), BotMentionMessage.class);
 
             return OutboxRoute.builder()
-                    .exchange(RabbitMQConfig.BOT_MENTION_EXCHANGE)
-                    .routingKey(RabbitMQConfig.BOT_MENTION_ROUTING_KEY)
+                    .exchange(ContentMQConfig.BOT_MENTION_EXCHANGE)
+                    .routingKey(ContentMQConfig.BOT_MENTION_ROUTING_KEY)
                     .message(message)
                     .build();
         }
@@ -154,8 +158,8 @@ public class OutboxRouteRegistry {
             UserBehaviorMessage message = deserializePayload(event.getPayload(), UserBehaviorMessage.class);
 
             return OutboxRoute.builder()
-                    .exchange(RabbitMQConfig.USER_BEHAVIOR_EXCHANGE)
-                    .routingKey(RabbitMQConfig.USER_BEHAVIOR_ROUTING_KEY)
+                    .exchange(FeedMQConfig.USER_BEHAVIOR_EXCHANGE)
+                    .routingKey(FeedMQConfig.USER_BEHAVIOR_ROUTING_KEY)
                     .message(message)
                     .build();
         }

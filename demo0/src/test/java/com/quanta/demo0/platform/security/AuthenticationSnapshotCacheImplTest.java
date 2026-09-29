@@ -2,20 +2,19 @@ package com.quanta.demo0.platform.security;
 
 import com.quanta.demo0.platform.security.service.impl.AuthenticationSnapshotCacheImpl;
 
-
-import com.quanta.demo0.user.entity.User;
-import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.identity.service.IdentityQueryService;
+import com.quanta.demo0.identity.vo.UserAuthStatusVO;
 import com.quanta.demo0.platform.security.mapper.UserRoleMapper;
 import com.quanta.demo0.platform.security.model.AuthenticationSnapshot;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
+import com.quanta.demo0.user.service.UserQueryService;
+import com.quanta.demo0.user.vo.UserAccountVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,19 +31,22 @@ class AuthenticationSnapshotCacheImplTest {
 
     private static final Long USER_ID = 7L;
 
-    private UserMapper userMapper;
+    private UserQueryService userQueryService;
+    private IdentityQueryService identityQueryService;
     private UserRoleMapper userRoleMapper;
     private AuthenticationSnapshotCacheImpl cache;
 
     @BeforeEach
     void setUp() {
-        userMapper = mock(UserMapper.class);
+        userQueryService = mock(UserQueryService.class);
+        identityQueryService = mock(IdentityQueryService.class);
         userRoleMapper = mock(UserRoleMapper.class);
 
         QuantabotProperties quantabotProperties = new QuantabotProperties();
         ReadPathCacheProperties cacheProperties = new ReadPathCacheProperties();
         cache = new AuthenticationSnapshotCacheImpl(
-                userMapper,
+                userQueryService,
+                identityQueryService,
                 userRoleMapper,
                 quantabotProperties,
                 cacheProperties
@@ -53,10 +55,9 @@ class AuthenticationSnapshotCacheImplTest {
 
     @Test
     void firstLoadReadsUserAuthAndRolesThenSecondReadUsesSnapshot() {
-        when(userMapper.getById(USER_ID)).thenReturn(user(0));
-        when(userMapper.getUserAuthByUserId(USER_ID)).thenReturn(
-                UserAuth.builder()
-                        .userId(USER_ID)
+        when(userQueryService.getAccount(USER_ID)).thenReturn(user(0));
+        when(identityQueryService.getAuthStatus(USER_ID)).thenReturn(
+                UserAuthStatusVO.builder()
                         .auditStatus(AuditStatus.APPROVED.getCode())
                         .build()
         );
@@ -67,8 +68,8 @@ class AuthenticationSnapshotCacheImplTest {
         AuthenticationSnapshot second = cache.get(USER_ID, false);
 
         assertEquals(first, second);
-        verify(userMapper).getById(USER_ID);
-        verify(userMapper).getUserAuthByUserId(USER_ID);
+        verify(userQueryService).getAccount(USER_ID);
+        verify(identityQueryService).getAuthStatus(USER_ID);
         verify(userRoleMapper).findRoleCodesByUserId(USER_ID);
         assertTrue(first.verified());
         assertTrue(first.roles().contains("USER"));
@@ -80,19 +81,19 @@ class AuthenticationSnapshotCacheImplTest {
 
     @Test
     void unknownUserDoesNotEnterCache() {
-        when(userMapper.getById(USER_ID)).thenReturn(null);
+        when(userQueryService.getAccount(USER_ID)).thenReturn(null);
 
         assertNull(cache.get(USER_ID, false));
         assertNull(cache.get(USER_ID, false));
 
-        verify(userMapper, org.mockito.Mockito.times(2)).getById(USER_ID);
-        verify(userMapper, never()).getUserAuthByUserId(USER_ID);
+        verify(userQueryService, org.mockito.Mockito.times(2)).getAccount(USER_ID);
+        verify(identityQueryService, never()).getAuthStatus(USER_ID);
         verify(userRoleMapper, never()).findRoleCodesByUserId(USER_ID);
     }
 
     @Test
     void loaderFailureDoesNotEnterCache() {
-        when(userMapper.getById(USER_ID))
+        when(userQueryService.getAccount(USER_ID))
                 .thenThrow(new IllegalStateException("database unavailable"));
 
         assertThrows(
@@ -104,13 +105,13 @@ class AuthenticationSnapshotCacheImplTest {
                 () -> cache.get(USER_ID, false)
         );
 
-        verify(userMapper, org.mockito.Mockito.times(2)).getById(USER_ID);
+        verify(userQueryService, org.mockito.Mockito.times(2)).getAccount(USER_ID);
     }
 
     @Test
     void ordinaryAndServiceTokenUseSeparateKeysAndBotRoleIsRestricted() {
-        when(userMapper.getById(USER_ID)).thenReturn(user(0));
-        when(userMapper.getUserAuthByUserId(USER_ID)).thenReturn(null);
+        when(userQueryService.getAccount(USER_ID)).thenReturn(user(0));
+        when(identityQueryService.getAuthStatus(USER_ID)).thenReturn(null);
         when(userRoleMapper.findRoleCodesByUserId(USER_ID))
                 .thenReturn(List.of("BOT"));
 
@@ -120,13 +121,13 @@ class AuthenticationSnapshotCacheImplTest {
         assertFalse(ordinary.roles().contains("BOT"));
         assertFalse(service.roles().contains("BOT"));
         assertNotSame(ordinary, service);
-        verify(userMapper, org.mockito.Mockito.times(2)).getById(USER_ID);
+        verify(userQueryService, org.mockito.Mockito.times(2)).getAccount(USER_ID);
     }
 
     @Test
     void configuredBotServiceSnapshotContainsBotButOrdinarySnapshotDoesNot() {
-        when(userMapper.getById(10000L)).thenReturn(user(0));
-        when(userMapper.getUserAuthByUserId(10000L)).thenReturn(null);
+        when(userQueryService.getAccount(10000L)).thenReturn(user(0));
+        when(identityQueryService.getAuthStatus(10000L)).thenReturn(null);
         when(userRoleMapper.findRoleCodesByUserId(10000L))
                 .thenReturn(List.of("BOT"));
 
@@ -135,13 +136,13 @@ class AuthenticationSnapshotCacheImplTest {
 
         assertFalse(ordinary.roles().contains("BOT"));
         assertTrue(service.roles().contains("BOT"));
-        verify(userMapper, org.mockito.Mockito.times(2)).getById(10000L);
+        verify(userQueryService, org.mockito.Mockito.times(2)).getAccount(10000L);
     }
 
     @Test
     void roleAndAuthoritySetsCannotBeMutatedAndEvictClearsBothTokenKinds() {
-        when(userMapper.getById(USER_ID)).thenReturn(user(0));
-        when(userMapper.getUserAuthByUserId(USER_ID)).thenReturn(null);
+        when(userQueryService.getAccount(USER_ID)).thenReturn(user(0));
+        when(identityQueryService.getAuthStatus(USER_ID)).thenReturn(null);
         when(userRoleMapper.findRoleCodesByUserId(USER_ID))
                 .thenReturn(List.of("SUPER_ADMIN"));
 
@@ -163,15 +164,15 @@ class AuthenticationSnapshotCacheImplTest {
         cache.get(USER_ID, true);
 
         assertEquals(2, service.roles().size());
-        verify(userMapper, org.mockito.Mockito.times(4)).getById(USER_ID);
-        verify(userMapper, org.mockito.Mockito.times(4))
-                .getUserAuthByUserId(USER_ID);
+        verify(userQueryService, org.mockito.Mockito.times(4)).getAccount(USER_ID);
+        verify(identityQueryService, org.mockito.Mockito.times(4))
+                .getAuthStatus(USER_ID);
         verify(userRoleMapper, org.mockito.Mockito.times(4))
                 .findRoleCodesByUserId(USER_ID);
     }
 
-    private User user(Integer accountStatus) {
-        return User.builder()
+    private UserAccountVO user(Integer accountStatus) {
+        return UserAccountVO.builder()
                 .id(USER_ID)
                 .accountStatus(accountStatus)
                 .build();

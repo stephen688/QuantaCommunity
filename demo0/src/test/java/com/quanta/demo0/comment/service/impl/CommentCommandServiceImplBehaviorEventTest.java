@@ -2,18 +2,22 @@ package com.quanta.demo0.comment.service.impl;
 
 import com.quanta.demo0.comment.dto.CommentAddDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.exception.CommentFailedException;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.answer.service.AnswerQueryService;
+import com.quanta.demo0.comment.service.CommentCounterService;
+import com.quanta.demo0.interaction.service.CommentInteractionService;
 import com.quanta.demo0.comment.policy.CommentZonePolicy;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.comment.service.CommentAuditService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.comment.mq.producer.CommentEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,9 +57,13 @@ class CommentCommandServiceImplBehaviorEventTest {
     @Mock
     private CommentMapper commentMapper;
     @Mock
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
     @Mock
-    private QuestionMapper questionMapper;
+    private AnswerQueryService answerQueryService;
+    @Mock
+    private CommentInteractionService commentInteractionService;
+    @Mock
+    private CommentCounterService commentCounterService;
     @Mock
     private SensitiveWordChecker sensitiveWordChecker;
     @Mock
@@ -69,7 +77,11 @@ class CommentCommandServiceImplBehaviorEventTest {
     @Mock
     private CommentAuditService commentAuditService;
     @Mock
-    private OutboxEventService outboxEventService;
+    private FeedEventProducer feedEventProducer;
+    @Mock
+    private CommentEventProducer commentEventProducer;
+    @Mock
+    private SearchEventProducer searchEventProducer;
     @Mock
     private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
@@ -107,13 +119,13 @@ class CommentCommandServiceImplBehaviorEventTest {
     }
 
     private void stubApprovedLifeContent(String text) {
-        Content content = Content.builder()
+        ContentSnapshotVO content = ContentSnapshotVO.builder()
                 .contentId(CONTENT_ID)
                 .contentType(1)
                 .auditStatus(1)
                 .publishUserId(AUTHOR_ID)
                 .build();
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(content);
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(content);
         when(commentZonePolicy.getMaxLength(1)).thenReturn(500);
         when(sensitiveWordChecker.findFirstHit(text)).thenReturn(null);
     }
@@ -130,11 +142,11 @@ class CommentCommandServiceImplBehaviorEventTest {
         Long result = service.sendComment(commentAddDTO("这条帖子写得真好"));
 
         assertEquals(COMMENT_ID, result);
-        verify(outboxEventService).createUserBehaviorEvent(USER_ID, CONTENT_ID, "COMMENT");
+        verify(feedEventProducer).createUserBehaviorEvent(USER_ID, CONTENT_ID, "COMMENT");
         // 事件创建必须发生在评论插入之后、同一方法内——与审核 Outbox 同层，即同一事务。
-        var inOrder = inOrder(commentMapper, outboxEventService);
+        var inOrder = inOrder(commentMapper, feedEventProducer);
         inOrder.verify(commentMapper).insert(any(ContentComment.class));
-        inOrder.verify(outboxEventService).createUserBehaviorEvent(USER_ID, CONTENT_ID, "COMMENT");
+        inOrder.verify(feedEventProducer).createUserBehaviorEvent(USER_ID, CONTENT_ID, "COMMENT");
     }
 
     @Test
@@ -146,17 +158,17 @@ class CommentCommandServiceImplBehaviorEventTest {
                 () -> service.sendComment(commentAddDTO("包含敏感词的内容")));
 
         verify(commentMapper, never()).insert(any(ContentComment.class));
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 
     @Test
     void 帖子不存在_零调用行为事件() {
-        when(contentMapper.selectById(CONTENT_ID)).thenReturn(null);
+        when(contentQueryService.getContentSnapshot(CONTENT_ID)).thenReturn(null);
 
         assertThrows(CommentFailedException.class,
                 () -> service.sendComment(commentAddDTO("内容不存在时发布")));
 
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 
     @Test
@@ -168,6 +180,6 @@ class CommentCommandServiceImplBehaviorEventTest {
         assertThrows(CommentFailedException.class,
                 () -> service.sendComment(commentAddDTO("插入成功但未回填主键")));
 
-        verify(outboxEventService, never()).createUserBehaviorEvent(any(), any(), any());
+        verify(feedEventProducer, never()).createUserBehaviorEvent(any(), any(), any());
     }
 }

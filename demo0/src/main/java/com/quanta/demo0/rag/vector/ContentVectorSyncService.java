@@ -1,9 +1,9 @@
 package com.quanta.demo0.rag.vector;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentCounterService;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagContextDocument;
 import lombok.extern.slf4j.Slf4j;
@@ -60,11 +60,15 @@ public class ContentVectorSyncService {
 
 
 @Autowired
-private ContentMapper contentMapper;
+private ContentCounterService contentCounterService;
+@Autowired
+private ContentQueryService contentQueryService;
 @Autowired
 private VectorStorePersistenceService persistenceService;
 @Autowired
-private RagDocumentConverter documentConverter;
+private ContentRagDocumentConverter contentDocumentConverter;
+@Autowired
+private RagChunkDocumentConverter chunkDocumentConverter;
 @Autowired
 private SimpleVectorStore vectorStore;
 @Autowired
@@ -78,7 +82,7 @@ private StringRedisTemplate stringRedisTemplate;
      * 执行流程（一步步拆解）
      * ============================
      * 第 1 步：从 MySQL 查询帖子
-     *   调用 contentMapper.selectById(contentId)
+     *   调用内容域查询服务获取稳定快照
      *   如果查不到 → 记录 warn 日志，直接返回
      * 第 2 步：校验帖子状态
      *   检查两个条件：
@@ -96,7 +100,7 @@ private StringRedisTemplate stringRedisTemplate;
      *     即使旧向量不存在（首次发布），delete 也不会报错
      *     多次调用结果一样
      * 第 4 步：Content → Document → 写入向量库
-     *   调用 documentConverter.contentToDocument(content)
+     *   调用 ContentRagDocumentConverter 转换内容快照
      *     内部流程：Content → RagContextDocument → Document
      *   调用 vectorStore.add(List.of(document))
      *     把 Document 写入向量库，Embedding 模型自动向量化
@@ -109,7 +113,7 @@ private StringRedisTemplate stringRedisTemplate;
     public void upsertByContentId(Long contentId) {
         try {
             // 第 1 步：从 MySQL 查询帖子
-            Content content = contentMapper.selectById(contentId);
+            ContentSnapshotVO content = contentCounterService.getContentSnapshot(contentId);
             if (content == null) {
                 log.warn("[RAG] 帖子不存在，跳过向量同步: contentId={}", contentId);
                 return;
@@ -128,8 +132,8 @@ private StringRedisTemplate stringRedisTemplate;
             deleteVectorOnly(contentId);
 
             // 第 4 步：Content → RagContextDocument → chunk 切分 → 写入向量库
-            RagContextDocument ragDoc = documentConverter.toRagDocument(content);
-            List<Document> documents = documentConverter.toDocumentsForIndexing(ragDoc);
+            RagContextDocument ragDoc = contentDocumentConverter.toRagDocument(content);
+            List<Document> documents = chunkDocumentConverter.toDocumentsForIndexing(ragDoc);
             vectorStore.add(documents);
 
             // 记录 chunk 数量到 Redis
@@ -191,7 +195,7 @@ private StringRedisTemplate stringRedisTemplate;
  * 执行流程
  * ============================
  * 第 1 步：分批查询所有有效帖子
- *   调用 contentMapper.selectAllForReindex(offset, batchSize)
+ *   调用内容域查询服务分页获取稳定快照
  *   每次查 batchSize 条，避免一次性加载太多数据到内存
  * 第 2 步：逐批转换并写入向量库
  *   每批帖子 → 批量转为 Document → 批量写入向量库
@@ -222,25 +226,20 @@ public void rebuildAll(int batchSize) {
 
         while (true) {
             // 第 1 步：分批查询
-            List<Content> batch = contentMapper.selectAllForReindex(offset, batchSize);
+            List<ContentSnapshotVO> batch = contentQueryService
+                    .getApprovedContentSnapshotsForReindex(offset, batchSize);
 
             if (batch == null || batch.isEmpty()) {
                 log.info("[RAG] 无更多帖子，重建结束: 共处理 {} 篇", totalProcessed);
                 break;
             }
 
-            // 第 2 步：过滤出有效帖子（未删除 + 审核通过）
-            List<Content> validContents = batch.stream()
-                    .filter(c -> c.getIsDeleted() == 0
-                            && c.getAuditStatus() == AuditStatus.APPROVED.getCode())
-                    .toList();
-
-            if (!validContents.isEmpty()) {
+            if (!batch.isEmpty()) {
                 // 批量转为 Document（chunk 模式）
                 List<Document> allDocuments = new ArrayList<>();
-                for (Content content : validContents) {
-                    RagContextDocument ragDoc = documentConverter.toRagDocument(content);
-                    List<Document> chunkDocs = documentConverter.toDocumentsForIndexing(ragDoc);
+                for (ContentSnapshotVO content : batch) {
+                    RagContextDocument ragDoc = contentDocumentConverter.toRagDocument(content);
+                    List<Document> chunkDocs = chunkDocumentConverter.toDocumentsForIndexing(ragDoc);
                     allDocuments.addAll(chunkDocs);
 
                     // 记录每个帖子的 chunk 数量到 Redis

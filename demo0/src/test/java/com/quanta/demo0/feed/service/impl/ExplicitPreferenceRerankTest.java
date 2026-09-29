@@ -1,8 +1,8 @@
 package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.feed.service.UserInterestProfileService;
 import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
@@ -11,7 +11,6 @@ import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,20 +31,23 @@ class ExplicitPreferenceRerankTest {
         when(redis.opsForSet()).thenReturn(sets);
         when(zset.reverseRange(anyString(), eq(0L), anyLong())).thenReturn(Set.of("1", "2"));
         when(sets.members(anyString())).thenReturn(Set.of());
-        ContentMapper mapper = mock(ContentMapper.class);
-        Content hotBasketball = Content.builder().contentId(1L).contentType(1).tags("[\"basketball\"]")
-                .auditStatus(1).isDeleted(0).liked(100).collectCount(0).commentCount(0)
-                .createTime(LocalDateTime.now().minusHours(1)).build();
-        Content coldFootball = Content.builder().contentId(2L).contentType(1).tags("[\"football\"]")
-                .auditStatus(1).isDeleted(0).liked(0).collectCount(0).commentCount(0)
-                .createTime(hotBasketball.getCreateTime()).build();
-        when(mapper.selectBatchIds(anyList())).thenReturn(List.of(hotBasketball, coldFootball));
-        UserInterestProfileService profile = new UserInterestProfileServiceImpl(mapper, redis);
+        ContentQueryService contentQueryService = mock(ContentQueryService.class);
+        ContentSnapshotVO hotBasketball = ContentSnapshotVO.builder().contentId(1L).contentType(1)
+                .tags("[\"basketball\"]").auditStatus(1).isDeleted(0).likedCount(100)
+                .collectCount(0).commentCount(0).build();
+        ContentSnapshotVO coldFootball = ContentSnapshotVO.builder().contentId(2L).contentType(1)
+                .tags("[\"football\"]").auditStatus(1).isDeleted(0).likedCount(0)
+                .collectCount(0).commentCount(0).build();
+        when(contentQueryService.getContentFactSnapshots(anyList()))
+                .thenReturn(List.of(hotBasketball, coldFootball));
+        UserInterestProfileService profile = new UserInterestProfileServiceImpl(contentQueryService, redis);
         var hashes = mock(org.springframework.data.redis.core.HashOperations.class);
         when(redis.opsForHash()).thenReturn(hashes);
         when(hashes.entries(RedisConstants.USER_PROFILE_KEY + 123L)).thenReturn(Map.of());
         when(hashes.entries("user:profile-explicit:123")).thenReturn(Map.of("basketball", "-1.25", "__version", "3"));
-        RecommendRerankServiceImpl rerank = new RecommendRerankServiceImpl(redis, mapper, profile, new RecommendProperties());
-        assertThat(rerank.rerank(123L, null, 10).contents()).extracting(Content::getContentId).containsExactly(2L, 1L);
+        RecommendRerankServiceImpl rerank = new RecommendRerankServiceImpl(
+                redis, contentQueryService, profile, new RecommendProperties());
+        assertThat(rerank.rerank(123L, null, 10).contents())
+                .extracting(ContentSnapshotVO::getContentId).containsExactly(2L, 1L);
     }
 }

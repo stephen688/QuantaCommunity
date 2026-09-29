@@ -1,7 +1,7 @@
 // d:/download/资料/day01/后端初始工程/demo0/src/main/java/com/quanta/demo0/service/ContentExposureService.java
 package com.quanta.demo0.feed.service;
 
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 
 
 /**
@@ -14,7 +14,7 @@ public interface ContentExposureService {
      * 内容审核通过后执行曝光
      * 包含：写推荐流 Redis、写热度流 Redis、发 Feed、写 ES、写向量
      */
-    void exposeApprovedContent(Content content);
+    void exposeApprovedContent(ContentSnapshotVO content);
 
     /**
      * 内容被驳回/删除时清理曝光

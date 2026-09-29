@@ -1,7 +1,7 @@
 package com.quanta.demo0.platform.mq.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.quanta.demo0.config.RabbitMQConfig;
+import com.quanta.demo0.content.config.ContentMQConfig;
 import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 import com.quanta.demo0.platform.mq.enums.OutboxEventType;
 import com.quanta.demo0.comment.mq.message.BotMentionMessage;
@@ -52,8 +52,8 @@ class OutboxRouteRegistryBotMentionTest {
         OutboxRoute route = registry.resolve(event(payload()));
 
         assertNotNull(route);
-        assertEquals(RabbitMQConfig.BOT_MENTION_EXCHANGE, route.getExchange());
-        assertEquals(RabbitMQConfig.BOT_MENTION_ROUTING_KEY, route.getRoutingKey());
+        assertEquals(ContentMQConfig.BOT_MENTION_EXCHANGE, route.getExchange());
+        assertEquals(ContentMQConfig.BOT_MENTION_ROUTING_KEY, route.getRoutingKey());
         assertInstanceOf(BotMentionMessage.class, route.getMessage());
         assertEquals(100L, ((BotMentionMessage) route.getMessage()).getCommentId());
     }

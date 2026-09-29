@@ -5,8 +5,8 @@ import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
 
 import com.quanta.demo0.platform.redis.utils.RedisTaskLockAdapter;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
  * ②曝光 set 隐式游标（同用户连续拉取不重复、池子耗尽 hasMore=false、TTL 24h）；
  * ③双用户画像差异 → 同数据集返回顺序不同（α 过渡真实生效）；
  * ④匿名不写曝光 set；⑤衰减任务对真实 Hash 的衰减/删除与 D12 辅助 key 隔离。
- * 边界：MySQL 侧（selectById/selectBatchIds）用 Mockito mock，仅 Redis 用真实容器；
+ * 边界：内容查询端口用 Mockito mock，仅 Redis 用真实容器；
  * 不起 Spring 上下文，服务实例手动组装（对齐 TrendingCacheRedisIntegrationTests 模式）；
  * 算分公式的数值细节由 RecommendRerankServiceImplTest 单测承担，本类验证服务间真实协作。
  */
@@ -71,13 +71,13 @@ class RecommendRerankRedisIntegrationTests {
     private LettuceConnectionFactory connectionFactory;
     private StringRedisTemplate redisTemplate;
 
-    /** MySQL 侧 mock：selectById/selectBatchIds 按 contentById 应答，未预置 id 视为不存在 */
-    private ContentMapper contentMapper;
+    /** 内容事实查询端口 mock：按 contentById 应答，未预置 id 视为不存在 */
+    private ContentQueryService contentQueryService;
     private UserInterestProfileServiceImpl userProfileService;
     private RecommendRerankServiceImpl rerankService;
 
-    /** 按帖 id 索引的测试数据集：mock selectBatchIds 的应答源 */
-    private final Map<Long, Content> contentById = new HashMap<>();
+    /** 按帖 id 索引的测试数据集：mock 内容快照查询端口的应答源 */
+    private final Map<Long, ContentSnapshotVO> contentById = new HashMap<>();
 
     @BeforeEach
     void setUp() {
@@ -92,10 +92,10 @@ class RecommendRerankRedisIntegrationTests {
         cleanupRecommendNamespaces();
 
         contentById.clear();
-        contentMapper = mock(ContentMapper.class);
-        userProfileService = new UserInterestProfileServiceImpl(contentMapper, redisTemplate);
+        contentQueryService = mock(ContentQueryService.class);
+        userProfileService = new UserInterestProfileServiceImpl(contentQueryService, redisTemplate);
         rerankService = new RecommendRerankServiceImpl(
-                redisTemplate, contentMapper, userProfileService, new RecommendProperties());
+                redisTemplate, contentQueryService, userProfileService, new RecommendProperties());
     }
 
     @AfterEach
@@ -186,7 +186,7 @@ class RecommendRerankRedisIntegrationTests {
         seedRecallPool(LATEST_ALL_KEY, seedScores(201L, 900.0));
 
         // 用户 11：life 画像饱和（34×3=102 ≥ 阈值 100 → S=1 → α=alphaMin=0.4，画像主导）
-        when(contentMapper.selectById(201L)).thenReturn(content(201L, 1, 0, 0, 0));
+        when(contentQueryService.getContentSnapshot(201L)).thenReturn(content(201L, 1, 0, 0, 0));
         userProfileService.applyBehavior(USER_PROFILE_HEAVY, 201L, 34.0);
         userProfileService.applyBehavior(USER_PROFILE_HEAVY, 201L, 34.0);
         userProfileService.applyBehavior(USER_PROFILE_HEAVY, 201L, 34.0);
@@ -239,8 +239,8 @@ class RecommendRerankRedisIntegrationTests {
         redisTemplate.opsForValue().set(watermarkKey, "2026-09-24T00:00:00");
 
         // 真实 applyBehavior 构造画像：601 → life=2.0、professional=0.4、__total=2.4
-        when(contentMapper.selectById(301L)).thenReturn(content(301L, 1, 0, 0, 0));
-        when(contentMapper.selectById(302L)).thenReturn(content(302L, 2, 0, 0, 0));
+        when(contentQueryService.getContentSnapshot(301L)).thenReturn(content(301L, 1, 0, 0, 0));
+        when(contentQueryService.getContentSnapshot(302L)).thenReturn(content(302L, 2, 0, 0, 0));
         userProfileService.applyBehavior(USER_DECAY, 301L, 2.0);
         userProfileService.applyBehavior(USER_DECAY, 302L, 0.2);
         userProfileService.applyBehavior(USER_DECAY, 302L, 0.2);
@@ -279,11 +279,11 @@ class RecommendRerankRedisIntegrationTests {
     // ------------------------- 测试数据构造与辅助 -------------------------
 
     /** 审核通过、未删除的帖子（createTime 统一 1 小时前，热度差异只来自互动计数） */
-    private Content content(Long contentId, Integer contentType, int liked, int commentCount, int collectCount) {
-        return Content.builder()
+    private ContentSnapshotVO content(Long contentId, Integer contentType, int liked, int commentCount, int collectCount) {
+        return ContentSnapshotVO.builder()
                 .contentId(contentId)
                 .contentType(contentType)
-                .liked(liked)
+                .likedCount(liked)
                 .commentCount(commentCount)
                 .collectCount(collectCount)
                 .auditStatus(1)
@@ -293,17 +293,17 @@ class RecommendRerankRedisIntegrationTests {
     }
 
     /** 已删除帖子：验证画像累加的事实源校验（非法帖跳过） */
-    private Content deletedContent(Long contentId, Integer contentType) {
-        Content content = content(contentId, contentType, 0, 0, 0);
+    private ContentSnapshotVO deletedContent(Long contentId, Integer contentType) {
+        ContentSnapshotVO content = content(contentId, contentType, 0, 0, 0);
         content.setIsDeleted(1);
         return content;
     }
 
-    /** 预置测试帖子：selectById / selectBatchIds 按 id 应答（未预置 id 视为 MySQL 不存在） */
-    private void stubContent(Content content) {
+    /** 预置测试快照：单条/批量查询按 id 应答（未预置 id 视为不存在） */
+    private void stubContent(ContentSnapshotVO content) {
         contentById.put(content.getContentId(), content);
-        when(contentMapper.selectById(content.getContentId())).thenReturn(content);
-        when(contentMapper.selectBatchIds(anyList())).thenAnswer(invocation -> {
+        when(contentQueryService.getContentSnapshot(content.getContentId())).thenReturn(content);
+        when(contentQueryService.getContentFactSnapshots(anyList())).thenAnswer(invocation -> {
             List<Long> ids = invocation.getArgument(0);
             return ids.stream()
                     .filter(contentById::containsKey)
@@ -357,7 +357,7 @@ class RecommendRerankRedisIntegrationTests {
     }
 
     /** 提取推荐结果 contentId 序列 */
-    private List<Long> contentIds(List<Content> contents) {
-        return contents.stream().map(Content::getContentId).collect(Collectors.toList());
+    private List<Long> contentIds(List<ContentSnapshotVO> contents) {
+        return contents.stream().map(ContentSnapshotVO::getContentId).collect(Collectors.toList());
     }
 }

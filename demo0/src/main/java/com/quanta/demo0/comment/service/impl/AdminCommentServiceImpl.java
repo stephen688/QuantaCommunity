@@ -6,24 +6,24 @@ import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.platform.audit.constant.AdminAuditActionConstants;
 import com.quanta.demo0.comment.dto.CommentAdminQueryDTO;
 import com.quanta.demo0.comment.dto.CommentAuditDTO;
-import com.quanta.demo0.interaction.dto.CommentReportHandleDTO;
-import com.quanta.demo0.interaction.dto.CommentReportQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.interaction.entity.CommentReport;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.answer.service.AnswerCounterService;
+import com.quanta.demo0.content.service.ContentCounterService;
+import com.quanta.demo0.interaction.service.CommentInteractionService;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.comment.service.AdminCommentService;
 import com.quanta.demo0.comment.service.CommentAuditService;
-import com.quanta.demo0.comment.service.CommentCounterService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -51,17 +51,22 @@ public class AdminCommentServiceImpl implements AdminCommentService {
     @Autowired
     private CommentMapper commentMapper;
     @Autowired
-    private QuestionMapper questionMapper;
+    private CommentInteractionService commentInteractionService;
+    @Autowired
+    private AnswerCounterService answerCounterService;
+    @Autowired
+    private ContentCounterService contentCounterService;
 
     @Autowired
-    private OutboxEventService outboxEventService;
+    private FeedEventProducer feedEventProducer;
+    @Autowired
+    private SearchEventProducer searchEventProducer;
+    @Autowired
+    private NotificationEventProducer notificationEventProducer;
     @Autowired
     private CommentAuditService commentAuditService;
     @Autowired
     private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
-
-    @Autowired(required = false)
-    private CommentCounterService commentCounterService;
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
@@ -177,7 +182,7 @@ public class AdminCommentServiceImpl implements AdminCommentService {
         commentMapper.deleteCommentImages(commentId);
 
         // 4. 物理删除评论点赞记录
-        commentMapper.deleteCommentLikes(commentId);
+        commentInteractionService.deleteByCommentId(commentId);
 
         // 5. 软删除回复评论（子评论）
         List<Long> replyIds = commentMapper.selectReplyIdsByParentId(commentId);
@@ -186,7 +191,7 @@ public class AdminCommentServiceImpl implements AdminCommentService {
             // 6. 物理删除回复评论图片
             commentMapper.deleteCommentImagesByCommentIds(replyIds);
             // 7. 物理删除回复评论点赞记录
-            commentMapper.deleteCommentLikesByCommentIds(replyIds);
+            commentInteractionService.deleteByCommentIds(replyIds);
         }
 
         // 8. 软删除评论本身
@@ -196,28 +201,20 @@ public class AdminCommentServiceImpl implements AdminCommentService {
         if (comment.getAnswerId() != null) {
             // 回答下的评论：更新回答评论数
             int replyCount = replyIds != null ? replyIds.size() : 0;
-            if (commentCounterService != null) {
-                commentCounterService.changeAnswerCommentCount(comment.getAnswerId(), -(1 + replyCount));
-            } else {
-                questionMapper.updateAnswerCommentCount(comment.getAnswerId(), -(1 + replyCount));
-            }
+            answerCounterService.updateCommentCount(comment.getAnswerId(), -(1 + replyCount));
         } else {
             // 帖子下的一级评论：更新帖子评论数
             int replyCount = replyIds != null ? replyIds.size() : 0;
-            if (commentCounterService != null) {
-                commentCounterService.changeCommentCount(comment.getContentId(), -(1 + replyCount));
-            } else {
-                commentMapper.updateCommentCount(comment.getContentId(), -(1 + replyCount));
-            }
+            contentCounterService.changeCommentCount(comment.getContentId(), -(1 + replyCount));
         }
         contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "admin-comment-delete");
 
         // 管理员删除评论和热度 Outbox 在同一个事务中提交。
-        outboxEventService.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
+        feedEventProducer.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
         // 评论数变化后按 MySQL 最新值重建帖子索引；回答下的评论还要重建回答索引。
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), comment.getContentId(), "COMMENT_DELETE");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), comment.getContentId(), "COMMENT_DELETE");
         if (comment.getAnswerId() != null) {
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), comment.getAnswerId(), "COMMENT_DELETE");
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), comment.getAnswerId(), "COMMENT_DELETE");
         }
         log.info("管理端删除评论成功，commentId={}, contentId={}", commentId, comment.getContentId());
 
@@ -231,103 +228,4 @@ public class AdminCommentServiceImpl implements AdminCommentService {
         );
     }
 
-    /**
-     * 分页查询评论举报列表
-     * 执行流程：
-     * 1. PageHelper.startPage() 开启分页
-     * 2. 调用 Mapper 执行 SQL 查询
-     * 3. 封装为 PageResult 返回
-     *
-     * @param query 查询条件
-     * @return 分页结果
-     */
-    @Override
-    public PageResult pageReport(CommentReportQueryDTO query) {
-        PageHelper.startPage(query.getPageNum(), query.getPageSize());
-        Page<CommentReport> page = commentMapper.pageReport(query);
-        return new PageResult(page.getTotal(), page.getResult());
-    }
-
-    /**
-     * 处理评论举报
-     *
-     * 执行流程：
-     * 1. 校验参数
-     * 2. 查询举报记录是否存在
-     * 3. 更新举报处理信息（状态、处理人、处理结果、备注、时间）
-     * 4. 如果处理结果包含删除评论，调用删除方法
-     *
-     * @param handleDTO 处理信息
-     */
-    @Override
-    @Transactional
-    public void handleReport(CommentReportHandleDTO handleDTO) {
-        // 1. 校验参数
-        if (handleDTO.getReportId() == null) {
-            throw new ContentFailedException("举报记录 ID 不能为空");
-        }
-        if (handleDTO.getHandleResult() == null ||
-                handleDTO.getHandleResult() < 1 || handleDTO.getHandleResult() > 4) {
-            throw new ContentFailedException("处理结果不合法（1-删除评论 2-警告用户 3-删除+警告 4-驳回举报）");
-        }
-
-        // 2. 查询举报记录是否存在
-        CommentReport report = commentMapper.getReportById(handleDTO.getReportId());
-        if (report == null) {
-            throw new ContentFailedException("举报记录不存在");
-        }
-
-        // 3. 更新举报处理信息
-        CommentReport updateReport = new CommentReport();
-        updateReport.setId(handleDTO.getReportId());
-        updateReport.setStatus(2); // 已处理
-        updateReport.setHandlerId(BaseContext.getCurrentId()); // 当前管理员 ID
-        updateReport.setHandleResult(handleDTO.getHandleResult());
-        updateReport.setHandleRemark(handleDTO.getHandleRemark());
-        updateReport.setHandleTime(LocalDateTime.now());
-        updateReport.setUpdateTime(LocalDateTime.now());
-        commentMapper.updateReport(updateReport);
-
-        // 4. 如果处理结果包含删除评论（1 或 3），执行删除
-        if (handleDTO.getHandleResult() == 1 || handleDTO.getHandleResult() == 3) {
-            deleteComment(report.getCommentId());
-            log.info("处理评论举报：已删除评论，reportId={}, commentId={}", handleDTO.getReportId(), report.getCommentId());
-        }
-
-        log.info("处理评论举报成功，reportId={}, handleResult={}", handleDTO.getReportId(), handleDTO.getHandleResult());
-        // ========== 新增：举报处理结果通知 ==========
-        String handleResultText = switch (handleDTO.getHandleResult()) {
-            case 1 -> "你举报的评论已被删除";
-            case 2 -> "你举报的评论已处理，已警告用户";
-            case 3 -> "你举报的评论已处理，已删除并警告用户";
-            case 4 -> "你举报的评论经核实无需处理";
-            default -> "你举报的评论已处理";
-        };
-        if (handleDTO.getHandleRemark() != null && !handleDTO.getHandleRemark().isEmpty()) {
-            handleResultText += "，备注：" + handleDTO.getHandleRemark();
-        }
-
-        NotificationEventMessage reportNotification = NotificationEventMessage.builder()
-                .recipientUserId(report.getReporterId())
-                .actorUserId(null) // 系统通知
-                .type(NotificationType.COMMENT_REPORT_RESULT.getCode())
-                .content(handleResultText)
-                .payload(Map.of(
-                        "commentId", report.getCommentId(),
-                        "reportId", handleDTO.getReportId(),
-                        "handleResult", handleDTO.getHandleResult()
-                ))
-                .build();
-        // 举报处理状态和结果通知 Outbox 在同一个事务中提交。
-        outboxEventService.createNotificationEvent(reportNotification, ModerationTargetType.COMMENT.name(), report.getCommentId());
-
-        // 审计：评论举报处理成功
-        adminAuditRecorder.recordSuccess(
-                AdminAuditActionConstants.REPORT_HANDLE,
-                "REPORT",
-                String.valueOf(handleDTO.getReportId()),
-                "reportStatus=PENDING",
-                "reportStatus=HANDLED"
-        );
-    }
 }

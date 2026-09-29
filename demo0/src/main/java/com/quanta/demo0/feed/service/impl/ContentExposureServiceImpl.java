@@ -1,8 +1,8 @@
 package com.quanta.demo0.feed.service.impl;
 
-import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.rag.vector.ContentVectorSyncService;
 import com.quanta.demo0.feed.service.ContentExposureService;
 import com.quanta.demo0.feed.utils.HotScoreCalculator;
@@ -41,8 +41,8 @@ public class ContentExposureServiceImpl implements ContentExposureService {
     private final StringRedisTemplate stringRedisTemplate;
     /** 向量同步服务，同步内容到向量数据库（RAG 检索用） */
     private final ContentVectorSyncService contentVectorSyncService;
-    /** 内容 Mapper，查询数据库内容 */
-    private final ContentMapper contentMapper;
+    /** 内容查询端口，读取数据库稳定快照 */
+    private final ContentQueryService contentQueryService;
 
     /**
      * 审核通过的内容曝光（写入推荐池 + 推送 Feed 流 + 同步 ES/向量库）
@@ -58,10 +58,10 @@ public class ContentExposureServiceImpl implements ContentExposureService {
      * 5. 同步到向量数据库（RAG 检索用）
      * 异常处理：try-catch 包裹，单个存储失败不影响其他存储，记录错误日志
      * 
-     * @param content 审核通过的内容实体
+     * @param content 审核通过的内容稳定快照
      */
     @Override
-    public void exposeApprovedContent(Content content) {
+    public void exposeApprovedContent(ContentSnapshotVO content) {
         // 参数校验：content 或 contentId 为空则直接返回
         if (content == null || content.getContentId() == null) {
             return;
@@ -102,7 +102,7 @@ public class ContentExposureServiceImpl implements ContentExposureService {
             return;
         }
         // 查询内容实体（需要 publishUserId 和 contentType 用于 Feed 流删除）
-        Content content = contentMapper.selectById(contentId);
+        ContentSnapshotVO content = contentQueryService.getContentSnapshot(contentId);
         if (content == null) {
             return;
         }
@@ -153,7 +153,7 @@ public class ContentExposureServiceImpl implements ContentExposureService {
      * - RECOMMEND_HOT_LIFE_KEY / RECOMMEND_HOT_PROFESSIONAL_KEY：分类热度池
      * @param content 内容实体（用于计算热度分）
      */
-    private void publishToHotRedis(Content content) {
+    private void publishToHotRedis(ContentSnapshotVO content) {
         // 计算热度分（公式唯一真源 HotScoreCalculator，禁止复制公式）
         double hotScore = HotScoreCalculator.calculate(content);
         // 写入全量热度池
@@ -228,13 +228,14 @@ public class ContentExposureServiceImpl implements ContentExposureService {
         int total = 0;   // 成功加载的总数
         while (true) {
             // 分页查询已审核通过的内容
-            List<Content> batch = contentMapper.selectApprovedForRecommendWarmup(offset, batchSize);
+            List<ContentSnapshotVO> batch = contentQueryService
+                    .getApprovedContentSnapshotsForReindex(offset, batchSize);
             // 无数据则终止
             if (batch == null || batch.isEmpty()) {
                 break;
             }
             // 逐条写入 Redis 推荐池
-            for (Content content : batch) {
+            for (ContentSnapshotVO content : batch) {
                 // 跳过脏数据
                 if (content == null || content.getContentId() == null) {
                     continue;

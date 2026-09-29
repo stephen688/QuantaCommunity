@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.user.service.UserAccountService;
 import com.quanta.demo0.user.service.UserProfileService;
+import com.quanta.demo0.user.vo.UserAccountVO;
 import com.quanta.demo0.user.vo.UserLoginVO;
 import com.quanta.demo0.user.vo.UserProfileVO;
 import com.quanta.demo0.user.vo.UserInfoVO;
@@ -61,15 +62,21 @@ public class UserController {
         log.info("微信登录，code 已接收，携带昵称={}", userLoginDTO.getNickName() != null);
         //1.获取openid和id
         User user = userAccountService.weChatLogin(userLoginDTO);
-        String token = sessionService.login(user);
+        // 登录已经读取并同步资料，直接转为跨域快照，不能为换类型再查一次用户表。
+        UserAccountVO account = UserAccountVO.builder()
+                .id(user.getId()).openid(user.getOpenid())
+                .nickName(user.getNickName()).avatarUrl(user.getAvatarUrl())
+                .accountStatus(user.getAccountStatus()).isDeleted(user.getIsDeleted())
+                .build();
+        String token = sessionService.login(account);
 
         //2.封装并返回
         UserLoginVO userLoginVO = UserLoginVO.builder()
-                .id(user.getId())
-                .openid(user.getOpenid())
+                .id(account.getId())
+                .openid(account.getOpenid())
                 .token(token)
-                .nickName(user.getNickName())
-                .avatarUrl(user.getAvatarUrl())
+                .nickName(account.getNickName())
+                .avatarUrl(account.getAvatarUrl())
                 .build();
 
         return Result.success(userLoginVO);

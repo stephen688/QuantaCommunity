@@ -1,17 +1,16 @@
 package com.quanta.demo0.search.service.impl;
 
-import cn.hutool.core.util.BooleanUtil;
 import com.github.pagehelper.Page;
-import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.search.dto.SearchDTO;
+import com.quanta.demo0.search.es.document.ContentDocument;
 import com.quanta.demo0.search.entity.SearchHistory;
-import com.quanta.demo0.search.es.service.ElasticSearchService;
 import com.quanta.demo0.search.exception.SearchFailedException;
 import com.quanta.demo0.search.mapper.SearchMapper;
+import com.quanta.demo0.search.service.ContentIndexService;
 import com.quanta.demo0.search.service.ContentSearchService;
 import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
@@ -36,7 +35,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ContentSearchServiceImpl implements ContentSearchService {
 
-    private final ElasticSearchService elasticSearchService;
+    private final ContentIndexService contentIndexService;
     private final SearchMapper searchMapper;
     private final AuthorProfileCache authorProfileCache;
     private final ContentQueryService contentQueryService;
@@ -61,9 +60,9 @@ public class ContentSearchServiceImpl implements ContentSearchService {
 
         int current = searchDTO.getCurrent() == null || searchDTO.getCurrent() <= 0 ? 1 : searchDTO.getCurrent();
         int pageSize = searchDTO.getPageSize() == null || searchDTO.getPageSize() <= 0 ? 10 : searchDTO.getPageSize();
-        Page<Content> page = elasticSearchService.searchContent(
+        Page<ContentDocument> page = contentIndexService.searchContent(
                 keyword, searchDTO.getContentType(), current, pageSize);
-        List<Content> contents = page.getResult();
+        List<ContentDocument> contents = page.getResult();
         recordHistory(BaseContext.getCurrentId(), keyword);
 
         if (contents == null || contents.isEmpty()) {
@@ -77,7 +76,7 @@ public class ContentSearchServiceImpl implements ContentSearchService {
                     .build();
         }
 
-        List<Long> authorIds = contents.stream().map(Content::getPublishUserId).distinct().toList();
+        List<Long> authorIds = contents.stream().map(ContentDocument::getPublishUserId).distinct().toList();
         Map<Long, UserAuthInfoVO> authors = authorProfileCache.getAll(authorIds);
         if (authors == null) {
             authors = Collections.emptyMap();
@@ -117,7 +116,7 @@ public class ContentSearchServiceImpl implements ContentSearchService {
         }
     }
 
-    private ContentVO toVO(Content content, UserAuthInfoVO author) {
+    private ContentVO toVO(ContentDocument content, UserAuthInfoVO author) {
         return ContentVO.builder()
                 .contentId(content.getContentId())
                 .contentType(content.getContentType())
@@ -134,8 +133,8 @@ public class ContentSearchServiceImpl implements ContentSearchService {
                 .auditStatus(content.getAuditStatus())
                 .createTime(content.getCreateTime())
                 .images(contentQueryService.getContentImageUrls(content.getContentId()))
-                .isLiked(BooleanUtil.isTrue(content.getIsLiked()))
-                .isCollected(BooleanUtil.isTrue(content.getIsCollected()))
+                .isLiked(false)
+                .isCollected(false)
                 .build();
     }
 }

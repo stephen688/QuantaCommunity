@@ -1,8 +1,7 @@
 package com.quanta.demo0.rag.vector;
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
-import com.quanta.demo0.answer.entity.QuestionAnswer;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
+import com.quanta.demo0.answer.service.AnswerQueryService;
+import com.quanta.demo0.answer.vo.AnswerRagSnapshotVO;
 import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagContextDocument;
 import lombok.extern.slf4j.Slf4j;
@@ -54,16 +53,16 @@ import java.util.List;
 public class AnswerVectorSyncService {
 
     @Autowired
-    private QuestionMapper questionMapper;
-
-    @Autowired
-    private ContentMapper contentMapper;
+    private AnswerQueryService answerQueryService;
 
     @Autowired
     private VectorStorePersistenceService persistenceService;
 
     @Autowired
-    private RagDocumentConverter documentConverter;
+    private AnswerRagDocumentConverter answerDocumentConverter;
+
+    @Autowired
+    private RagChunkDocumentConverter chunkDocumentConverter;
 
     @Autowired
     private SimpleVectorStore vectorStore;
@@ -80,7 +79,7 @@ public class AnswerVectorSyncService {
      * 执行流程（一步步拆解）
      * ============================
      * 第 1 步：从 MySQL 查询回答
-     *   调用 questionMapper.selectById(answerId)
+     *   调用回答域查询服务获取稳定快照
      *   如果查不到 → 记录 warn 日志，直接返回
      * 第 2 步：校验回答状态
      *   检查两个条件：
@@ -97,9 +96,9 @@ public class AnswerVectorSyncService {
      *   为什么叫"幂等"？
      *     即使旧向量不存在（首次发布），delete 也不会报错
      *     多次调用结果一样
-     * 第 4 步：QuestionAnswer → Document → 写入向量库
-     *   调用 documentConverter.answerToDocument(answer)
-     *     内部流程：QuestionAnswer → RagContextDocument → Document
+     * 第 4 步：回答快照 → Document → 写入向量库
+     *   调用 AnswerRagDocumentConverter 转换回答快照
+     *     内部流程：回答快照 → RagContextDocument → Document
      *     向量化文本：问题标题 + 问题正文 + 回答正文
      *   调用 vectorStore.add(List.of(document))
      *     把 Document 写入向量库，Embedding 模型自动向量化
@@ -112,7 +111,7 @@ public class AnswerVectorSyncService {
     public void upsertByAnswerId(Long answerId) {
         try {
             // 第 1 步：从 MySQL 查询回答
-            QuestionAnswer answer = questionMapper.selectById(answerId);
+            AnswerRagSnapshotVO answer = answerQueryService.getAnswerRagSnapshot(answerId);
             if (answer == null) {
                 log.warn("[RAG] 回答不存在，跳过向量同步: answerId={}", answerId);
                 return;
@@ -130,9 +129,9 @@ public class AnswerVectorSyncService {
             // 第 3 步：有效回答 → 先删旧向量（幂等）
             deleteVectorOnly(answerId);
 
-            // 第 4 步：QuestionAnswer → RagContextDocument → chunk 切分 → 写入向量库
-            RagContextDocument ragDoc = documentConverter.toRagDocument(answer);
-            List<Document> documents = documentConverter.toDocumentsForIndexing(ragDoc);
+            // 第 4 步：回答快照 → RagContextDocument → chunk 切分 → 写入向量库
+            RagContextDocument ragDoc = answerDocumentConverter.toRagDocument(answer);
+            List<Document> documents = chunkDocumentConverter.toDocumentsForIndexing(ragDoc);
             vectorStore.add(documents);
 
             // 记录 chunk 数量到 Redis
@@ -189,7 +188,7 @@ public class AnswerVectorSyncService {
      * 执行流程
      * ============================
      * 第 1 步：分批查询所有有效回答
-     *   调用 questionMapper.selectAllForReindex(offset, batchSize)
+     *   调用回答域查询服务分页获取稳定快照
      *   每次查 batchSize 条，避免一次性加载太多数据到内存
      * 第 2 步：逐批转换并写入向量库
      *   每批回答 → 批量转为 Document → 批量写入向量库
@@ -209,24 +208,20 @@ public class AnswerVectorSyncService {
 
             while (true) {
                 // 第 1 步：分批查询
-                List<QuestionAnswer> batch = questionMapper.selectAllAnswersForReindex(offset, batchSize);
+                List<AnswerRagSnapshotVO> batch = answerQueryService
+                        .getApprovedAnswerRagSnapshots(offset, batchSize);
 
                 if (batch == null || batch.isEmpty()) {
                     log.info("[RAG] 无更多回答，重建结束: 共处理 {} 篇", totalProcessed);
                     break;
                 }
 
-                // 第 2 步：过滤出有效回答（未删除 + 审核通过）
-                List<QuestionAnswer> validAnswers = batch.stream()
-                        .filter(a -> a.getIsDeleted() == 0&& a.getAuditStatus() == 1)
-                        .toList();
-
-                    if (!validAnswers.isEmpty()) {
+                    if (!batch.isEmpty()) {
                         // 批量转为 Document（chunk 模式）
                         List<Document> allDocuments = new ArrayList<>();
-                        for (QuestionAnswer answer : validAnswers) {
-                            RagContextDocument ragDoc = documentConverter.toRagDocument(answer);
-                            List<Document> chunkDocs = documentConverter.toDocumentsForIndexing(ragDoc);
+                        for (AnswerRagSnapshotVO answer : batch) {
+                            RagContextDocument ragDoc = answerDocumentConverter.toRagDocument(answer);
+                            List<Document> chunkDocs = chunkDocumentConverter.toDocumentsForIndexing(ragDoc);
                             allDocuments.addAll(chunkDocs);
 
                             // 记录每个回答的 chunk 数量到 Redis
@@ -270,7 +265,7 @@ public class AnswerVectorSyncService {
      * 删除原理
      * ============================
      * SimpleVectorStore 的 delete() 方法接受 Document id 数组
-     * 我们用 "a:" + answerId 作为 Document id（与 RagDocumentConverter 保持一致）
+     * 我们用 "a:" + answerId 作为 Document id（与 RagChunkDocumentConverter 保持一致）
      * 所以直接传带前缀的字符串就能定位并删除
      * ============================
      * @param answerId 回答 ID

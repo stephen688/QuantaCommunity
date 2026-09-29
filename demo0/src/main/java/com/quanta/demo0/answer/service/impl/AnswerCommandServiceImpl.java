@@ -5,22 +5,24 @@ import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.answer.service.AnswerAuditService;
 import com.quanta.demo0.answer.service.AnswerCommandService;
 import com.quanta.demo0.answer.vo.AnswerVO;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.interaction.mapper.AnswerInteractionMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.answer.mapper.QuestionMapper;
+import com.quanta.demo0.interaction.service.AnswerInteractionService;
 import com.quanta.demo0.moderation.enums.ModerationTargetType;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.moderation.utils.SensitiveWordChecker;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.notification.mq.producer.NotificationEventProducer;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.rag.vector.AnswerVectorSyncService;
+import com.quanta.demo0.answer.mq.producer.AnswerEventProducer;
+import com.quanta.demo0.search.mq.producer.SearchEventProducer;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
+import com.quanta.demo0.user.service.UserQueryService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +33,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.quanta.demo0.platform.redis.constant.RedisConstants.ANSWER_LIKED_KEY;
 
@@ -43,19 +47,23 @@ public class AnswerCommandServiceImpl implements AnswerCommandService {
     @Autowired
     private SensitiveWordChecker sensitiveWordChecker;
     @Autowired
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
     @Autowired
-    private UserMapper userMapper;
+    private UserQueryService userQueryService;
     @Autowired
     private QuestionMapper questionMapper;
     @Autowired
-    private AnswerInteractionMapper answerInteractionMapper;
+    private AnswerInteractionService answerInteractionService;
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
     private AnswerVectorSyncService answerVectorSyncService;
     @Autowired
-    private OutboxEventService outboxEventService;
+    private AnswerEventProducer answerEventProducer;
+    @Autowired
+    private NotificationEventProducer notificationEventProducer;
+    @Autowired
+    private SearchEventProducer searchEventProducer;
     @Autowired
     private AliyunModerationProperties moderationProperties;
     @Autowired
@@ -78,7 +86,7 @@ public class AnswerCommandServiceImpl implements AnswerCommandService {
             throw new ContentFailedException("回答内容包含敏感词：" + firstHit);
         }
 
-        Content content = contentMapper.selectById(answerDTO.getQuestionId());
+        ContentSnapshotVO content = contentQueryService.getContentSnapshot(answerDTO.getQuestionId());
         if (content == null) {
             throw new ContentFailedException("问题不存在");
         }
@@ -107,12 +115,12 @@ public class AnswerCommandServiceImpl implements AnswerCommandService {
             throw new ContentFailedException("回答发布失败");
         }
         if (shouldModerateAnswer()) {
-            outboxEventService.createAnswerModerationEvent(answer);
+            answerEventProducer.createAnswerModerationEvent(answer);
         } else if (isAutoApproveWhenModerationDisabled()) {
             answerAuditService.approveAnswer(answer.getAnswerId());
         }
 
-        UserAuthInfoVO userInfo = userMapper.selectUserAuthInfoById(userId);
+        UserAuthInfoVO userInfo = userQueryService.getUserAuthInfo(userId);
         return AnswerVO.builder()
                 .answerId(answer.getAnswerId())
                 .questionId(answer.getQuestionId())
@@ -139,7 +147,7 @@ public class AnswerCommandServiceImpl implements AnswerCommandService {
         if (answer.getAuditStatus() == null || answer.getAuditStatus() != 1) {
             throw new ContentFailedException("回答未通过审核");
         }
-        Content question = contentMapper.selectByIdForUpdate(answer.getQuestionId());
+        ContentSnapshotVO question = contentQueryService.lockContentSnapshot(answer.getQuestionId());
         if (question == null) {
             throw new ContentFailedException("问题不存在");
         }
@@ -163,11 +171,11 @@ public class AnswerCommandServiceImpl implements AnswerCommandService {
                 .content("你的回答被采纳")
                 .payload(Map.of("contentId", question.getContentId(), "answerId", answerId))
                 .build();
-        outboxEventService.createNotificationEvent(acceptNotification, ModerationTargetType.ANSWER.name(), answerId);
+        notificationEventProducer.createNotificationEvent(acceptNotification, ModerationTargetType.ANSWER.name(), answerId);
         if (existingAccepted != null) {
-            outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), existingAccepted.getAnswerId(), "ACCEPT_CLEARED");
+            searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), existingAccepted.getAnswerId(), "ACCEPT_CLEARED");
         }
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "ACCEPTED");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "ACCEPTED");
     }
 
     @Override
@@ -182,19 +190,16 @@ public class AnswerCommandServiceImpl implements AnswerCommandService {
         }
         Long currentUserId = BaseContext.getCurrentId();
         boolean isAnswerAuthor = answer.getUserId().equals(currentUserId);
-        Content question = contentMapper.selectById(answer.getQuestionId());
+        ContentSnapshotVO question = contentQueryService.getContentSnapshot(answer.getQuestionId());
         if (question == null) {
             throw new ContentFailedException("问题不存在");
         }
         if (!isAnswerAuthor && !question.getPublishUserId().equals(currentUserId)) {
             throw new ContentFailedException("您没有删除回答权限");
         }
-        answerInteractionMapper.deleteAnswerLikedByAnswerId(answerId);
-        answerInteractionMapper.deleteAnswerCommentImages(answerId);
-        answerInteractionMapper.deleteAnswerCommentLiked(answerId);
-        answerInteractionMapper.softDeleteAnswerComments(answerId);
+        answerInteractionService.deleteByAnswerId(answerId);
         questionMapper.softDeleteAnswer(answerId);
-        outboxEventService.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "DELETE");
+        searchEventProducer.createSearchReconcileEvent(ModerationTargetType.ANSWER.name(), answerId, "DELETE");
 
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -209,6 +214,26 @@ public class AnswerCommandServiceImpl implements AnswerCommandService {
                 }
             });
         }
+    }
+
+    /**
+     * 级联删除问题下全部未删除回答及其互动关联数据。
+     *
+     * <p>该方法保持在调用方事务内执行，返回回答 ID 供内容域登记索引删除事件。</p>
+     */
+    @Override
+    @Transactional
+    public List<Long> deleteByQuestionId(Long questionId) {
+        if (questionId == null) {
+            throw new ContentFailedException("questionId 不能为空");
+        }
+        List<QuestionAnswer> answers = questionMapper.selectAnswersByQuestionId(questionId);
+        List<Long> answerIds = answers == null ? List.of() : answers.stream()
+                .map(QuestionAnswer::getAnswerId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        questionMapper.softDeleteAnswers(questionId);
+        return answerIds;
     }
 
     private boolean shouldModerateAnswer() {

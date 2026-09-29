@@ -7,7 +7,7 @@ import com.quanta.demo0.follow.exception.FollowException;
 import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.interaction.service.ContentInteractionService;
-import com.quanta.demo0.follow.mapper.FollowMapper;
+import com.quanta.demo0.follow.service.FollowQueryService;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.feed.service.FollowFeedService;
@@ -48,7 +48,7 @@ public class FollowFeedServiceImpl implements FollowFeedService {
     /** 关注/回填时，每个被关注用户最多写入关注流的帖子数 */
     private static final int FOLLOW_FEED_BACKFILL_PER_USER = 50;
     @Autowired
-    private FollowMapper followMapper;
+    private FollowQueryService followQueryService;
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
@@ -176,7 +176,7 @@ public class FollowFeedServiceImpl implements FollowFeedService {
     @Override
     public void pushToFollowersFeed(Long createTime, Integer contentType, Long publishUserId, Long contentId) {
         //1.查询粉丝ids
-        List<Long> followerIds = followMapper.selectFollowerIds(publishUserId);
+        List<Long> followerIds = followQueryService.getFollowerIds(publishUserId);
         if (followerIds == null || followerIds.isEmpty()) {
             log.info("没有粉丝，不需要推送");
             return;
@@ -201,7 +201,7 @@ public class FollowFeedServiceImpl implements FollowFeedService {
     @Override
     public void removeFeedFromFollowers(Long contentId, Integer contentType, Long publishUserId) {
         // 1. 查询发布者的所有粉丝
-        List<Long> followerIds = followMapper.selectFollowerIds(publishUserId);
+        List<Long> followerIds = followQueryService.getFollowerIds(publishUserId);
 
         if (followerIds == null || followerIds.isEmpty()) {
             log.info("用户 {} 没有粉丝，跳过 Feed 删除", publishUserId);
@@ -332,7 +332,7 @@ public class FollowFeedServiceImpl implements FollowFeedService {
                 return ids;
             }
         }
-        List<Long> fromDb = followMapper.selectFollowUserIds(followerId);
+        List<Long> fromDb = followQueryService.getFollowedUserIds(followerId);
         if (fromDb == null || fromDb.isEmpty()) {
             return Collections.emptyList();
         }

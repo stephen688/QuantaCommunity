@@ -1,10 +1,10 @@
 package com.quanta.demo0.search.service.impl;
 
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.search.mapper.SearchMapper;
-import com.quanta.demo0.mapper.UserMapper;
+import com.quanta.demo0.user.service.UserQueryService;
 import com.quanta.demo0.search.properties.SearchTrendingProperties;
 import com.quanta.demo0.search.vo.SearchTrendingVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,10 +42,10 @@ class TrendingDataLoaderTest {
     private SearchMapper searchMapper;
 
     @Mock
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
 
     @Mock
-    private UserMapper userMapper;
+    private UserQueryService userQueryService;
 
     @Mock
     private StringRedisTemplate stringRedisTemplate;
@@ -63,8 +63,8 @@ class TrendingDataLoaderTest {
         properties.setAlumniLimit(2);
         when(stringRedisTemplate.opsForZSet()).thenReturn(zSetOperations);
         stubEmptyRankings();
-        when(contentMapper.selectTopLikedContents(anyInt())).thenReturn(Collections.emptyList());
-        when(userMapper.selectTopFollowedUsers(anyInt())).thenReturn(Collections.emptyList());
+        when(contentQueryService.getTopLikedContentSnapshots(anyInt())).thenReturn(Collections.emptyList());
+        when(userQueryService.getTopFollowedUsers(anyInt())).thenReturn(Collections.emptyList());
     }
 
     @Test
@@ -94,7 +94,7 @@ class TrendingDataLoaderTest {
         properties.setQuestionLimit(3);
         when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 5L))
                 .thenReturn(orderedSet("30", "10", "20"));
-        when(contentMapper.selectBatchIds(List.of(30L, 10L, 20L)))
+        when(contentQueryService.getContentFactSnapshots(List.of(30L, 10L, 20L)))
                 .thenReturn(List.of(content(10L, 0, 1), content(20L, 0, 1), content(30L, 0, 1)));
 
         SearchTrendingVO result = load();
@@ -108,7 +108,7 @@ class TrendingDataLoaderTest {
     void invalidQuestionIdsAreSkippedAndDeletedOrUnapprovedQuestionsAreFiltered() {
         when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 3L))
                 .thenReturn(orderedSet("not-a-long", "1", "2", "3"));
-        when(contentMapper.selectBatchIds(List.of(1L, 2L, 3L)))
+        when(contentQueryService.getContentFactSnapshots(List.of(1L, 2L, 3L)))
                 .thenReturn(List.of(
                         content(1L, 0, 1),
                         content(2L, 1, 1),
@@ -127,9 +127,9 @@ class TrendingDataLoaderTest {
         properties.setQuestionLimit(2);
         when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 3L))
                 .thenReturn(orderedSet("1"));
-        when(contentMapper.selectBatchIds(List.of(1L)))
+        when(contentQueryService.getContentFactSnapshots(List.of(1L)))
                 .thenReturn(List.of(content(1L, 0, 1)));
-        when(contentMapper.selectTopLikedContents(2))
+        when(contentQueryService.getTopLikedContentSnapshots(2))
                 .thenReturn(List.of(content(1L, 0, 1), content(2L, 0, 1), content(3L, 0, 1)));
 
         SearchTrendingVO result = load();
@@ -145,9 +145,9 @@ class TrendingDataLoaderTest {
         properties.setQuestionLimit(3);
         when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 5L))
                 .thenReturn(orderedSet("1"));
-        when(contentMapper.selectBatchIds(List.of(1L)))
+        when(contentQueryService.getContentFactSnapshots(List.of(1L)))
                 .thenReturn(List.of(content(1L, 0, 1)));
-        when(contentMapper.selectTopLikedContents(3))
+        when(contentQueryService.getTopLikedContentSnapshots(3))
                 .thenReturn(List.of(content(1L, 0, 1), content(2L, 0, 1), content(2L, 0, 1)));
 
         SearchTrendingVO result = load();
@@ -162,9 +162,9 @@ class TrendingDataLoaderTest {
         properties.setQuestionLimit(3);
         when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 5L))
                 .thenReturn(orderedSet("1"));
-        when(contentMapper.selectBatchIds(List.of(1L)))
+        when(contentQueryService.getContentFactSnapshots(List.of(1L)))
                 .thenReturn(List.of(content(1L, 0, 1)));
-        when(contentMapper.selectTopLikedContents(3))
+        when(contentQueryService.getTopLikedContentSnapshots(3))
                 .thenReturn(List.of(content(1L, 0, 1), content(2L, 0, 1), content(3L, 0, 1)));
 
         SearchTrendingVO result = load();
@@ -179,7 +179,7 @@ class TrendingDataLoaderTest {
         properties.setAlumniLimit(2);
         when(zSetOperations.reverseRange(USER_FOLLOWER_RANK_KEY, 0L, 3L))
                 .thenReturn(orderedSet("3", "1", "2"));
-        when(userMapper.selectUserAuthInfoByIds(List.of(3L, 1L, 2L)))
+        when(userQueryService.getUserAuthInfos(List.of(3L, 1L, 2L)))
                 .thenReturn(List.of(
                         alumni(1L, 0),
                         alumni(2L, 1),
@@ -199,9 +199,9 @@ class TrendingDataLoaderTest {
         properties.setAlumniLimit(3);
         when(zSetOperations.reverseRange(USER_FOLLOWER_RANK_KEY, 0L, 5L))
                 .thenReturn(orderedSet("7"));
-        when(userMapper.selectUserAuthInfoByIds(List.of(7L)))
+        when(userQueryService.getUserAuthInfos(List.of(7L)))
                 .thenReturn(List.of(alumni(7L, 0)));
-        when(userMapper.selectTopFollowedUsers(3))
+        when(userQueryService.getTopFollowedUsers(3))
                 .thenReturn(List.of(alumni(7L, 0), alumni(8L, 0), alumni(8L, 0)));
 
         SearchTrendingVO result = load();
@@ -216,9 +216,9 @@ class TrendingDataLoaderTest {
         properties.setAlumniLimit(3);
         when(zSetOperations.reverseRange(USER_FOLLOWER_RANK_KEY, 0L, 5L))
                 .thenReturn(orderedSet("7"));
-        when(userMapper.selectUserAuthInfoByIds(List.of(7L)))
+        when(userQueryService.getUserAuthInfos(List.of(7L)))
                 .thenReturn(List.of(alumni(7L, 0)));
-        when(userMapper.selectTopFollowedUsers(3))
+        when(userQueryService.getTopFollowedUsers(3))
                 .thenReturn(List.of(alumni(7L, 0), alumni(8L, 0), alumni(9L, 0)));
 
         SearchTrendingVO result = load();
@@ -232,7 +232,7 @@ class TrendingDataLoaderTest {
     void rankingRedisFailureFallsBackToDatabase() {
         when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 3L))
                 .thenThrow(new RedisConnectionFailureException("redis unavailable"));
-        when(contentMapper.selectTopLikedContents(2))
+        when(contentQueryService.getTopLikedContentSnapshots(2))
                 .thenReturn(List.of(content(9L, 0, 1), content(8L, 0, 1)));
 
         SearchTrendingVO result = load();
@@ -240,7 +240,7 @@ class TrendingDataLoaderTest {
         assertThat(result.getHotQuestions())
                 .extracting(question -> question.getContentId())
                 .containsExactly(9L, 8L);
-        verify(contentMapper, never()).selectBatchIds(eq(List.of()));
+        verify(contentQueryService, never()).getContentFactSnapshots(eq(List.of()));
     }
 
     @Test
@@ -257,7 +257,7 @@ class TrendingDataLoaderTest {
     void contentMapperFailureIsPropagated() {
         when(zSetOperations.reverseRange(RECOMMEND_HOT_ALL_KEY, 0L, 3L))
                 .thenReturn(orderedSet("11"));
-        when(contentMapper.selectBatchIds(List.of(11L)))
+        when(contentQueryService.getContentFactSnapshots(List.of(11L)))
                 .thenThrow(new IllegalStateException("mysql content failure"));
 
         assertThatThrownBy(this::load)
@@ -269,7 +269,7 @@ class TrendingDataLoaderTest {
     void userMapperFailureIsPropagated() {
         when(zSetOperations.reverseRange(USER_FOLLOWER_RANK_KEY, 0L, 3L))
                 .thenThrow(new RedisConnectionFailureException("redis unavailable"));
-        when(userMapper.selectTopFollowedUsers(2))
+        when(userQueryService.getTopFollowedUsers(2))
                 .thenThrow(new IllegalStateException("mysql user failure"));
 
         assertThatThrownBy(this::load)
@@ -289,11 +289,11 @@ class TrendingDataLoaderTest {
         return new LinkedHashSet<>(Arrays.asList(values));
     }
 
-    private Content content(Long id, int deleted, int auditStatus) {
-        return Content.builder()
+    private ContentSnapshotVO content(Long id, int deleted, int auditStatus) {
+        return ContentSnapshotVO.builder()
                 .contentId(id)
                 .title("question-" + id)
-                .liked(10)
+                .likedCount(10)
                 .isDeleted(deleted)
                 .auditStatus(auditStatus)
                 .build();
@@ -312,8 +312,8 @@ class TrendingDataLoaderTest {
                 searchMapper,
                 stringRedisTemplate,
                 properties,
-                contentMapper,
-                userMapper
+                contentQueryService,
+                userQueryService
         ).load();
     }
 }
