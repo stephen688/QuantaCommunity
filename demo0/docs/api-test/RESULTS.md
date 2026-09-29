@@ -22,6 +22,64 @@
 
 ---
 
+<a id="package-by-feature"></a>
+
+## 按域分包模块化单体（2026-09-29）
+
+实施分支：`codex/package-by-feature-refactor`，基线 `e3d33fa776f30a7db7f612dde7e14b5f2c0ee7f5`。这是结构重构，不改变 HTTP 路径/JSON、SQL 事实语义、Redis Key、MQ topology 或 Outbox/Inbox 状态机。终态源码与资源见 [包结构与全部文件清单](../plans/2026-09-29-package-by-feature-final-inventory.md)，实施细节见 [执行计划](../plans/2026-09-28-package-by-feature-modular-monolith.md)。本节不覆盖上方历史 64 接口统计。
+
+### Maven 和架构验证
+
+- 中点回归及分组定向证据见执行计划；本轮收口定向 42 tests、0 failures、0 errors，其中五条架构规则通过。
+- 最终只执行一次 `mvn clean test`：447 tests、0 failures、39 errors、1 skipped。错误根因：评论 Mapper 的两处注解与 XML 重复注册，以及管理权限/内容删除测试 fixture 漏注入；没有删除、跳过或放宽原断言。
+- 修复后只重跑原失败类和新增快照测试：44 tests、1 failure、0 errors、1 skipped。剩余断言发现登录转 VO 多查一次用户表；已直接转换原登录对象，不修改 SQL 次数断言。
+- 最后只重跑这一缓存方法与架构规则：6 tests、0 failures、0 errors、0 skipped。一次历史真实模型条件测试仍按原环境条件跳过，不将其计为模型验收通过。
+- 新增审核事务测试按仓库规范做一次可恢复断言变异：预期 ACK 改成 DEAD，确实产生 1 个 assertion failure；已恢复原断言，全量内该测试通过，无人为变异残留。
+- 独立审查的 Outbox 异常兼容问题已修复：平台只提供 payload 超限/插入行数失败标识，各域恢复旧异常类型与文案；序列化失败和数据库异常不被笼统翻译。最后仅跑受影响集合：31 tests、0 failures、0 errors、0 skipped（含 9 个异常兼容用例、RAG 2 个及架构 5 条）。本轮 HTTP 回归在该失败路径修复前完成，后续补丁由上述定向测试验证，未重复跑 HTTP。
+- 终态生产 Java 448 个（最后新增平台 Outbox 插入契约异常）、Mapper XML 21 个；旧生产/测试技术包引用归零，XML namespace/方法和重复定义静态核对通过。架构规则检查旧包、Controller→Mapper、Service/Mapper→Controller、跨域私有类型和实际 Service 注入循环；不禁止必要的双向公开领域契约。
+- 最终独立代码审查复核为 Ready，无剩余阻塞项；源码/资源提交 `57febb2`，仅测试用依赖及架构规则提交 `3b1b881`，未 push/merge。
+
+### 一次既有 HTTP 回归
+
+命令：`powershell -NoProfile -ExecutionPolicy Bypass -File .\docs\api-test\scripts\run-phase.ps1 -Phase all`。该脚本实际覆盖 Phase 0～3，不代表 Phase 0～7；2026-09-29 本轮实际执行 18 cases，17 PASS、1 未满足 fixture 前提，总体 `PARTIAL`。
+
+| 结果 | Cases | 证据与边界 |
+|---|---|---|
+| PASS | P0-01、P0-02、P0-03、P1-01、P1-03、P1-04、P1-05、P1-07 | 匿名/无效 Token 为 401；正常登录与资料读取成功；空登录凭证保持 HTTP 200 + Result.code=400；管理身份访问成功。 |
+| Fixture 不符 | P1-06 | 脚本以同一个 `test` 账号同时充当普通用户和管理员。该账号当前后端角色为 SUPER_ADMIN、VERIFIED_USER、USER；预期普通用户 403，实际管理员 200。没有降权、直接改 SQL、放宽断言或重复跑脚本。普通用户/各管理角色授权矩阵由 AdminMethodSecurityTests 原断言验证。 |
+| PASS | P2-01、P2-04、P2-05、P2-06 | OSS 上传、专业/生活区内容发布成功，空标题保持业务 400。 |
+| PASS | P3-01、P3-04、P3-05、P3-06、P3-07 | 管理端待审列表、通过/驳回、专业区回答发布及生活区回答禁止保持既有结果。 |
+
+### 环境与未验收范围
+
+- 本地 MySQL、Redis、RabbitMQ 实际可用；RabbitMQ 连接列表确认本应用连接为 running。首次启动使用了错误的本地 Rabbit 凭据，按容器现有凭据做进程级覆盖后成功，未改配置文件或 broker 用户。
+- 本轮应用进程关闭云机审、主题模型提取、RAG/生成及启动预热，并将模型 URL 指向本地不可达地址以防误触付费调用；人工审核和鉴权仍走真实入口。不能将这些 HTTP PASS 解释为真实模型通过。
+- 配置中的远程 Elasticsearch 不可达，索引初始化记录连接失败；搜索/ES 真链路为 `BLOCKED`。本轮未启动 QuantaBot、未执行模型/红队/Persona/JMeter，Bot/真实 AI 与性能均未验收。
+- 临时 HTTP 验证进程已停止，启动覆盖未留在生产配置。脚本生成的 Token/输出未纳入 Git，未覆盖用户已有文件。
+
+### 合并前真实依赖补验收（2026-09-29 19:10～19:22）
+
+用户要求补齐上述 ES / 真实 AI / Bot 三项。本轮使用当前分支源码重新打包，业务写入全部经过既有 HTTP 与真实鉴权；本节覆盖并更新前述三项“未验收”，不将此前 HTTP 17/18 的 fixture 问题改记为通过，也不声称再次跑过全量 Maven。
+
+| 项目 | 结果 | 实际证据 |
+|---|---|---|
+| ES 真实读写与搜索 | PASS | 隔离容器 `demo0-feature-es-acceptance`，仅绑定 `127.0.0.1:9200`，ES/IK 均为 8.18.8，cluster green。应用真实初始化 content/answer 的原 IK mapping。帖子 142（专业=2）、143（生活=1）、回答 108 均经云机审后写入索引；唯一关键词公开搜索为 2 条，按两种 contentType 各返回对应 1 条且带 `<em>` 高亮。 |
+| ES 消费与幂等 | PASS | 内容事件 `72f98332-4cec-4f5c-9413-30e8c6e46341`、回答事件 `c6ebc8fc-de49-4d2b-a923-bf5784892259`：Outbox SENT、search-reconcile-consumer Inbox SUCCESS。原内容 eventId/payload 向原 exchange/routing key 复投一次，消费者记录“已经处理成功，直接 ACK”，仍只有一条 SUCCESS Inbox。 |
+| ES 删除与可见性收敛 | PASS | 通过原删除 API 清理回答 108 与帖子 142/143 后，对应 answer/content 文档均不存在，公开唯一关键词搜索 total=0；向量和 Feed 删除也记录成功。没有直接写 MySQL 或 ES 伪造业务状态。 |
+| 真实云审核 | PASS | moderation 195/196/197 分别对应帖子 142、回答 108、帖子 143；198/199 对应触发评论 494 与 Bot 回复 495，全部为 ALIYUN / PASS / DONE，目标最终 audit_status=1。评论目标开关确实打开，不是关闭审核后的自动通过。 |
+| 真实 RAG / AI 总结 | PASS | Qwen embedding 校验 dimension=1024；内容/回答向量真实同步。`POST /rag/search` 双路 ES/向量各召回 2 条，融合后帖子 142 可见，`RagGenerationService` 记录 DeepSeek 生成成功，aiAnswer.enabled=true、总结 314 字符；本轮唯一 query 未命中旧总结缓存。 |
+| Bot HTTP→MQ→生成→写库→终审→公开 | PASS | fake_mode=false，MQ/KV/main_service/LLM/vector/tracing 全 ok。帖子 143 → trigger 494 → BOT_MENTION event `16171be1-9d25-4b7a-8038-66444175e8c0` SENT → reply 495；两次真实机审及对应 Inbox SUCCESS。普通用户 replyList 恰 1 条、isBot=true、昵称框框、AI 身份前缀；chain 无 Token=401、非 BOT 用户=403、真实 BOT 服务 Token=200。 |
+| Bot 原事件防重 | PASS | 原 eventId/payload 复投一次，SQLite 恰一条 replied 和一条 skipped_idempotent，Bot 回复数仍为 1。Langfuse trace `f31709e0fc5227317e52f31f61477630`，generation observation `a9999ea33462c791`，prompt/completion usage=1159/333、usage_complete=true；运行模型配置为 deepseek-v4-flash，trace 未显式填 provided_model_name，不将配置值冒充该字段。 |
+
+环境修正和范围：
+
+- 本机 MySQL 8.0.43 漏执行此前推荐主题迁移，`tb_content.tags` 不存在，真实 RAG 曾返回 SQL 错误。核对既有 `db/V_recommend_topics_profile.sql` 后执行原幂等脚本，补 nullable JSON 列及 `tb_user_profile_signal`；没有修改/删除业务行。临时删除 tags 投影的窄修与测试已完全撤回，最终生产源码/SQL 未改变。仅对本轮两个 DEAD Feed Inbox 走管理员重放 API，修复环境后都恢复 SUCCESS；没有重放历史其它 DEAD。
+- 既有 DeepSeek Bean 声明与 Spring AI 自动 Chat Bean 在真 RAG 档二义，基线和本轮代码均存在。最终进程级覆盖 `SPRING_AI_OPENAI_CHAT_ENABLED=false`，只关闭额外的自动模型 Bean，保留 rag.enabled/ai-enabled=true 和自定义 DeepSeek 实际生成；最终未排除整套自动配置，也未修改源码。
+- MQ 统一接本地 5674，主服务/Agent 两端凭据只在进程环境；向量文件、Bot SQLite 和运行日志仅在本机临时目录。关闭全库 bootstrap、启动预热和 topic-tags 消费以限制无关模型费用；未跑全量主题回填、ES 全量 reindex、图像审核、专业回答中的 Bot 场景、故障注入、Persona/红队或压测。
+- 本轮最初测试 fixture 使用了反向的 DTO 注释而被回答接口拒绝，改为实际业务语义 2=专业、1=生活；误建帖子 141 已通过原 API 删除，不计为产品失败或通过用例。Search 复投检查脚本一度只识别“幂等/重复”字样，而实际日志为“已经处理成功，直接 ACK”；按实际日志和唯一 SUCCESS Inbox 核对通过，没有再次复投。
+- 最终 `mvn -DskipTests package` BUILD SUCCESS；SQL 窄修的临时 RED/GREEN 不计入最终产品回归门禁，既有 31/31 证据保持原口径。未再次跑全量 Maven、HTTP 套件或模型评测集。本轮新建业务 fixture 均通过业务 API 软删除，审核/决策/事件记录保留用于追溯。
+- 收尾已停止本轮专用 demo0/Bot 进程及 ES 临时容器（保留容器，未删数据卷或其它服务），9191/8000 不再监听；本机 schema migration 保留，进程级覆盖未写回配置文件。
+
 <a id="read-path-cache"></a>
 
 ## 认证、详情与 Feed 作者缓存（S-RC，2026-09-28）

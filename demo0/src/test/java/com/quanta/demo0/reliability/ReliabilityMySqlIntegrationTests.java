@@ -1,23 +1,29 @@
 package com.quanta.demo0.reliability;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
+
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.quanta.demo0.entity.*;
-import com.quanta.demo0.enums.InboxAcquireResult;
-import com.quanta.demo0.mapper.CommentMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.FollowMapper;
-import com.quanta.demo0.mapper.InboxEventMapper;
-import com.quanta.demo0.mapper.OutboxEventMapper;
-import com.quanta.demo0.mapper.QuestionMapper;
-import com.quanta.demo0.properties.OutboxDispatchProperties;
-import com.quanta.demo0.mq.message.NotificationEventMessage;
-import com.quanta.demo0.service.InboxEventService;
-import com.quanta.demo0.service.NotificationConsumeService;
-import com.quanta.demo0.service.OutboxEventService;
-import com.quanta.demo0.service.Impl.InboxEventServiceImpl;
-import com.quanta.demo0.service.Impl.NotificationConsumeServiceImpl;
-import com.quanta.demo0.service.Impl.OutboxEventServiceImpl;
+import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
+import com.quanta.demo0.interaction.mapper.AnswerInteractionMapper;
+import com.quanta.demo0.interaction.mapper.CommentInteractionMapper;
+import com.quanta.demo0.content.mapper.ContentMapper;
+import com.quanta.demo0.interaction.mapper.ContentInteractionMapper;
+import com.quanta.demo0.follow.mapper.FollowMapper;
+import com.quanta.demo0.platform.mq.mapper.InboxEventMapper;
+import com.quanta.demo0.platform.mq.mapper.OutboxEventMapper;
+import com.quanta.demo0.answer.mapper.QuestionMapper;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
+import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
+import com.quanta.demo0.platform.mq.service.InboxEventService;
+import com.quanta.demo0.notification.service.NotificationConsumeService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.platform.mq.service.impl.InboxEventServiceImpl;
+import com.quanta.demo0.notification.service.impl.NotificationConsumeServiceImpl;
+import com.quanta.demo0.platform.mq.service.impl.OutboxEventServiceImpl;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.platform.mq.producer.OutboxEventAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
@@ -46,11 +52,20 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.interaction.entity.ContentLiked;
+import com.quanta.demo0.interaction.entity.ContentCollect;
+import com.quanta.demo0.interaction.entity.AnswerLiked;
+import com.quanta.demo0.follow.entity.Follow;
+import com.quanta.demo0.notification.entity.Notification;
 
 @MybatisTest
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
+        ContentEventProducer.class,
+        FeedEventProducer.class,
+        OutboxEventAppender.class,
         OutboxEventServiceImpl.class,
         InboxEventServiceImpl.class,
         NotificationConsumeServiceImpl.class,
@@ -73,7 +88,7 @@ class ReliabilityMySqlIntegrationTests {
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
         registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
-        registry.add("mybatis.mapper-locations", () -> "classpath:mapper/*.xml");
+        registry.add("mybatis.mapper-locations", () -> "classpath*:/mapper/**/*.xml");
     }
 
     @Autowired
@@ -83,10 +98,16 @@ class ReliabilityMySqlIntegrationTests {
     private ContentMapper contentMapper;
 
     @Autowired
+    private ContentInteractionMapper contentInteractionMapper;
+
+    @Autowired
     private QuestionMapper questionMapper;
 
     @Autowired
-    private CommentMapper commentMapper;
+    private AnswerInteractionMapper answerInteractionMapper;
+
+    @Autowired
+    private CommentInteractionMapper commentInteractionMapper;
 
     @Autowired
     private FollowMapper followMapper;
@@ -99,6 +120,9 @@ class ReliabilityMySqlIntegrationTests {
 
     @Autowired
     private OutboxEventService outboxEventService;
+
+    @Autowired
+    private ContentEventProducer contentEventProducer;
 
     @Autowired
     private InboxEventService inboxEventService;
@@ -152,21 +176,21 @@ class ReliabilityMySqlIntegrationTests {
 
         ContentLiked contentLiked = ContentLiked.builder()
                 .contentId(10L).userId(2L).createTime(now).build();
-        assertEquals(1, contentMapper.insertContentLiked(contentLiked));
-        assertEquals(0, contentMapper.insertContentLiked(contentLiked));
+        assertEquals(1, contentInteractionMapper.insertContentLiked(contentLiked));
+        assertEquals(0, contentInteractionMapper.insertContentLiked(contentLiked));
 
         ContentCollect contentCollect = ContentCollect.builder()
                 .contentId(10L).userId(2L).createTime(now).build();
-        assertEquals(1, contentMapper.insertCollect(contentCollect));
-        assertEquals(0, contentMapper.insertCollect(contentCollect));
+        assertEquals(1, contentInteractionMapper.insertCollect(contentCollect));
+        assertEquals(0, contentInteractionMapper.insertCollect(contentCollect));
 
         AnswerLiked answerLiked = AnswerLiked.builder()
                 .answerId(100L).userId(2L).createTime(now).build();
-        assertEquals(1, questionMapper.insertAnswerLiked(answerLiked));
-        assertEquals(0, questionMapper.insertAnswerLiked(answerLiked));
+        assertEquals(1, answerInteractionMapper.insertAnswerLiked(answerLiked));
+        assertEquals(0, answerInteractionMapper.insertAnswerLiked(answerLiked));
 
-        assertEquals(1, commentMapper.insertCommentLikes(1000L, 2L));
-        assertEquals(0, commentMapper.insertCommentLikes(1000L, 2L));
+        assertEquals(1, commentInteractionMapper.insertCommentLikes(1000L, 2L));
+        assertEquals(0, commentInteractionMapper.insertCommentLikes(1000L, 2L));
 
         Follow follow = Follow.builder()
                 .userId(2L).followUserId(1L)
@@ -184,7 +208,7 @@ class ReliabilityMySqlIntegrationTests {
                     start.await();
                     ContentLiked liked = ContentLiked.builder()
                             .contentId(10L).userId(2L).createTime(LocalDateTime.now()).build();
-                    int inserted = contentMapper.insertContentLiked(liked);
+                    int inserted = contentInteractionMapper.insertContentLiked(liked);
                     if (inserted == 1) {
                         contentMapper.updateLiked(10L, 1);
                     }
@@ -194,7 +218,7 @@ class ReliabilityMySqlIntegrationTests {
                     start.await();
                     ContentLiked liked = ContentLiked.builder()
                             .contentId(10L).userId(2L).createTime(LocalDateTime.now()).build();
-                    int inserted = contentMapper.insertContentLiked(liked);
+                    int inserted = contentInteractionMapper.insertContentLiked(liked);
                     if (inserted == 1) {
                         contentMapper.updateLiked(10L, 1);
                     }
@@ -255,25 +279,25 @@ class ReliabilityMySqlIntegrationTests {
         ContentCollect collected = ContentCollect.builder()
                 .contentId(10L).userId(2L).createTime(now).build();
 
-        assertEquals(1, contentMapper.insertContentLiked(liked));
+        assertEquals(1, contentInteractionMapper.insertContentLiked(liked));
         contentMapper.updateLiked(10L, 1);
-        assertEquals(1, contentMapper.insertCollect(collected));
+        assertEquals(1, contentInteractionMapper.insertCollect(collected));
         contentMapper.updateCollectCount(10L, 1);
 
-        int firstUnlike = contentMapper.deleteContentLikedByUser(10L, 2L);
+        int firstUnlike = contentInteractionMapper.deleteContentLikedByUser(10L, 2L);
         if (firstUnlike == 1) {
             contentMapper.updateLiked(10L, -1);
         }
-        int repeatedUnlike = contentMapper.deleteContentLikedByUser(10L, 2L);
+        int repeatedUnlike = contentInteractionMapper.deleteContentLikedByUser(10L, 2L);
         if (repeatedUnlike == 1) {
             contentMapper.updateLiked(10L, -1);
         }
 
-        int firstUncollect = contentMapper.deleteCollect(10L, 2L);
+        int firstUncollect = contentInteractionMapper.deleteCollect(10L, 2L);
         if (firstUncollect == 1) {
             contentMapper.updateCollectCount(10L, -1);
         }
-        int repeatedUncollect = contentMapper.deleteCollect(10L, 2L);
+        int repeatedUncollect = contentInteractionMapper.deleteCollect(10L, 2L);
         if (repeatedUncollect == 1) {
             contentMapper.updateCollectCount(10L, -1);
         }
@@ -310,7 +334,7 @@ class ReliabilityMySqlIntegrationTests {
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 
         assertThrows(IllegalStateException.class, () -> transactionTemplate.executeWithoutResult(status -> {
-            outboxEventService.createContentModerationEvent(testContent("正常正文"), List.of());
+            contentEventProducer.createContentModerationEvent(testContent("正常正文"), List.of());
             throw new IllegalStateException("模拟业务回滚");
         }));
 
@@ -321,7 +345,7 @@ class ReliabilityMySqlIntegrationTests {
 
     @Test
     void twoDispatchersCannotClaimTheSameOutboxEvent() throws Exception {
-        outboxEventService.createContentModerationEvent(testContent("正常正文"), List.of());
+        contentEventProducer.createContentModerationEvent(testContent("正常正文"), List.of());
         CountDownLatch start = new CountDownLatch(1);
 
         List<Integer> claimSizes = runConcurrently(
@@ -341,7 +365,7 @@ class ReliabilityMySqlIntegrationTests {
 
     @Test
     void expiredOwnerCannotOverwriteNewOwner() {
-        String eventId = outboxEventService.createContentModerationEvent(testContent("正常正文"), List.of());
+        String eventId = contentEventProducer.createContentModerationEvent(testContent("正常正文"), List.of());
         OutboxEvent firstClaim = outboxEventService.claimBatch("instance-a").get(0);
 
         jdbcTemplate.update(
@@ -357,7 +381,7 @@ class ReliabilityMySqlIntegrationTests {
 
     @Test
     void twoAdministratorsCanReplayDeadEventOnlyOnce() throws Exception {
-        String eventId = outboxEventService.createContentModerationEvent(testContent("正常正文"), List.of());
+        String eventId = contentEventProducer.createContentModerationEvent(testContent("正常正文"), List.of());
         jdbcTemplate.update("UPDATE tb_outbox_event SET status='DEAD' WHERE event_id=?", eventId);
         CountDownLatch start = new CountDownLatch(1);
 
@@ -447,7 +471,7 @@ class ReliabilityMySqlIntegrationTests {
     @Test
     void oversizedPayloadDoesNotLeaveOutboxEvent() {
         assertThrows(RuntimeException.class, () ->
-                outboxEventService.createContentModerationEvent(
+                contentEventProducer.createContentModerationEvent(
                         testContent("x".repeat(40_000)),
                         List.of()
                 ));
@@ -601,7 +625,7 @@ class ReliabilityMySqlIntegrationTests {
                 .userId(2L)
                 .createTime(LocalDateTime.now())
                 .build();
-        int inserted = contentMapper.insertCollect(collected);
+        int inserted = contentInteractionMapper.insertCollect(collected);
         if (inserted == 1) {
             contentMapper.updateCollectCount(10L, 1);
         }

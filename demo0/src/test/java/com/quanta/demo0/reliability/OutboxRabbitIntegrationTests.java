@@ -1,11 +1,11 @@
 package com.quanta.demo0.reliability;
 
-import com.quanta.demo0.entity.OutboxEvent;
-import com.quanta.demo0.mq.message.OutboxRoute;
-import com.quanta.demo0.mq.outbox.OutboxDispatcher;
-import com.quanta.demo0.mq.outbox.OutboxRouteRegistry;
-import com.quanta.demo0.properties.OutboxDispatchProperties;
-import com.quanta.demo0.service.OutboxEventService;
+import com.quanta.demo0.platform.mq.entity.OutboxEvent;
+import com.quanta.demo0.platform.mq.message.OutboxRoute;
+import com.quanta.demo0.platform.mq.outbox.OutboxDispatcher;
+import com.quanta.demo0.platform.mq.outbox.OutboxRouteRegistry;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;

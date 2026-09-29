@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.quanta.demo0.interaction.mapper.AnswerInteractionMapper">
+    <insert id="insertAnswerLiked" useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO tb_answer_like (answer_id, user_id, create_time)
+        VALUES (#{answerId}, #{userId}, #{createTime})
+    </insert>
+
+    <delete id="deleteAnswerLikedByUser">
+        DELETE FROM tb_answer_like
+        WHERE answer_id = #{answerId} AND user_id = #{userId}
+    </delete>
+
+    <update id="updateAnswerLikeCount">
+        UPDATE tb_question_answer
+        SET like_count = GREATEST(0, like_count + #{i})
+        WHERE answer_id = #{answerId}
+    </update>
+
+    <update id="updateAnswerCommentCount">
+        UPDATE tb_question_answer
+        SET comment_count = GREATEST(0, comment_count + #{i})
+        WHERE answer_id = #{answerId}
+    </update>
+
+    <delete id="deleteAnswerLikedByAnswerId">
+        DELETE FROM tb_answer_like WHERE answer_id = #{answerId}
+    </delete>
+
+    <delete id="deleteAnswerCommentImages">
+        DELETE FROM tb_comment_image
+        WHERE comment_id IN (SELECT comment_id FROM tb_content_comment WHERE answer_id = #{answerId})
+    </delete>
+
+    <delete id="deleteAnswerCommentLiked">
+        DELETE FROM tb_comment_like
+        WHERE comment_id IN (SELECT comment_id FROM tb_content_comment WHERE answer_id = #{answerId})
+    </delete>
+
+    <update id="softDeleteAnswerComments">
+        UPDATE tb_content_comment
+        SET is_deleted = 1, update_time = NOW()
+        WHERE answer_id = #{answerId} AND is_deleted = 0
+    </update>
+</mapper>

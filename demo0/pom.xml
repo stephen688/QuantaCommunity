@@ -74,6 +74,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- 按域分包门禁，仅用于测试，不进入运行时依赖。 -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.1</version>
+            <scope>test</scope>
+        </dependency>
+
 
         <!-- Spring Security测试支持 -->
         <dependency>

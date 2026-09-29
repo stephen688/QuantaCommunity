@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.quanta.demo0.feed.mapper.UserProfileSignalMapper">
+    <select id="findEvent" resultType="com.quanta.demo0.feed.entity.UserProfileSignal">
+        SELECT * FROM tb_user_profile_signal WHERE event_id=#{eventId}
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_user_profile_signal
+            (event_id,user_id,memory_id,persona_version,revision,operation,topics,valence)
+        VALUES (#{eventId},#{userId},#{memoryId},#{personaVersion},#{revision},#{operation},#{topics},#{valence})
+    </insert>
+    <select id="generation" resultType="java.lang.Long">
+        SELECT COALESCE(MAX(id),0) FROM tb_user_profile_signal WHERE user_id=#{userId}
+    </select>
+    <select id="latestStates" resultType="com.quanta.demo0.feed.entity.UserProfileSignal">
+        SELECT current_state.* FROM tb_user_profile_signal current_state
+        WHERE current_state.user_id=#{userId} AND NOT EXISTS (
+            SELECT 1 FROM tb_user_profile_signal newer
+            WHERE newer.user_id=current_state.user_id
+                AND newer.memory_id=current_state.memory_id
+                AND newer.persona_version=current_state.persona_version
+                AND (newer.revision &gt; current_state.revision
+                    OR (newer.revision=current_state.revision AND newer.id &gt; current_state.id))
+        )
+        ORDER BY current_state.revision ASC,current_state.id ASC
+    </select>
+</mapper>

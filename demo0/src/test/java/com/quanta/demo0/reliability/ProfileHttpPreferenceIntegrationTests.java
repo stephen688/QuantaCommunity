@@ -1,30 +1,45 @@
 package com.quanta.demo0.reliability;
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
+import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
+import com.quanta.demo0.platform.security.properties.JwtProperties;
+import com.quanta.demo0.platform.security.properties.QuantabotProperties;
+import com.quanta.demo0.platform.security.properties.SecurityProperties;
+
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.quanta.demo0.config.ProfileMQConfig;
-import com.quanta.demo0.constant.JwtClaimsConstant;
-import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.controller.bot.BotProfileController;
-import com.quanta.demo0.dto.BotProfileEventDTO;
-import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mq.consumer.ProfileReconcileConsumer;
-import com.quanta.demo0.mq.message.ProfileReconcileMessage;
-import com.quanta.demo0.mq.outbox.OutboxDispatcher;
-import com.quanta.demo0.mq.outbox.OutboxRouteRegistry;
-import com.quanta.demo0.mq.producer.ProfileReconcileProducer;
-import com.quanta.demo0.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.properties.*;
-import com.quanta.demo0.security.*;
-import com.quanta.demo0.service.ExplicitPreferenceService;
-import com.quanta.demo0.service.InboxEventService;
-import com.quanta.demo0.service.OutboxEventService;
-import com.quanta.demo0.service.Impl.ExplicitPreferenceServiceImpl;
-import com.quanta.demo0.service.Impl.InboxEventServiceImpl;
-import com.quanta.demo0.service.Impl.OutboxEventServiceImpl;
-import com.quanta.demo0.service.Impl.RecommendRerankServiceImpl;
-import com.quanta.demo0.service.Impl.UserProfileServiceImpl;
-import com.quanta.demo0.utils.JwtUtil;
+import com.quanta.demo0.feed.config.ProfileMQConfig;
+import com.quanta.demo0.platform.security.constant.JwtClaimsConstant;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
+import com.quanta.demo0.feed.controller.bot.BotProfileController;
+import com.quanta.demo0.feed.dto.BotProfileEventDTO;
+import com.quanta.demo0.content.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.feed.mq.consumer.ProfileReconcileConsumer;
+import com.quanta.demo0.feed.mq.message.ProfileReconcileMessage;
+import com.quanta.demo0.platform.mq.outbox.OutboxDispatcher;
+import com.quanta.demo0.platform.mq.outbox.OutboxRouteRegistry;
+import com.quanta.demo0.feed.mq.producer.ProfileReconcileProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
+import com.quanta.demo0.platform.mq.producer.OutboxEventAppender;
+import com.quanta.demo0.platform.security.filter.OptionalJwtAuthenticationFilter;
+import com.quanta.demo0.platform.security.handler.SecurityAccessDeniedHandler;
+import com.quanta.demo0.platform.security.handler.SecurityAuthenticationEntryPoint;
+import com.quanta.demo0.platform.security.service.impl.AuthenticationSnapshotCacheImpl;
+import com.quanta.demo0.platform.security.service.impl.TokenAuthenticationServiceImpl;
+import com.quanta.demo0.feed.service.ExplicitPreferenceService;
+import com.quanta.demo0.platform.mq.service.InboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.feed.service.impl.ExplicitPreferenceServiceImpl;
+import com.quanta.demo0.platform.mq.service.impl.InboxEventServiceImpl;
+import com.quanta.demo0.platform.mq.service.impl.OutboxEventServiceImpl;
+import com.quanta.demo0.feed.service.impl.RecommendRerankServiceImpl;
+import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
+import com.quanta.demo0.content.service.impl.ContentQueryServiceImpl;
+import com.quanta.demo0.identity.service.impl.IdentityQueryServiceImpl;
+import com.quanta.demo0.user.service.impl.UserQueryServiceImpl;
+import com.quanta.demo0.platform.security.utils.JwtUtil;
 import com.rabbitmq.client.GetResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +89,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import com.quanta.demo0.feed.properties.RecommendProperties;
+import com.quanta.demo0.user.entity.User;
 
 /**
  * 一条有界的真实边界证明：HTTP service-token 鉴权 → MySQL 事实/Outbox → RabbitMQ → Inbox/Redis → 推荐排序。
@@ -91,7 +108,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.
         "spring.ai.openai.api-key=test-only-no-network",
         "spring.ai.qwen-openai.api-key=test-only-no-network",
         "mybatis.configuration.map-underscore-to-camel-case=true",
-        "mybatis.type-aliases-package=com.quanta.demo0.entity"
+        "mybatis.type-aliases-package=com.quanta.demo0"
 })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ProfileHttpPreferenceIntegrationTests {
@@ -110,7 +127,7 @@ class ProfileHttpPreferenceIntegrationTests {
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
         registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
-        registry.add("mybatis.mapper-locations", () -> "classpath:mapper/*.xml");
+        registry.add("mybatis.mapper-locations", () -> "classpath*:/mapper/**/*.xml");
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }
@@ -259,10 +276,17 @@ class ProfileHttpPreferenceIntegrationTests {
         redis.opsForZSet().add(RedisConstants.RECOMMEND_HOT_ALL_KEY, "2", 0.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_ALL_KEY, "1", 100.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_ALL_KEY, "2", 0.0);
-        var profile = new UserProfileServiceImpl(contentMapper, redis);
-        var rerank = new RecommendRerankServiceImpl(redis, contentMapper, profile, new RecommendProperties());
-        assertThat(rerank.rerank(123L, null, 10).contents()).extracting(Content::getContentId)
+        ContentQueryService contentQueryService = contentQueryService();
+        var profile = new UserInterestProfileServiceImpl(contentQueryService, redis);
+        var rerank = new RecommendRerankServiceImpl(redis, contentQueryService, profile, new RecommendProperties());
+        assertThat(rerank.rerank(123L, null, 10).contents()).extracting(ContentSnapshotVO::getContentId)
                 .containsExactly(2L, 1L);
+    }
+
+    private ContentQueryService contentQueryService() {
+        ContentQueryServiceImpl queryService = new ContentQueryServiceImpl();
+        ReflectionTestUtils.setField(queryService, "contentMapper", contentMapper);
+        return queryService;
     }
 
     private ResultActions postEvent(String token, BotProfileEventDTO event) throws Exception {
@@ -306,9 +330,20 @@ class ProfileHttpPreferenceIntegrationTests {
     @EnableMethodSecurity
     @EnableTransactionManagement
     @EnableAspectJAutoProxy
-    @MapperScan("com.quanta.demo0.mapper")
+    @MapperScan({
+            "com.quanta.demo0.content.mapper",
+            "com.quanta.demo0.comment.mapper",
+            "com.quanta.demo0.answer.mapper",
+            "com.quanta.demo0.user.mapper",
+            "com.quanta.demo0.identity.mapper",
+            "com.quanta.demo0.feed.mapper",
+            "com.quanta.demo0.platform.mq.mapper",
+            "com.quanta.demo0.platform.security.mapper"
+    })
     @Import({
             ExplicitPreferenceServiceImpl.class,
+            FeedEventProducer.class,
+            OutboxEventAppender.class,
             OutboxEventServiceImpl.class,
             InboxEventServiceImpl.class,
             OutboxDispatchProperties.class,
@@ -317,12 +352,14 @@ class ProfileHttpPreferenceIntegrationTests {
             JwtProperties.class,
             QuantabotProperties.class,
             SecurityProperties.class,
+            UserQueryServiceImpl.class,
+            IdentityQueryServiceImpl.class,
             AuthenticationSnapshotCacheImpl.class,
             TokenAuthenticationServiceImpl.class,
             OptionalJwtAuthenticationFilter.class,
             SecurityAuthenticationEntryPoint.class,
             SecurityAccessDeniedHandler.class,
-            com.quanta.demo0.config.SecurityConfiguration.class,
+            com.quanta.demo0.platform.security.config.SecurityConfiguration.class,
             BotProfileController.class
     })
     static class TestConfig {

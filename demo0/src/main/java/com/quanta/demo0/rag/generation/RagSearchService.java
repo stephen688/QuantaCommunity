@@ -1,16 +1,17 @@
 package com.quanta.demo0.rag.generation;
-import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.entity.ContentImage;
-import com.quanta.demo0.entity.UserAuthInfo;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.UserMapper;
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.exception.RagRetrieveException;
+
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.user.service.UserQueryService;
+import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagAnswer;
 import com.quanta.demo0.rag.model.RagCandidate;
 import com.quanta.demo0.rag.model.RagSearchRequest;
 import com.quanta.demo0.rag.model.RagSearchResponse;
 import com.quanta.demo0.rag.retrieval.RagRetrieveFacade;
-import com.quanta.demo0.vo.ContentVO;
+import com.quanta.demo0.content.vo.ContentVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -43,8 +44,8 @@ import java.util.stream.Collectors;
  *   调用 ragRetrieveFacade.retrieveAndFuse(query, contentType)
  *   获取融合排序后的候选列表（Top10）
         * 第 3 步：将候选映射为 ContentVO
- *   提取所有 contentId，批量查询 Content 实体
- *   批量查询用户信息（UserAuthInfo）
+ *   提取所有 contentId，批量查询 ContentSnapshotVO 实体
+ *   批量查询用户信息（UserAuthInfoVO）
         *   批量查询图片列表（Image）
         *   组装 ContentVO 列表
  * 第 4 步：AI 生成
@@ -72,11 +73,11 @@ public class RagSearchService {
       @Autowired
         private RagRetrieveFacade ragRetrieveFacade;
       @Autowired
-        private ContentMapper contentMapper;
+        private ContentQueryService contentQueryService;
       @Autowired
       private RagGenerationService ragGenerationService;
       @Autowired
-      private UserMapper userMapper;
+      private UserQueryService userQueryService;
       @Autowired
       private RagSummaryCacheKeyBuilder cacheKeyBuilder;
         @Autowired
@@ -273,52 +274,49 @@ public class RagSearchService {
             return Collections.emptyList();
         }
 
-        // 批量查询 Content 实体
-        List<Content> contents = contentMapper.selectBatchIds(contentIds);
+        // 批量查询 ContentSnapshotVO 实体
+        List<ContentSnapshotVO> contents = contentQueryService.getContentFactSnapshots(contentIds);
         if (contents == null || contents.isEmpty()) {
-            log.warn("[RAG-SEARCH] 批量查询 Content 为空");
+            log.warn("[RAG-SEARCH] 批量查询 ContentSnapshotVO 为空");
             return Collections.emptyList();
         }
 
-        // 构建 contentId → Content 映射
-        Map<Long, Content> contentMap = contents.stream()
-                .collect(Collectors.toMap(Content::getContentId, c -> c, (v1, v2) -> v1));
+        // 构建 contentId → ContentSnapshotVO 映射
+        Map<Long, ContentSnapshotVO> contentMap = contents.stream()
+                .collect(Collectors.toMap(ContentSnapshotVO::getContentId, c -> c, (v1, v2) -> v1));
 
         // 收集所有用户 ID
         List<Long> userIds = contents.stream()
-                .map(Content::getPublishUserId)
+                .map(ContentSnapshotVO::getPublishUserId)
                 .distinct()
                 .collect(Collectors.toList());
 
         // 批量查询用户信息
-        List<UserAuthInfo> userAuthList = userIds.isEmpty()
+        List<UserAuthInfoVO> userAuthList = userIds.isEmpty()
                 ? Collections.emptyList()
-                : userMapper.selectUserAuthInfoByIds(userIds);
+                : userQueryService.getUserAuthInfos(userIds);
 
-        Map<Long, UserAuthInfo> userAuthMap = userAuthList.stream()
-                .collect(Collectors.toMap(UserAuthInfo::getUserId, u -> u, (v1, v2) -> v1));
+        Map<Long, UserAuthInfoVO> userAuthMap = userAuthList.stream()
+                .collect(Collectors.toMap(UserAuthInfoVO::getUserId, u -> u, (v1, v2) -> v1));
 
         // 批量查询图片
         // N+1 模式：循环逐个查询图片
         Map<Long, List<String>> imageMap = new HashMap<>();
         for (Long contentId : contentIds) {
-            List<ContentImage> images = contentMapper.selectImagesByContentIds(contentId);
-            if (images != null && !images.isEmpty()) {
-                List<String> imageUrls = images.stream()
-                        .map(ContentImage::getImageUrl)
-                        .collect(Collectors.toList());
+            List<String> imageUrls = contentQueryService.getContentFactImageUrls(contentId);
+            if (imageUrls != null && !imageUrls.isEmpty()) {
                 imageMap.put(contentId, imageUrls);
             }
         }
         // 按候选顺序组装 ContentVO（保持融合排序顺序）
         List<ContentVO> voList = new ArrayList<>();
         for (RagCandidate candidate : candidates) {
-            Content content = contentMap.get(candidate.getContentId());
+            ContentSnapshotVO content = contentMap.get(candidate.getContentId());
             if (content == null) {
                 continue; // 跳过不存在的帖子
             }
 
-            UserAuthInfo userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfo());
+            UserAuthInfoVO userInfo = userAuthMap.getOrDefault(content.getPublishUserId(), new UserAuthInfoVO());
             List<String> imageUrls = imageMap.getOrDefault(candidate.getContentId(), Collections.emptyList());
 
             ContentVO vo = ContentVO.builder()
@@ -334,7 +332,7 @@ public class RagSearchService {
                     .nickName(userInfo.getNickName())
                     .quantaDepartment(userInfo.getQuantaDepartment())
                     .quantaBatch(userInfo.getQuantaBatch())
-                    .liked(content.getLiked() != null ? content.getLiked() : 0)
+                    .liked(content.getLikedCount() != null ? content.getLikedCount() : 0)
                     .commentCount(content.getCommentCount() != null ? content.getCommentCount() : 0)
                     .collectCount(content.getCollectCount() != null ? content.getCollectCount() : 0)
                     .isLiked(false) // RAG 搜索不查点赞状态

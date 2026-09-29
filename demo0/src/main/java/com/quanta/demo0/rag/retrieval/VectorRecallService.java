@@ -1,6 +1,6 @@
 package com.quanta.demo0.rag.retrieval;
 
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagCandidate;
 import lombok.extern.slf4j.Slf4j;
 

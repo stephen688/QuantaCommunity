@@ -1,6 +1,6 @@
 package com.quanta.demo0.rag.vector;
 
-import com.quanta.demo0.properties.RagProperties;
+import com.quanta.demo0.rag.properties.RagProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.beans.factory.annotation.Autowired;

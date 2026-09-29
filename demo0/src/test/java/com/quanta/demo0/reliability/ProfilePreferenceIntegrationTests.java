@@ -1,25 +1,43 @@
 package com.quanta.demo0.reliability;
 
+import com.quanta.demo0.platform.mq.service.InboxEventService;
+import com.quanta.demo0.platform.mq.service.OutboxEventService;
+
+import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
+
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.quanta.demo0.config.ProfileMQConfig;
-import com.quanta.demo0.config.TopicTagMQConfig;
-import com.quanta.demo0.constant.RedisConstants;
-import com.quanta.demo0.dto.BotProfileEventDTO;
-import com.quanta.demo0.entity.Content;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mq.consumer.ProfileReconcileConsumer;
-import com.quanta.demo0.mq.consumer.ContentTopicTagConsumer;
-import com.quanta.demo0.mq.message.ProfileReconcileMessage;
-import com.quanta.demo0.mq.message.ContentTopicTagMessage;
-import com.quanta.demo0.mq.outbox.OutboxDispatcher;
-import com.quanta.demo0.mq.outbox.OutboxRouteRegistry;
-import com.quanta.demo0.mq.producer.ProfileReconcileProducer;
-import com.quanta.demo0.mq.producer.ContentTopicTagProducer;
-import com.quanta.demo0.mq.producer.ReliableRabbitPublisher;
-import com.quanta.demo0.properties.*;
-import com.quanta.demo0.service.*;
-import com.quanta.demo0.service.Impl.*;
+import com.quanta.demo0.feed.config.ProfileMQConfig;
+import com.quanta.demo0.content.config.TopicTagMQConfig;
+import com.quanta.demo0.platform.redis.constant.RedisConstants;
+import com.quanta.demo0.feed.dto.BotProfileEventDTO;
+import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.feed.mq.consumer.ProfileReconcileConsumer;
+import com.quanta.demo0.content.mq.consumer.ContentTopicTagConsumer;
+import com.quanta.demo0.feed.mq.message.ProfileReconcileMessage;
+import com.quanta.demo0.content.mq.message.ContentTopicTagMessage;
+import com.quanta.demo0.content.mq.producer.ContentEventProducer;
+import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
+import com.quanta.demo0.platform.mq.outbox.OutboxDispatcher;
+import com.quanta.demo0.platform.mq.outbox.OutboxRouteRegistry;
+import com.quanta.demo0.feed.mq.producer.ProfileReconcileProducer;
+import com.quanta.demo0.content.mq.producer.ContentTopicTagProducer;
+import com.quanta.demo0.platform.mq.producer.ReliableRabbitPublisher;
+import com.quanta.demo0.platform.mq.producer.OutboxEventAppender;
+import com.quanta.demo0.content.service.ContentTopicTagService;
+import com.quanta.demo0.content.service.impl.ContentTopicTagServiceImpl;
+import com.quanta.demo0.feed.service.ExplicitPreferenceService;
+import com.quanta.demo0.feed.service.TopicCatalog;
+import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
+import com.quanta.demo0.feed.service.impl.ExplicitPreferenceServiceImpl;
+import com.quanta.demo0.feed.service.impl.RecommendRerankServiceImpl;
+import com.quanta.demo0.content.service.impl.ContentQueryServiceImpl;
+import com.quanta.demo0.platform.mq.service.impl.InboxEventServiceImpl;
+import com.quanta.demo0.platform.mq.service.impl.OutboxEventServiceImpl;
 import com.rabbitmq.client.GetResponse;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -59,12 +77,17 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.mock;
+import com.quanta.demo0.content.properties.ContentTopicProperties;
+import com.quanta.demo0.feed.properties.RecommendProperties;
+import com.quanta.demo0.user.entity.User;
 
 /** 真 MySQL/RabbitMQ/Redis 定向闭环；隔离容器，不修改真实用户。付费标签 smoke 显式开启，仅一帖。 */
-@MybatisTest @Testcontainers
+@MybatisTest
+@Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({ExplicitPreferenceServiceImpl.class, OutboxEventServiceImpl.class, InboxEventServiceImpl.class,
+@Import({ExplicitPreferenceServiceImpl.class, ContentEventProducer.class, FeedEventProducer.class,
+        OutboxEventAppender.class, OutboxEventServiceImpl.class, InboxEventServiceImpl.class,
         OutboxDispatchProperties.class, RecommendProperties.class, ContentTopicProperties.class,
         ContentTopicTagServiceImpl.class, ProfilePreferenceIntegrationTests.TestBeans.class})
 class ProfilePreferenceIntegrationTests {
@@ -78,10 +101,11 @@ class ProfilePreferenceIntegrationTests {
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
         registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
-        registry.add("mybatis.mapper-locations", () -> "classpath:mapper/*.xml");
+        registry.add("mybatis.mapper-locations", () -> "classpath*:/mapper/**/*.xml");
     }
     @Autowired JdbcTemplate jdbc;
     @Autowired ExplicitPreferenceService preferences;
+    @Autowired ContentEventProducer contentEventProducer;
     @Autowired OutboxEventService outbox;
     @Autowired InboxEventService inbox;
     @Autowired ObjectMapper json;
@@ -145,22 +169,25 @@ class ProfilePreferenceIntegrationTests {
         jdbc.update("INSERT INTO tb_content(content_id,content_type,tags,publish_user_id,audit_status,liked) VALUES(1,1,'[\"basketball\"]',123,1,100),(2,1,'[\"football\"]',123,1,0)");
         redis.opsForZSet().add(RedisConstants.RECOMMEND_HOT_ALL_KEY,"1",100.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_HOT_ALL_KEY,"2",0.0);
-        var profile = new UserProfileServiceImpl(contentMapper,redis);
-        var rerank = new RecommendRerankServiceImpl(redis,contentMapper,profile,new RecommendProperties());
-        assertThat(rerank.rerank(123L,null,10).contents()).extracting(Content::getContentId).containsExactly(2L,1L);
+        ContentQueryService contentQueryService = contentQueryService();
+        var profile = new UserInterestProfileServiceImpl(contentQueryService,redis);
+        var rerank = new RecommendRerankServiceImpl(redis,contentQueryService,profile,new RecommendProperties());
+        assertThat(rerank.rerank(123L,null,10).contents())
+                .extracting(ContentSnapshotVO::getContentId).containsExactly(2L,1L);
         // 删除后重新投递旧 UPSERT（新的运输ID，旧版本），不能复活篮球负偏好。
         assertThat(preferences.accept(event(200L,"DELETE",null))).isTrue();
         dispatchAndConsumeProfile();
         assertThat(redis.opsForHash().hasKey("user:profile-explicit:123","basketball")).isFalse();
         redis.delete("recommend:exposed:123");
-        assertThat(rerank.rerank(123L,null,10).contents()).extracting(Content::getContentId).containsExactly(1L,2L);
+        assertThat(rerank.rerank(123L,null,10).contents())
+                .extracting(ContentSnapshotVO::getContentId).containsExactly(1L,2L);
         assertThat(preferences.accept(event(150L,"UPSERT","positive"))).isTrue();
         dispatchAndConsumeProfile();
         assertThat(redis.opsForHash().hasKey("user:profile-explicit:123","basketball")).isFalse();
         // 新版本再次明确喜欢后恢复；真实画像读层不把版本混入兴趣分母。
         assertThat(preferences.accept(event(300L,"UPSERT","positive"))).isTrue();
         dispatchAndConsumeProfile();
-        assertThat(new UserProfileServiceImpl(contentMapper,redis).getExplicitProfile(123L))
+        assertThat(new UserInterestProfileServiceImpl(contentQueryService,redis).getExplicitProfile(123L))
                 .containsExactlyEntriesOf(java.util.Map.of("basketball",0.75));
     }
 
@@ -174,9 +201,15 @@ class ProfilePreferenceIntegrationTests {
     }
 
     @Test void repeatedTopicRegistrationCreatesOnlyOnePersistentTask() {
-        String original = outbox.createContentTopicTagEvent(9001L);
-        assertThat(outbox.createContentTopicTagEvent(9001L)).isEqualTo(original);
+        String original = contentEventProducer.createContentTopicTagEvent(9001L);
+        assertThat(contentEventProducer.createContentTopicTagEvent(9001L)).isEqualTo(original);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tb_outbox_event",Integer.class)).isEqualTo(1);
+    }
+
+    private ContentQueryService contentQueryService() {
+        ContentQueryServiceImpl queryService = new ContentQueryServiceImpl();
+        ReflectionTestUtils.setField(queryService, "contentMapper", contentMapper);
+        return queryService;
     }
 
     @Test @EnabledIfEnvironmentVariable(named="QUANTA_TOPIC_SMOKE",matches="1")

@@ -1,0 +1,140 @@
+package com.quanta.demo0.comment.service.impl;
+
+import com.quanta.demo0.comment.vo.BotCommentChainVO;
+import com.quanta.demo0.comment.vo.BotCommentHistoryVO;
+import com.quanta.demo0.comment.vo.BotCommentNodeVO;
+import com.quanta.demo0.comment.vo.BotCommentTreeVO;
+import com.quanta.demo0.content.vo.BotPostVO;
+import com.quanta.demo0.comment.entity.CommentImage;
+import com.quanta.demo0.comment.entity.ContentComment;
+import com.quanta.demo0.comment.exception.CommentFailedException;
+import com.quanta.demo0.comment.mapper.CommentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.comment.service.BotCommentService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * bot 只读评论实现：只读取审核通过且未删除的评论，并输出稳定的跨服务契约。
+ */
+@Service
+@RequiredArgsConstructor
+public class BotCommentServiceImpl implements BotCommentService {
+
+    private static final DateTimeFormatter DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final int MAX_CHAIN_DEPTH = 50;
+    private static final int MAX_PAGE_SIZE = 200;
+
+    private final CommentMapper commentMapper;
+    private final ContentQueryService contentQueryService;
+
+    // 评论链口，获取评论链（包含所有回复）
+    @Override
+    public BotCommentChainVO getChain(Long commentId) {
+        ContentComment trigger = commentMapper.selectVisibleById(commentId);//
+        if (trigger == null) {
+            throw new CommentFailedException("评论不存在或不可见");
+        }
+        ContentSnapshotVO post = contentQueryService.getContentSnapshot(trigger.getContentId());
+        if (post == null) {
+            throw new CommentFailedException("帖子不存在或已删除");
+        }
+
+        Deque<ContentComment> chainStack = new ArrayDeque<>();// 评论链栈
+        Set<Long> visitedCommentIds = new HashSet<>();// 已访问评论ID集合
+        ContentComment current = trigger;// 当前评论
+        // 递归遍历评论链，直到到达根评论或最大深度
+        while (current != null
+                && visitedCommentIds.add(current.getCommentId())
+                && chainStack.size() < MAX_CHAIN_DEPTH) {
+            chainStack.push(current);
+            Long ancestorId = current.getReplyCommentId() != null
+                    ? current.getReplyCommentId()
+                    : current.getParentId();
+            current = ancestorId == null || ancestorId == 0L
+                    ? null
+                    : commentMapper.selectVisibleById(ancestorId);
+        }
+
+        // 评论链栈中的评论按时间顺序排序
+        List<ContentComment> orderedChain = new ArrayList<>(chainStack);
+        return BotCommentChainVO.builder()
+                .post(BotPostVO.builder()
+                        .postId(post.getContentId())
+                        .userId(post.getPublishUserId())
+                        .title(post.getTitle())
+                        .content(post.getContent())
+                        .build())
+                .chain(toNodes(orderedChain))
+                .build();
+    }
+
+    // 评论历史口，获取评论历史（包含所有回复）
+    @Override
+    public BotCommentHistoryVO getHistory(Long userId, Long postId, int pageNum, int pageSize) {
+        int normalizedPage = Math.max(pageNum, 1);//
+        int normalizedSize = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);// 分页大小
+        long total = commentMapper.countBotHistory(userId, postId);// 总评论数
+        List<ContentComment> rows = commentMapper.selectBotHistory(
+                userId, postId, (normalizedPage - 1) * normalizedSize, normalizedSize);
+        return BotCommentHistoryVO.builder().list(toNodes(rows)).total(total).build();
+    }
+
+    // 评论树口，获取评论树（包含所有回复）
+    @Override
+    public BotCommentTreeVO getTree(Long postId, int pageNum, int pageSize, String sortType) {
+        int normalizedPage = Math.max(pageNum, 1);
+        int normalizedSize = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
+        long total = commentMapper.countBotFloors(postId);
+        List<ContentComment> rows = "desc".equals(sortType)
+                ? commentMapper.selectBotFloorsDesc(
+                        postId, (normalizedPage - 1) * normalizedSize, normalizedSize)
+                : commentMapper.selectBotFloorsAsc(
+                        postId, (normalizedPage - 1) * normalizedSize, normalizedSize);
+        return BotCommentTreeVO.builder().total(total).list(toNodes(rows)).build();
+    }
+
+    private List<BotCommentNodeVO> toNodes(List<ContentComment> rows) {
+        Map<Long, List<String>> imagesByCommentId = loadImages(rows);
+        return rows.stream()
+                .map(comment -> BotCommentNodeVO.builder()
+                        .commentId(comment.getCommentId())
+                        .parentId(normalizeParentId(comment.getParentId()))
+                        .replyCommentId(comment.getReplyCommentId())
+                        .userId(comment.getUserId())
+                        .content(comment.getContent())
+                        .images(imagesByCommentId.getOrDefault(comment.getCommentId(), List.of()))
+                        .createTime(comment.getCreateTime() == null
+                                ? ""
+                                : DATE_TIME_FORMATTER.format(comment.getCreateTime()))
+                        .build())
+                .toList();
+    }
+
+    private Map<Long, List<String>> loadImages(List<ContentComment> rows) {
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> commentIds = rows.stream().map(ContentComment::getCommentId).toList();
+        List<CommentImage> images = commentMapper.selectImagesByCommentIds(commentIds);
+        return images.stream().collect(Collectors.groupingBy(
+                CommentImage::getCommentId,
+                Collectors.mapping(CommentImage::getImageUrl, Collectors.toList())));
+    }
+
+    private Long normalizeParentId(Long parentId) {
+        return parentId == null || parentId == 0L ? null : parentId;
+    }
+}
