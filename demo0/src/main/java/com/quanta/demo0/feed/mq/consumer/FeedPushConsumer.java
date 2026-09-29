@@ -4,7 +4,7 @@ import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.feed.mq.message.FeedPushMessage;
 import com.quanta.demo0.feed.mq.producer.FeedPushProducer;
-import com.quanta.demo0.service.FollowService;
+import com.quanta.demo0.feed.service.FollowFeedService;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ public class FeedPushConsumer {
     private final String instanceId = "feed-push-" + UUID.randomUUID();
 
     @Autowired
-    private FollowService followService;
+    private FollowFeedService followFeedService;
     @Autowired
     private InboxEventService inboxEventService;
     @Autowired
@@ -101,7 +101,7 @@ public class FeedPushConsumer {
 
     private void reconcile(FeedPushMessage message) {
         // 重新读取 MySQL 当前状态，乱序消息不会恢复已删除或已驳回帖子。
-        followService.reconcileContentFeed(message.getContentId(), message.getPublishUserId(), message.getContentType(), message.getCreateTime());
+        followFeedService.reconcileContentFeed(message.getContentId(), message.getPublishUserId(), message.getContentType(), message.getCreateTime());
     }
 
     private void sendBusyMessageToRetry(FeedPushMessage message, Channel channel, long deliveryTag) {

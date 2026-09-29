@@ -145,6 +145,46 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
         return CollectResultVO.builder().collectCount(collectCount).isCollect(targetCollected).build();
     }
 
+    @Override
+    public void deleteByContentId(Long contentId) {
+        contentInteractionMapper.deleteContentLikedByContentId(contentId);
+        contentInteractionMapper.deleteContentCollectByContentId(contentId);
+    }
+
+    @Override
+    public boolean isContentLiked(Long contentId, Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        String key = CONTENT_LIKED_KEY + contentId;
+        Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+        if (score != null) {
+            return true;
+        }
+        boolean liked = contentInteractionMapper.countContentLiked(contentId, userId) > 0;
+        if (liked) {
+            stringRedisTemplate.opsForZSet().add(key, userId.toString(), System.currentTimeMillis());
+        }
+        return liked;
+    }
+
+    @Override
+    public boolean isContentCollected(Long contentId, Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        String key = CONTENT_COLLECT_KEY + contentId;
+        Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+        if (score != null) {
+            return true;
+        }
+        boolean collected = contentInteractionMapper.countContentCollect(contentId, userId) > 0;
+        if (collected) {
+            stringRedisTemplate.opsForZSet().add(key, userId.toString(), System.currentTimeMillis());
+        }
+        return collected;
+    }
+
     private void synchronizeCacheAfterCommit(String key, Long userId, boolean targetState, String businessType) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             return;

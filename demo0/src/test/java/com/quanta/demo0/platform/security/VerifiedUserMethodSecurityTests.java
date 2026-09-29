@@ -16,7 +16,11 @@ import com.quanta.demo0.content.controller.user.ContentController;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.SecurityProperties;
-import com.quanta.demo0.content.service.ContentService;
+import com.quanta.demo0.content.service.ContentCommandService;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.feed.service.FeedQueryService;
+import com.quanta.demo0.interaction.service.ContentInteractionService;
+import com.quanta.demo0.interaction.service.ReportGovernanceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,13 +58,13 @@ class VerifiedUserMethodSecurityTests {
     private TokenAuthenticationService tokenAuthenticationService;
 
     @Autowired
-    private ContentService contentService;
+    private ContentCommandService contentCommandService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        reset(tokenAuthenticationService, contentService);
+        reset(tokenAuthenticationService, contentCommandService);
         mockMvc = webAppContextSetup(applicationContext)
                 .apply(springSecurity())
                 .build();
@@ -73,7 +77,7 @@ class VerifiedUserMethodSecurityTests {
                         .content("{}"))
                 .andExpect(status().isUnauthorized());
 
-        verify(contentService, never()).publish(any());
+        verify(contentCommandService, never()).publish(any());
     }
 
     @Test
@@ -90,7 +94,7 @@ class VerifiedUserMethodSecurityTests {
                         .content("{}"))
                 .andExpect(status().isForbidden());
 
-        verify(contentService, never()).publish(any());
+        verify(contentCommandService, never()).publish(any());
     }
 
     @Test
@@ -110,7 +114,7 @@ class VerifiedUserMethodSecurityTests {
                         .content("{}"))
                 .andExpect(status().isOk());
 
-        verify(contentService).publish(any());
+        verify(contentCommandService).publish(any());
     }
 
     /**
@@ -169,8 +173,28 @@ class VerifiedUserMethodSecurityTests {
         }
 
         @Bean
-        ContentService contentService() {
-            return mock(ContentService.class);
+        ContentCommandService contentCommandService() {
+            return mock(ContentCommandService.class);
+        }
+
+        @Bean
+        ContentQueryService contentQueryService() {
+            return mock(ContentQueryService.class);
+        }
+
+        @Bean
+        FeedQueryService feedQueryService() {
+            return mock(FeedQueryService.class);
+        }
+
+        @Bean
+        ContentInteractionService contentInteractionService() {
+            return mock(ContentInteractionService.class);
+        }
+
+        @Bean
+        ReportGovernanceService reportGovernanceService() {
+            return mock(ReportGovernanceService.class);
         }
     }
 }

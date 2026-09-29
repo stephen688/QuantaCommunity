@@ -31,7 +31,6 @@ import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
 import com.quanta.demo0.feed.service.impl.ExplicitPreferenceServiceImpl;
 import com.quanta.demo0.feed.service.impl.RecommendRerankServiceImpl;
 import com.quanta.demo0.platform.mq.service.impl.InboxEventServiceImpl;
-import com.quanta.demo0.service.*;
 import com.quanta.demo0.service.Impl.*;
 import com.rabbitmq.client.GetResponse;
 import org.junit.jupiter.api.*;

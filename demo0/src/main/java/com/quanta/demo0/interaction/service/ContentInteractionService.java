@@ -8,4 +8,10 @@ public interface ContentInteractionService {
     LikeResultVO likeContent(Long contentId, boolean liked);
 
     CollectResultVO collect(Long contentId, boolean collected);
+
+    void deleteByContentId(Long contentId);
+
+    boolean isContentLiked(Long contentId, Long userId);
+
+    boolean isContentCollected(Long contentId, Long userId);
 }

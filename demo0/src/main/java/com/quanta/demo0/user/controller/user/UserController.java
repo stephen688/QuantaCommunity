@@ -11,12 +11,12 @@ import com.quanta.demo0.user.entity.User;
 import com.quanta.demo0.identity.entity.UserAuth;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.security.exception.AuthFailedException;
-import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.PageVO;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
-import com.quanta.demo0.content.service.ContentService;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.interaction.service.BrowseHistoryService;
 import com.quanta.demo0.user.service.UserService;
 import com.quanta.demo0.platform.security.utils.JwtUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -56,7 +56,9 @@ public class UserController {
     private StringRedisTemplate stringRedisTemplate;
 
     @Autowired
-    private ContentService contentService;
+    private ContentQueryService contentQueryService;
+    @Autowired
+    private BrowseHistoryService browseHistoryService;
 
 
      //TODO：增加一个回收站功能，给用户删除的帖子一个恢复期，过了恢复期才真正删除，期间用户可以在回收站恢复帖子，或者彻底删除帖子
@@ -167,7 +169,7 @@ public class UserController {
             @RequestParam(required = false) AuditStatus auditStatus) {
         log.info("查询我的帖子，当前用户id：{}，分页参数：current={},size={}", BaseContext.getCurrentId(), current, size);
         Long userId = BaseContext.getCurrentId();
-        PageVO<ContentVO> pageVO = contentService.getMyContentList(userId, current, size, auditStatus);
+        PageVO<ContentVO> pageVO = contentQueryService.getMyContentList(userId, current, size, auditStatus);
         return Result.success(pageVO);
 
     }
@@ -181,7 +183,7 @@ public class UserController {
             @RequestParam(defaultValue = "10") Integer size) {
         log.info("查询我点赞的帖子，当前用户id：{}，分页参数：current={},size={}", BaseContext.getCurrentId(), current, size);
         Long userId = BaseContext.getCurrentId();
-        PageVO<ContentVO> pageVO = contentService.getMyLikedContentList(userId, current, size);
+        PageVO<ContentVO> pageVO = contentQueryService.getMyLikedContentList(userId, current, size);
 
         return Result.success(pageVO);
     }
@@ -196,7 +198,7 @@ public class UserController {
             @RequestParam(defaultValue = "10") Integer size) {
         log.info("查询我收藏的帖子，当前用户id：{}，分页参数：current={},size={}", BaseContext.getCurrentId(), current, size);
         Long userId = BaseContext.getCurrentId();
-        PageVO<ContentVO> pageVO = contentService.getMyCollectContentList(userId, current, size);
+        PageVO<ContentVO> pageVO = contentQueryService.getMyCollectContentList(userId, current, size);
 
         return Result.success(pageVO);
     }
@@ -210,7 +212,7 @@ public class UserController {
             @RequestParam(defaultValue = "10") Integer size) {
         log.info("查询我浏览过的帖子，当前用户id：{}，分页参数：current={},size={}", BaseContext.getCurrentId(), current, size);
         Long userId = BaseContext.getCurrentId();
-        PageVO<ContentVO> pageVO = contentService.getMyBrowseHistoryContentList(userId, current, size);
+        PageVO<ContentVO> pageVO = contentQueryService.getMyBrowseHistoryContentList(userId, current, size);
         return Result.success(pageVO);
     }
 
@@ -221,7 +223,7 @@ public class UserController {
     @DeleteMapping("/browse/history/clear")
     public Result<Void> clearBrowseHistory() {
         Long userId = BaseContext.getCurrentId();
-        contentService.clearBrowseHistory(userId);
+        browseHistoryService.clearBrowseHistory(userId);
         return Result.success();
     }
     /**
@@ -246,7 +248,7 @@ public class UserController {
             @RequestParam(defaultValue = "1") Integer current,
             @RequestParam(defaultValue = "10") Integer size) {
         log.info("查询用户帖子列表，userId={}, current={}, size={}", userId, current, size);
-        PageVO<ContentVO> pageVO = contentService.pageUserPublicContents(userId, current, size);
+        PageVO<ContentVO> pageVO = contentQueryService.pageUserPublicContents(userId, current, size);
         return Result.success(pageVO);
     }
 

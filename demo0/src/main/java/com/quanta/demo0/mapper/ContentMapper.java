@@ -9,9 +9,7 @@ import java.util.List;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
 import com.quanta.demo0.content.entity.ContentImage;
-import com.quanta.demo0.interaction.entity.ContentLiked;
 import com.quanta.demo0.interaction.entity.ContentReport;
-import com.quanta.demo0.interaction.entity.ContentCollect;
 
 @Mapper
 public interface ContentMapper {
@@ -63,23 +61,12 @@ public interface ContentMapper {
     boolean updateLiked(@Param("contentId") Long contentId, @Param("i") int i);
 
     /**
-     * 插入点赞记录
-     *
-     * @param contentLiked 点赞记录对象
-     * @return
-     */
-    int insertContentLiked(ContentLiked contentLiked);
-
-    /**
      * 根据内容 ID 和用户 ID 删除点赞记录
      * @param contentId 内容 ID
      * @param userId 用户 ID
      */
     @Select("select count(1) from tb_content_like where content_id = #{contentId} and user_id = #{userId}")
     int countContentLiked(@Param("contentId") Long contentId, @Param("userId") Long userId);
-
-    @Delete("delete from tb_content_like where content_id = #{contentId} and user_id = #{userId}")
-    int deleteContentLikedByUser(@Param("contentId") Long contentId, @Param("userId") Long userId);
 
     @Delete("delete from tb_content_like where content_id = #{contentId}")
     void deleteContentLikedByContentId(Long contentId);
@@ -99,13 +86,8 @@ public interface ContentMapper {
 
     void softDeleteContentComment(Long contentId);
 
-    int insertCollect(ContentCollect contentCollect);
-
     @Select("select count(1) from tb_content_collect where content_id = #{contentId} and user_id = #{userId}")
     int countContentCollect(@Param("contentId") Long contentId, @Param("userId") Long userId);
-
-    @Delete("delete from tb_content_collect where content_id = #{contentId} and user_id = #{userId}")
-    int deleteCollect(@Param("contentId") Long contentId, @Param("userId") Long userId);
 
     @Select("select * from tb_content where content_id in (select content_id from tb_content_like where user_id = #{userId}) and is_deleted = 0 order by create_time desc")
     Page<Content> getMyLikedContentList(Long userId);
@@ -133,13 +115,6 @@ public interface ContentMapper {
     //void insertAnswer(QuestionAnswer answer);
 
    
-    @Select("SELECT * FROM tb_content_report WHERE content_id = #{contentId} AND reporter_id = #{reporterId} AND is_deleted = 0")
-    ContentReport selectValidReportByContentAndUser(@Param("contentId") Long contentId, @Param("reporterId") Long reporterId);
-
-
-    void insertContentReport(ContentReport report);
-
-
     Page<Content> pageAdmin(@Param("query") ContentAdminQueryDTO query);
 
     void update(Content updateContent);

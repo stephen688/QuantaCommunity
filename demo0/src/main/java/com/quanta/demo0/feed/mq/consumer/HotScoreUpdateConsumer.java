@@ -4,7 +4,7 @@ import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.feed.mq.message.HotScoreMessage;
 import com.quanta.demo0.feed.mq.producer.HotScoreUpdateProducer;
-import com.quanta.demo0.content.service.ContentService;
+import com.quanta.demo0.feed.service.HotContentService;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +31,7 @@ public class HotScoreUpdateConsumer {
     private final String instanceId = "hot-score-" + UUID.randomUUID();
 
     @Autowired
-    private ContentService contentService;
+    private HotContentService hotContentService;
     @Autowired
     private InboxEventService inboxEventService;
     @Autowired
@@ -67,7 +67,7 @@ public class HotScoreUpdateConsumer {
     private void processAcquiredMessage(HotScoreMessage message, Channel channel, long deliveryTag) {
         try {
             // Redis 使用覆盖式写入，即使消息重复执行，最终分数也不会重复累加。
-            contentService.reconcileHotScore(message.getContentId());
+            hotContentService.reconcileHotScore(message.getContentId());
             if (!inboxEventService.markSuccess(CONSUMER_NAME, message.getEventId(), instanceId)) {
                 throw new IllegalStateException("热度 Inbox 已失去处理权，不能标记 SUCCESS");
             }

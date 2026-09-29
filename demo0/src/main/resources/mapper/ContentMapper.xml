@@ -18,30 +18,6 @@
             (#{img.contentId},#{img.imageUrl},#{img.sort})
         </foreach>
     </insert>
-    <insert id="insertContentLiked"
-            useGeneratedKeys="true"
-            keyProperty="id">
-
-        INSERT IGNORE INTO tb_content_like
-            (content_id, user_id, create_time)
-        VALUES
-            (#{contentId}, #{userId}, #{createTime})
-    </insert>
-    <insert id="insertCollect" useGeneratedKeys="true" keyProperty="id">
-        INSERT IGNORE INTO tb_content_collect
-        (content_id,user_id,create_time)
-        VALUES
-        (#{contentId},#{userId},#{createTime})
-    </insert>
-
-    <!-- 插入帖子举报记录 -->
-    <insert id="insertContentReport" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO tb_content_report
-        (content_id, reporter_id, report_type, status, is_deleted, create_time, update_time)
-        VALUES
-            (#{contentId}, #{reporterId}, #{reportType}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
-    </insert>
-
     <!-- 动态更新内容 -->
     <update id="update">
         update tb_content

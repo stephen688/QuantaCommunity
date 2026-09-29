@@ -1,26 +1,7 @@
-package com.quanta.demo0.service;
+package com.quanta.demo0.follow.service;
 
-import com.quanta.demo0.feed.dto.FollowFeedQueryDTO;
-import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.follow.vo.FollowResultVO;
-import org.apache.ibatis.annotations.Select;
 
-import java.util.List;
-
-public interface FollowService {
+public interface FollowCommandService {
     FollowResultVO follow(Long id, boolean followed);
-
-
-
-    ScrollResult getFollowFeed(FollowFeedQueryDTO followFeedQueryDTO);
-
-    void pushToFollowersFeed(Long createTime, Integer contentType, Long publishUserId, Long contentId);
-
-
-    void removeFeedFromFollowers(Long contentId, Integer contentType, Long publishUserId);
-
-    /**
-     * 根据 MySQL 当前帖子状态校准粉丝 Feed。
-     */
-    void reconcileContentFeed(Long contentId, Long fallbackPublishUserId, Integer fallbackContentType, Long fallbackCreateTime);
 }

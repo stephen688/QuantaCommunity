@@ -1,17 +1,15 @@
-package com.quanta.demo0.service.Impl;
+package com.quanta.demo0.content.service.impl;
 
-import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.interaction.entity.BrowseHistory;
-import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.content.enums.ContentDetailState;
-import com.quanta.demo0.interaction.mapper.BrowseHistoryMapper;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.user.service.AuthorProfileCache;
-import com.quanta.demo0.content.service.ContentDetailCacheService;
-import com.quanta.demo0.content.service.impl.ContentDetailDataLoader;
 import com.quanta.demo0.content.vo.ContentDetailCacheEntry;
 import com.quanta.demo0.content.vo.ContentDetailSnapshot;
 import com.quanta.demo0.content.vo.ContentVO;
+import com.quanta.demo0.interaction.service.BrowseHistoryService;
+import com.quanta.demo0.interaction.service.ContentInteractionService;
+import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.platform.security.context.BaseContext;
+import com.quanta.demo0.user.service.AuthorProfileCache;
+import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,36 +30,38 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class ContentServiceImplDetailCacheTest {
+class ContentQueryServiceImplDetailCacheTest {
 
     private static final Long USER_ID = 9L;
     private static final Long CONTENT_ID = 31L;
 
-    private ContentDetailCacheService detailCacheService;
+    private ContentDetailCacheServiceFixture detailCacheService;
     private AuthorProfileCache authorProfileCache;
     private ContentMapper contentMapper;
-    private BrowseHistoryMapper browseHistoryMapper;
-    private ContentServiceImpl service;
+    private ContentInteractionService contentInteractionService;
+    private BrowseHistoryService browseHistoryService;
+    private ContentQueryServiceImpl service;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
-        detailCacheService = mock(ContentDetailCacheService.class);
+        detailCacheService = new ContentDetailCacheServiceFixture();
         authorProfileCache = mock(AuthorProfileCache.class);
         contentMapper = mock(ContentMapper.class);
-        browseHistoryMapper = mock(BrowseHistoryMapper.class);
+        contentInteractionService = mock(ContentInteractionService.class);
+        browseHistoryService = mock(BrowseHistoryService.class);
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         ZSetOperations<String, String> zSetOperations = mock(ZSetOperations.class);
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
         when(zSetOperations.score(anyString(), anyString())).thenReturn(null);
 
-        service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentDetailCacheService", detailCacheService);
+        service = new ContentQueryServiceImpl();
+        ReflectionTestUtils.setField(service, "contentDetailCacheService", detailCacheService.service());
         ReflectionTestUtils.setField(service, "contentDetailDataLoader", mock(ContentDetailDataLoader.class));
         ReflectionTestUtils.setField(service, "authorProfileCache", authorProfileCache);
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "browseHistoryMapper", browseHistoryMapper);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", redisTemplate);
+        ReflectionTestUtils.setField(service, "contentInteractionService", contentInteractionService);
+        ReflectionTestUtils.setField(service, "browseHistoryService", browseHistoryService);
         BaseContext.setCurrentId(USER_ID);
 
         ContentDetailSnapshot snapshot = new ContentDetailSnapshot(
@@ -77,8 +77,7 @@ class ContentServiceImplDetailCacheTest {
                 2,
                 List.of("https://img/1.png")
         );
-        when(detailCacheService.getOrLoad(any(), any()))
-                .thenReturn(new ContentDetailCacheEntry(ContentDetailState.FOUND, snapshot));
+        detailCacheService.returnEntry(new ContentDetailCacheEntry(ContentDetailState.FOUND, snapshot));
         when(authorProfileCache.get(7L)).thenReturn(UserAuthInfoVO.builder()
                 .userId(7L)
                 .nickName("作者")
@@ -86,8 +85,8 @@ class ContentServiceImplDetailCacheTest {
                 .quantaDepartment("计算机")
                 .quantaBatch("2023")
                 .build());
-        when(contentMapper.countContentLiked(CONTENT_ID, USER_ID)).thenReturn(1);
-        when(contentMapper.countContentCollect(CONTENT_ID, USER_ID)).thenReturn(0);
+        when(contentInteractionService.isContentLiked(CONTENT_ID, USER_ID)).thenReturn(true);
+        when(contentInteractionService.isContentCollected(CONTENT_ID, USER_ID)).thenReturn(false);
     }
 
     @AfterEach
@@ -104,7 +103,7 @@ class ContentServiceImplDetailCacheTest {
         assertEquals(List.of("https://img/1.png"), result.getImages());
         assertTrue(result.getIsLiked());
         assertFalse(result.getIsCollected());
-        verify(browseHistoryMapper).insertOrUpdateBrowseHistory(any(BrowseHistory.class));
+        verify(browseHistoryService).recordBrowseHistory(CONTENT_ID);
         verify(contentMapper, never()).selectById(CONTENT_ID);
         verify(contentMapper, never()).selectImagesByContentIds(CONTENT_ID);
     }
@@ -117,6 +116,19 @@ class ContentServiceImplDetailCacheTest {
 
         assertEquals("缓存标题", result.getTitle());
         assertEquals(null, result.getNickName());
-        verify(browseHistoryMapper).insertOrUpdateBrowseHistory(any(BrowseHistory.class));
+        verify(browseHistoryService).recordBrowseHistory(CONTENT_ID);
+    }
+
+    private static final class ContentDetailCacheServiceFixture {
+        private final com.quanta.demo0.content.service.ContentDetailCacheService service = mock(
+                com.quanta.demo0.content.service.ContentDetailCacheService.class);
+
+        com.quanta.demo0.content.service.ContentDetailCacheService service() {
+            return service;
+        }
+
+        void returnEntry(ContentDetailCacheEntry entry) {
+            when(service.getOrLoad(any(), any())).thenReturn(entry);
+        }
     }
 }

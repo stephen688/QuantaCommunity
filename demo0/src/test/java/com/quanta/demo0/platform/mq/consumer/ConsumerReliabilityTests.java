@@ -19,8 +19,8 @@ import com.quanta.demo0.feed.mq.producer.FeedPushProducer;
 import com.quanta.demo0.feed.mq.producer.HotScoreUpdateProducer;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.moderation.service.ContentModerationService;
-import com.quanta.demo0.content.service.ContentService;
-import com.quanta.demo0.service.FollowService;
+import com.quanta.demo0.feed.service.HotContentService;
+import com.quanta.demo0.feed.service.FollowFeedService;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
 import com.quanta.demo0.moderation.service.ModerationResultService;
 import com.quanta.demo0.search.service.impl.SearchReconcileServiceImpl;
@@ -109,7 +109,7 @@ class ConsumerReliabilityTests {
     @Test
     void outOfOrderFeedEventsAlwaysReconcileFromCurrentBusinessState() throws Exception {
         InboxEventService inboxEventService = mock(InboxEventService.class);
-        FollowService followService = mock(FollowService.class);
+        FollowFeedService followFeedService = mock(FollowFeedService.class);
         Channel channel = mock(Channel.class);
         FeedDeleteMessage deleteMessage = FeedDeleteMessage.builder()
                 .eventId(UUID.randomUUID().toString())
@@ -136,20 +136,20 @@ class ConsumerReliabilityTests {
         when(inboxEventService.markSuccess(anyString(), anyString(), anyString())).thenReturn(true);
 
         FeedDeleteConsumer deleteConsumer = new FeedDeleteConsumer();
-        ReflectionTestUtils.setField(deleteConsumer, "followService", followService);
+        ReflectionTestUtils.setField(deleteConsumer, "followFeedService", followFeedService);
         ReflectionTestUtils.setField(deleteConsumer, "inboxEventService", inboxEventService);
         ReflectionTestUtils.setField(deleteConsumer, "feedDeleteProducer", mock(FeedDeleteProducer.class));
 
         FeedPushConsumer pushConsumer = new FeedPushConsumer();
-        ReflectionTestUtils.setField(pushConsumer, "followService", followService);
+        ReflectionTestUtils.setField(pushConsumer, "followFeedService", followFeedService);
         ReflectionTestUtils.setField(pushConsumer, "inboxEventService", inboxEventService);
         ReflectionTestUtils.setField(pushConsumer, "feedPushProducer", mock(FeedPushProducer.class));
 
         deleteConsumer.handleFeedDeleteMessage(deleteMessage, delivery(4L), channel);
         pushConsumer.handleFeedPushMessage(pushMessage, delivery(5L), channel);
 
-        verify(followService).reconcileContentFeed(10L, 1L, 2, null);
-        verify(followService).reconcileContentFeed(10L, 1L, 2, 123L);
+        verify(followFeedService).reconcileContentFeed(10L, 1L, 2, null);
+        verify(followFeedService).reconcileContentFeed(10L, 1L, 2, 123L);
         verify(channel).basicAck(4L, false);
         verify(channel).basicAck(5L, false);
     }
@@ -157,7 +157,7 @@ class ConsumerReliabilityTests {
     @Test
     void repeatedHotScoreAndSearchEventsUseCurrentMySqlSnapshot() throws Exception {
         InboxEventService inboxEventService = mock(InboxEventService.class);
-        ContentService contentService = mock(ContentService.class);
+        HotContentService hotContentService = mock(HotContentService.class);
         Channel channel = mock(Channel.class);
         HotScoreMessage first = hotScoreMessage();
         HotScoreMessage second = hotScoreMessage();
@@ -167,14 +167,14 @@ class ConsumerReliabilityTests {
         when(inboxEventService.markSuccess(anyString(), anyString(), anyString())).thenReturn(true);
 
         HotScoreUpdateConsumer consumer = new HotScoreUpdateConsumer();
-        ReflectionTestUtils.setField(consumer, "contentService", contentService);
+        ReflectionTestUtils.setField(consumer, "hotContentService", hotContentService);
         ReflectionTestUtils.setField(consumer, "inboxEventService", inboxEventService);
         ReflectionTestUtils.setField(consumer, "hotScoreUpdateProducer", mock(HotScoreUpdateProducer.class));
 
         consumer.handleHotScoreUpdate(first, delivery(6L), channel);
         consumer.handleHotScoreUpdate(second, delivery(7L), channel);
 
-        verify(contentService, times(2)).reconcileHotScore(10L);
+        verify(hotContentService, times(2)).reconcileHotScore(10L);
 
         ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
         SearchReconcileServiceImpl searchService = new SearchReconcileServiceImpl(elasticSearchService);

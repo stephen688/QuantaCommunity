@@ -4,7 +4,7 @@ import com.quanta.demo0.config.RabbitMQConfig;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.feed.mq.message.FeedDeleteMessage;
 import com.quanta.demo0.feed.mq.producer.FeedDeleteProducer;
-import com.quanta.demo0.service.FollowService;
+import com.quanta.demo0.feed.service.FollowFeedService;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ public class FeedDeleteConsumer {
     private final String instanceId = "feed-delete-" + UUID.randomUUID();
 
     @Autowired
-    private FollowService followService;
+    private FollowFeedService followFeedService;
     @Autowired
     private InboxEventService inboxEventService;
     @Autowired
@@ -101,7 +101,7 @@ public class FeedDeleteConsumer {
 
     private void reconcile(FeedDeleteMessage message) {
         // 与新增消费者共用校准方法，以 MySQL 当前状态决定最终是加入还是删除。
-        followService.reconcileContentFeed(message.getContentId(), message.getPublishUserId(), message.getContentType(), null);
+        followFeedService.reconcileContentFeed(message.getContentId(), message.getPublishUserId(), message.getContentType(), null);
     }
 
     private void sendBusyMessageToRetry(FeedDeleteMessage message, Channel channel, long deliveryTag) {

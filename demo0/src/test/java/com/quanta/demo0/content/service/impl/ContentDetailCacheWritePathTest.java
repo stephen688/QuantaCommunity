@@ -1,6 +1,5 @@
 package com.quanta.demo0.content.service.impl;
 
-import com.quanta.demo0.service.Impl.ContentServiceImpl;
 import com.quanta.demo0.service.Impl.CommentServiceImpl;
 
 
@@ -99,7 +98,7 @@ class ContentDetailCacheWritePathTest {
         ContentMapper contentMapper = mock(ContentMapper.class);
         SensitiveWordChecker sensitiveWordChecker = mock(SensitiveWordChecker.class);
         AliyunModerationProperties moderationProperties = mock(AliyunModerationProperties.class);
-        ContentServiceImpl service = new ContentServiceImpl();
+        ContentCommandServiceImpl service = new ContentCommandServiceImpl();
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
         ReflectionTestUtils.setField(service, "sensitiveWordChecker", sensitiveWordChecker);
         ReflectionTestUtils.setField(service, "moderationProperties", moderationProperties);
@@ -131,7 +130,7 @@ class ContentDetailCacheWritePathTest {
         ContentMapper contentMapper = mock(ContentMapper.class);
         SensitiveWordChecker sensitiveWordChecker = mock(SensitiveWordChecker.class);
         AliyunModerationProperties moderationProperties = mock(AliyunModerationProperties.class);
-        ContentServiceImpl service = new ContentServiceImpl();
+        ContentCommandServiceImpl service = new ContentCommandServiceImpl();
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
         ReflectionTestUtils.setField(service, "sensitiveWordChecker", sensitiveWordChecker);
         ReflectionTestUtils.setField(service, "moderationProperties", moderationProperties);
@@ -294,7 +293,7 @@ class ContentDetailCacheWritePathTest {
         QuestionMapper questionMapper = mock(QuestionMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
         ContentVectorSyncService vectorSyncService = mock(ContentVectorSyncService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
+        ContentCommandServiceImpl service = new ContentCommandServiceImpl();
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
         ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
         ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
@@ -302,6 +301,7 @@ class ContentDetailCacheWritePathTest {
         ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
         ReflectionTestUtils.setField(service, "trendingCacheInvalidator", mock(TrendingCacheInvalidator.class));
         ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ReflectionTestUtils.setField(service, "contentInteractionService", mock(com.quanta.demo0.interaction.service.ContentInteractionService.class));
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID, 0));
 
         beginTransaction();
@@ -317,7 +317,7 @@ class ContentDetailCacheWritePathTest {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
+        ContentCommandServiceImpl service = new ContentCommandServiceImpl();
         ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
         ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
         ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
@@ -325,6 +325,7 @@ class ContentDetailCacheWritePathTest {
         ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
         ReflectionTestUtils.setField(service, "trendingCacheInvalidator", mock(TrendingCacheInvalidator.class));
         ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ReflectionTestUtils.setField(service, "contentInteractionService", mock(com.quanta.demo0.interaction.service.ContentInteractionService.class));
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID, 0));
         doThrow(new IllegalStateException("database unavailable"))
                 .when(contentMapper).softDeleteContent(CONTENT_ID);

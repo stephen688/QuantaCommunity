@@ -4,7 +4,9 @@ import com.quanta.demo0.platform.security.annotation.RateLimit;
 import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.platform.common.result.Result;
 import com.quanta.demo0.platform.common.result.ScrollResult;
-import com.quanta.demo0.content.service.ContentService;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.service.ContentCommandService;
+import com.quanta.demo0.feed.service.FeedQueryService;
 import com.quanta.demo0.interaction.service.ContentInteractionService;
 import com.quanta.demo0.interaction.service.ReportGovernanceService;
 import com.quanta.demo0.interaction.vo.CollectResultVO;
@@ -33,7 +35,11 @@ import com.quanta.demo0.user.entity.User;
 public class ContentController {
 
     @Autowired
-    private ContentService contentService;
+    private ContentQueryService contentQueryService;
+    @Autowired
+    private ContentCommandService contentCommandService;
+    @Autowired
+    private FeedQueryService feedQueryService;
     @Autowired
     private ContentInteractionService contentInteractionService;
     @Autowired
@@ -51,7 +57,7 @@ public class ContentController {
     @PostMapping("/publish")
     public Result<ContentVO> publish(@RequestBody ContentDTO contentDTO) {
         log.info("发布内容：{}", contentDTO);
-        ContentVO contentVO = contentService.publish(contentDTO);
+        ContentVO contentVO = contentCommandService.publish(contentDTO);
         return Result.success(contentVO);
     }
     /**
@@ -61,7 +67,7 @@ public class ContentController {
     @GetMapping("/recommend")
     public Result<ScrollResult> recommend(@ModelAttribute RecommendQueryDTO recommendQueryDTO){
         log.info("查询推荐内容：{}" , recommendQueryDTO);
-        ScrollResult scrollResult = contentService.recommend(recommendQueryDTO);
+        ScrollResult scrollResult = feedQueryService.recommend(recommendQueryDTO);
         return Result.success(scrollResult);
     }
 
@@ -73,7 +79,7 @@ public class ContentController {
     @GetMapping("/detail/{contentId}")
     public Result<ContentVO> getContentDetail(@PathVariable Long contentId) {
         log.info("查询内容详情：{}", contentId);
-        ContentVO contentVO = contentService.getContentDetail(contentId);
+        ContentVO contentVO = contentQueryService.getContentDetail(contentId);
         return Result.success(contentVO);
     }
     /**
@@ -83,7 +89,7 @@ public class ContentController {
     @DeleteMapping("/delete/{contentId}")
     public Result<Void> deleteContent(@PathVariable Long contentId) {
         log.info("删除内容：{}", contentId);
-        contentService.deleteContent(contentId);
+        contentCommandService.deleteContent(contentId);
         return Result.success();
     }
 

@@ -21,8 +21,15 @@ public class ContentCounterServiceImpl implements ContentCounterService {
         }
         return ContentSnapshotVO.builder()
                 .contentId(content.getContentId())
+                .contentType(content.getContentType())
+                .title(content.getTitle())
+                .content(content.getContent())
                 .publishUserId(content.getPublishUserId())
+                .auditStatus(content.getAuditStatus())
+                .isDeleted(content.getIsDeleted())
+                .createTime(content.getCreateTime())
                 .likedCount(content.getLiked())
+                .commentCount(content.getCommentCount())
                 .collectCount(content.getCollectCount())
                 .build();
     }

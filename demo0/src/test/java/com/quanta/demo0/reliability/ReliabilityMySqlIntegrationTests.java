@@ -7,6 +7,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.platform.mq.enums.InboxAcquireResult;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.interaction.mapper.ContentInteractionMapper;
 import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.platform.mq.mapper.InboxEventMapper;
 import com.quanta.demo0.platform.mq.mapper.OutboxEventMapper;
@@ -90,6 +91,9 @@ class ReliabilityMySqlIntegrationTests {
     private ContentMapper contentMapper;
 
     @Autowired
+    private ContentInteractionMapper contentInteractionMapper;
+
+    @Autowired
     private QuestionMapper questionMapper;
 
     @Autowired
@@ -159,13 +163,13 @@ class ReliabilityMySqlIntegrationTests {
 
         ContentLiked contentLiked = ContentLiked.builder()
                 .contentId(10L).userId(2L).createTime(now).build();
-        assertEquals(1, contentMapper.insertContentLiked(contentLiked));
-        assertEquals(0, contentMapper.insertContentLiked(contentLiked));
+        assertEquals(1, contentInteractionMapper.insertContentLiked(contentLiked));
+        assertEquals(0, contentInteractionMapper.insertContentLiked(contentLiked));
 
         ContentCollect contentCollect = ContentCollect.builder()
                 .contentId(10L).userId(2L).createTime(now).build();
-        assertEquals(1, contentMapper.insertCollect(contentCollect));
-        assertEquals(0, contentMapper.insertCollect(contentCollect));
+        assertEquals(1, contentInteractionMapper.insertCollect(contentCollect));
+        assertEquals(0, contentInteractionMapper.insertCollect(contentCollect));
 
         AnswerLiked answerLiked = AnswerLiked.builder()
                 .answerId(100L).userId(2L).createTime(now).build();
@@ -191,7 +195,7 @@ class ReliabilityMySqlIntegrationTests {
                     start.await();
                     ContentLiked liked = ContentLiked.builder()
                             .contentId(10L).userId(2L).createTime(LocalDateTime.now()).build();
-                    int inserted = contentMapper.insertContentLiked(liked);
+                    int inserted = contentInteractionMapper.insertContentLiked(liked);
                     if (inserted == 1) {
                         contentMapper.updateLiked(10L, 1);
                     }
@@ -201,7 +205,7 @@ class ReliabilityMySqlIntegrationTests {
                     start.await();
                     ContentLiked liked = ContentLiked.builder()
                             .contentId(10L).userId(2L).createTime(LocalDateTime.now()).build();
-                    int inserted = contentMapper.insertContentLiked(liked);
+                    int inserted = contentInteractionMapper.insertContentLiked(liked);
                     if (inserted == 1) {
                         contentMapper.updateLiked(10L, 1);
                     }
@@ -262,25 +266,25 @@ class ReliabilityMySqlIntegrationTests {
         ContentCollect collected = ContentCollect.builder()
                 .contentId(10L).userId(2L).createTime(now).build();
 
-        assertEquals(1, contentMapper.insertContentLiked(liked));
+        assertEquals(1, contentInteractionMapper.insertContentLiked(liked));
         contentMapper.updateLiked(10L, 1);
-        assertEquals(1, contentMapper.insertCollect(collected));
+        assertEquals(1, contentInteractionMapper.insertCollect(collected));
         contentMapper.updateCollectCount(10L, 1);
 
-        int firstUnlike = contentMapper.deleteContentLikedByUser(10L, 2L);
+        int firstUnlike = contentInteractionMapper.deleteContentLikedByUser(10L, 2L);
         if (firstUnlike == 1) {
             contentMapper.updateLiked(10L, -1);
         }
-        int repeatedUnlike = contentMapper.deleteContentLikedByUser(10L, 2L);
+        int repeatedUnlike = contentInteractionMapper.deleteContentLikedByUser(10L, 2L);
         if (repeatedUnlike == 1) {
             contentMapper.updateLiked(10L, -1);
         }
 
-        int firstUncollect = contentMapper.deleteCollect(10L, 2L);
+        int firstUncollect = contentInteractionMapper.deleteCollect(10L, 2L);
         if (firstUncollect == 1) {
             contentMapper.updateCollectCount(10L, -1);
         }
-        int repeatedUncollect = contentMapper.deleteCollect(10L, 2L);
+        int repeatedUncollect = contentInteractionMapper.deleteCollect(10L, 2L);
         if (repeatedUncollect == 1) {
             contentMapper.updateCollectCount(10L, -1);
         }
@@ -608,7 +612,7 @@ class ReliabilityMySqlIntegrationTests {
                 .userId(2L)
                 .createTime(LocalDateTime.now())
                 .build();
-        int inserted = contentMapper.insertCollect(collected);
+        int inserted = contentInteractionMapper.insertCollect(collected);
         if (inserted == 1) {
             contentMapper.updateCollectCount(10L, 1);
         }

@@ -3,12 +3,16 @@ package com.quanta.demo0.service.Impl;
 import com.quanta.demo0.feed.dto.RecommendQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
 import com.quanta.demo0.content.exception.ContentFailedException;
-import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.common.result.ScrollResult;
+import com.quanta.demo0.feed.service.HotContentService;
 import com.quanta.demo0.feed.service.RecommendRerankService;
+import com.quanta.demo0.feed.service.impl.FeedQueryServiceImpl;
+import com.quanta.demo0.interaction.service.ContentInteractionService;
+import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.content.vo.ContentVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,22 +66,27 @@ class ContentServiceImplRecommendSceneTest {
     private static final String HOT_ALL_KEY = "content:recommend:hot:all";
 
     @Mock
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
     @Mock
-    private UserMapper userMapper;
+    private AuthorProfileCache authorProfileCache;
     @Mock
     private StringRedisTemplate stringRedisTemplate;
     @Mock
     private ZSetOperations<String, String> zSetOperations;
     @Mock
     private RecommendRerankService recommendRerankService;
+    @Mock
+    private HotContentService hotContentService;
+    @Mock
+    private ContentInteractionService contentInteractionService;
 
     @InjectMocks
-    private ContentServiceImpl service;
+    private FeedQueryServiceImpl service;
 
     @BeforeEach
     void setUp() {
         when(stringRedisTemplate.opsForZSet()).thenReturn(zSetOperations);
+        when(hotContentService.resolveRecommendHotKey(any())).thenReturn(HOT_ALL_KEY);
         BaseContext.setCurrentId(USER_ID);
     }
 
@@ -113,6 +122,21 @@ class ContentServiceImplRecommendSceneTest {
                 .build();
     }
 
+    private ContentSnapshotVO snapshot(Content content) {
+        return ContentSnapshotVO.builder()
+                .contentId(content.getContentId())
+                .contentType(content.getContentType())
+                .title(content.getTitle())
+                .content(content.getContent())
+                .publishUserId(content.getPublishUserId())
+                .auditStatus(content.getAuditStatus())
+                .isDeleted(content.getIsDeleted())
+                .likedCount(content.getLiked())
+                .commentCount(content.getCommentCount())
+                .collectCount(content.getCollectCount())
+                .build();
+    }
+
     private UserAuthInfoVO author(Long userId, String nickName) {
         return UserAuthInfoVO.builder()
                 .userId(userId)
@@ -126,13 +150,10 @@ class ContentServiceImplRecommendSceneTest {
         when(recommendRerankService.rerank(any(), any(), anyInt())).thenReturn(
                 new RecommendRerankService.RerankResult(
                         List.of(content(11L, 101L), content(12L, 102L)), hasMore));
-        when(userMapper.selectUserAuthInfoByIds(anyList())).thenReturn(List.of(
-                author(101L, "作者甲"), author(102L, "作者乙")));
-        // 登录用户的点赞/收藏高亮：Redis 无记录、DB 无记录 → 未点赞未收藏
-        when(zSetOperations.score(anyString(), anyString())).thenReturn(null);
-        when(contentMapper.countContentLiked(anyLong(), anyLong())).thenReturn(0);
-        when(contentMapper.countContentCollect(anyLong(), anyLong())).thenReturn(0);
-        when(contentMapper.selectImagesByContentIds(anyLong())).thenReturn(new ArrayList<>());
+        when(contentQueryService.getContentSnapshots(anyList())).thenReturn(List.of(
+                snapshot(content(11L, 101L)), snapshot(content(12L, 102L))));
+        when(authorProfileCache.getAll(List.of(101L, 102L))).thenReturn(java.util.Map.of(
+                101L, author(101L, "作者甲"), 102L, author(102L, "作者乙")));
     }
 
     // ------------------------- scene 路由收敛 -------------------------
@@ -243,19 +264,16 @@ class ContentServiceImplRecommendSceneTest {
                 .thenReturn(tuples);
         // 真实 MyBatis selectBatchIds 只会查传入的 ids（hot 流按 pageSize 截断为 [2,1]），
         // mock 按入参过滤贴合真实行为
-        when(contentMapper.selectBatchIds(anyList())).thenAnswer(inv -> {
+        when(contentQueryService.getContentSnapshots(anyList())).thenAnswer(inv -> {
             List<Long> requested = inv.getArgument(0);
             List<Content> all = List.of(
                     content(2L, 101L), content(1L, 102L), content(3L, 103L));
             return new ArrayList<>(all.stream()
                     .filter(c -> requested.contains(c.getContentId()))
+                    .map(this::snapshot)
                     .collect(java.util.stream.Collectors.toList()));
         });
-        when(userMapper.selectUserAuthInfoByIds(anyList())).thenReturn(new ArrayList<>());
-        when(zSetOperations.score(anyString(), anyString())).thenReturn(null);
-        when(contentMapper.countContentLiked(anyLong(), anyLong())).thenReturn(0);
-        when(contentMapper.countContentCollect(anyLong(), anyLong())).thenReturn(0);
-        when(contentMapper.selectImagesByContentIds(anyLong())).thenReturn(new ArrayList<>());
+        when(authorProfileCache.getAll(anyList())).thenReturn(java.util.Map.of());
 
         ScrollResult result = service.recommend(query("hot", null, 2, null, 0));
 
@@ -279,12 +297,8 @@ class ContentServiceImplRecommendSceneTest {
         when(zSetOperations.reverseRangeByScoreWithScores(
                 eq(HOT_ALL_KEY), anyDouble(), anyDouble(), anyLong(), anyLong()))
                 .thenReturn(tuples);
-        when(contentMapper.selectBatchIds(anyList())).thenReturn(List.of(content(1L, 101L)));
-        when(userMapper.selectUserAuthInfoByIds(anyList())).thenReturn(new ArrayList<>());
-        when(zSetOperations.score(anyString(), anyString())).thenReturn(null);
-        when(contentMapper.countContentLiked(anyLong(), anyLong())).thenReturn(0);
-        when(contentMapper.countContentCollect(anyLong(), anyLong())).thenReturn(0);
-        when(contentMapper.selectImagesByContentIds(anyLong())).thenReturn(new ArrayList<>());
+        when(contentQueryService.getContentSnapshots(anyList())).thenReturn(List.of(snapshot(content(1L, 101L))));
+        when(authorProfileCache.getAll(anyList())).thenReturn(java.util.Map.of());
 
         service.recommend(query("hot", null, 2, null, 0));
 

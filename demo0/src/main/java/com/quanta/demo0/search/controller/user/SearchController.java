@@ -2,7 +2,7 @@ package com.quanta.demo0.search.controller.user;
 
 import com.quanta.demo0.search.dto.SearchDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.content.service.ContentService;
+import com.quanta.demo0.search.service.ContentSearchService;
 import com.quanta.demo0.search.service.SearchService;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.platform.common.result.PageVO;
@@ -20,7 +20,7 @@ import java.util.Set;
 public class SearchController {
 
     @Autowired
-    private ContentService contentService;
+    private ContentSearchService contentSearchService;
 
     @Autowired
     private SearchService searchService;
@@ -32,7 +32,7 @@ public class SearchController {
     @GetMapping("/content")
     public Result<PageVO<ContentVO>> searchContent(@ModelAttribute SearchDTO searchDTO) {
         log.info("搜索内容：{}", searchDTO);
-       PageVO<ContentVO> pageVO= contentService.searchContent(searchDTO);
+       PageVO<ContentVO> pageVO= contentSearchService.searchContent(searchDTO);
         return Result.success(pageVO);
     }
 

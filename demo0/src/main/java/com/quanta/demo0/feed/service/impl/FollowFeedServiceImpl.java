@@ -1,30 +1,23 @@
-package com.quanta.demo0.service.Impl;
+package com.quanta.demo0.feed.service.impl;
 
-import cn.hutool.core.util.BooleanUtil;
 import com.quanta.demo0.feed.dto.FollowFeedQueryDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
 
-import com.quanta.demo0.platform.common.enums.AuditStatus;
-import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.follow.exception.FollowException;
-import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.interaction.service.ContentInteractionService;
 import com.quanta.demo0.follow.mapper.FollowMapper;
-import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.user.service.AuthorProfileCache;
-import com.quanta.demo0.service.FollowService;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.feed.service.FollowFeedService;
 import com.quanta.demo0.content.vo.ContentVO;
-import com.quanta.demo0.follow.vo.FollowResultVO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -33,23 +26,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.quanta.demo0.platform.redis.constant.RedisConstants.*;
-import com.quanta.demo0.content.entity.Content;
-import com.quanta.demo0.content.entity.ContentImage;
-import com.quanta.demo0.follow.entity.Follow;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
-import com.quanta.demo0.user.entity.User;
-import com.quanta.demo0.notification.entity.Notification;
 
 /**
  * 关注关系服务实现类。
  *
  * 核心职责：
- * 1. 处理关注/取关、共同关注、关注列表等社交关系能力；
- * 2. 维护 Redis 关注集合与数据库关系表的一致性；
- * 3. 负责关注流回填与滚动读取，支撑“关注页”内容分发。
+ * 1. 维护关注流 Redis 投影；
+ * 2. 负责关注流回填与滚动读取，支撑“关注页”内容分发。
  *
  * 设计说明：
  * - 关注动作落库后通过缓存与回填策略优化读取性能；
@@ -57,8 +43,7 @@ import com.quanta.demo0.notification.entity.Notification;
  */
 @Service
 @Slf4j
-public class FollowServiceImpl implements FollowService {
-    private static final String USER_AGGREGATE_TYPE = "USER";
+public class FollowFeedServiceImpl implements FollowFeedService {
 
     /** 关注/回填时，每个被关注用户最多写入关注流的帖子数 */
     private static final int FOLLOW_FEED_BACKFILL_PER_USER = 50;
@@ -67,127 +52,11 @@ public class FollowServiceImpl implements FollowService {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
+    @Autowired
+    private ContentInteractionService contentInteractionService;
     @Autowired
     private AuthorProfileCache authorProfileCache;
-    @Autowired
-    private OutboxEventService outboxEventService;
-
-    @Transactional
-    @Override
-    public FollowResultVO follow(Long followUserId, boolean targetFollowed) {
-        //1.参数校验
-        if (followUserId == null) {
-            throw new FollowException("参数不能为空");
-        }
-        //2.获取当前用户id
-        Long userId = BaseContext.getCurrentId();
-        //不能关注自己
-        if (userId.equals(followUserId)) {
-            throw new FollowException("不能关注自己");
-
-        }
-
-        String key = FOLLOWED_KEY + userId;
-
-        //3.以数据库为准查询关注状态，并锁定当前关系
-        Follow followExist = followMapper.selectExistForUpdate(userId, followUserId);
-        boolean changed = false;
-        boolean isFollowed = targetFollowed;
-
-        if (targetFollowed) {
-            if (followExist == null) {
-                //第一次关注，插入
-                Follow follow = Follow.builder()
-                        .userId(userId)
-                        .followUserId(followUserId)
-                        .createTime(LocalDateTime.now())
-                        .updateTime(LocalDateTime.now())
-                        .isDeleted(0)
-                        .build();
-                int rows = followMapper.insert(follow);
-                if (rows == 1) {
-                    changed = true;
-                }
-            } else if (followExist.getIsDeleted() == 1) {
-                //恢复关注
-                Follow follow = Follow.builder()
-                        .id(followExist.getId())
-                        .userId(userId)
-                        .followUserId(followUserId)
-                        .updateTime(LocalDateTime.now())
-                        .isDeleted(0)
-                        .build();
-                boolean isSuccess = followMapper.update(follow);
-                if (!isSuccess) {
-                    throw new FollowException("恢复关注失败");
-                }
-                changed = true;
-            }
-        } else if (followExist != null && followExist.getIsDeleted() == 0) {
-            //取消关注
-            Follow follow = Follow.builder()
-                    .userId(userId)
-                    .followUserId(followUserId)
-                    .updateTime(LocalDateTime.now())
-                    .isDeleted(1)
-                    .build();
-            boolean isSuccess = followMapper.update(follow);
-            if (!isSuccess) {
-                throw new FollowException("取消关注失败");
-            }
-            changed = true;
-        }
-
-        // 只有本次真正新增关注关系，才在当前事务中创建通知 Outbox。
-        if (changed && isFollowed) {
-            NotificationEventMessage followNotification = NotificationEventMessage.builder()
-                    .recipientUserId(followUserId)
-                    .actorUserId(userId)
-                    .type(NotificationType.USER_FOLLOW.getCode())
-                    .content("关注了你")
-                    .payload(Map.of())
-                    .build();
-            outboxEventService.createNotificationEvent(followNotification, USER_AGGREGATE_TYPE, followUserId);
-        }
-
-        //事务提交后操作redis缓存
-        if (changed && TransactionSynchronizationManager.isActualTransactionActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    try {
-                        if (isFollowed) {
-                            stringRedisTemplate.opsForSet().add(key, followUserId.toString());
-                            backfillFollowFeedForUser(userId, followUserId);
-                            // 维护粉丝排行 ZSET（被关注者的粉丝数 +1）
-                            stringRedisTemplate.opsForZSet().incrementScore(USER_FOLLOWER_RANK_KEY, followUserId.toString(), 1);
-                        } else {
-                            stringRedisTemplate.opsForSet().remove(key, followUserId.toString());
-                            // 维护粉丝排行 ZSET（被关注者的粉丝数 -1）
-                            stringRedisTemplate.opsForZSet().incrementScore(USER_FOLLOWER_RANK_KEY, followUserId.toString(), -1);
-                            // 清理已取关用户的帖子
-                            clearUnfollowedUserPosts(userId, followUserId);
-
-                        }
-
-                    } catch (Exception e) {
-                        log.error("关注缓存同步失败，businessType=USER_FOLLOW, userId={}, targetId={}, targetState={}",
-                                userId, followUserId, isFollowed, e);
-                      //  throw new FollowException("写入redisSET失败");
-                    }
-                }
-
-            });
-        }
-        //4.返回结果
-        return FollowResultVO.builder()
-                .isFollowed(isFollowed)
-                .build();
-
-    }
-
-
     /**
      * 关注推送页面，获取关注用户的动态
      *
@@ -269,7 +138,7 @@ public class FollowServiceImpl implements FollowService {
             }
         }
         //6.查看内容详情，
-        List<Content> contents = contentMapper.selectBatchIds(ids);
+        List<ContentSnapshotVO> contents = contentQueryService.getContentSnapshots(ids);
 
         //7.过滤内容类型
         if (followFeedQueryDTO.getContentType() != null) {
@@ -281,13 +150,11 @@ public class FollowServiceImpl implements FollowService {
 
         //8.查询用户信息，处理点赞，收藏高亮
       List<Long> userIds= contents.stream()
-                .map(Content::getPublishUserId)
+                .map(ContentSnapshotVO::getPublishUserId)
               .distinct()
                 .toList();
 
         Map<Long, UserAuthInfoVO> userAuthInfoMap = authorProfileCache.getAll(userIds);
-        contents.forEach(this::isContentLiked);
-        contents.forEach(this::isContentCollected);
         //9。转换为vo
         List<ContentVO> contentVOList = contents.stream()
                 .map(content -> {
@@ -355,75 +222,60 @@ public class FollowServiceImpl implements FollowService {
         log.info("Feed 删除完成：contentId={}, 粉丝数量={}", contentId, followerIds.size());
     }
 
-    private ContentVO convertContentToVO(Content content, UserAuthInfoVO userInfo) {
-        List<ContentImage> contentImages = contentMapper.selectImagesByContentIds(content.getContentId());
-        // 处理图片列表：如果为 null 则返回空列表，否则提取图片 URL 并过滤空字符串
-        List<String> imageUrls = contentImages == null ? new ArrayList<>() :
-                contentImages.stream()
-                        .map(ContentImage::getImageUrl)
-                        .filter(StringUtils::isNotBlank)
-                        .collect(Collectors.toList());
-
+    private ContentVO convertContentToVO(ContentSnapshotVO content, UserAuthInfoVO userInfo) {
         return ContentVO.builder()
                 .contentId(content.getContentId())
                 .contentType(content.getContentType())
                 .title(content.getTitle())
                 .content(content.getContent())
-                .liked(content.getLiked()==null?0:content.getLiked())
-                .commentCount(content.getCommentCount()==null?0:content.getCommentCount())
-                .collectCount(content.getCollectCount()==null?0:content.getCollectCount())
+                .liked(content.getLikedCount() == null ? 0 : content.getLikedCount())
+                .commentCount(content.getCommentCount() == null ? 0 : content.getCommentCount())
+                .collectCount(content.getCollectCount() == null ? 0 : content.getCollectCount())
                 .publishUserId(content.getPublishUserId())
-                .avatarUrl(userInfo.getAvatarUrl())           // 用户头像
-                .nickName(userInfo.getNickName())          // 用户昵称
-                .quantaDepartment(userInfo.getQuantaDepartment()) // 用户部门
-                .quantaBatch(userInfo.getQuantaBatch())          // 用户届数
+                .avatarUrl(userInfo.getAvatarUrl())
+                .nickName(userInfo.getNickName())
+                .quantaDepartment(userInfo.getQuantaDepartment())
+                .quantaBatch(userInfo.getQuantaBatch())
                 .auditStatus(content.getAuditStatus())
                 .createTime(content.getCreateTime())
-                .images(imageUrls)
-                .isLiked(BooleanUtil.isTrue(content.getIsLiked()))
-                .isCollected(BooleanUtil.isTrue(content.getIsCollected()))
+                .images(contentQueryService.getContentImageUrls(content.getContentId()))
+                .isLiked(isContentLiked(content.getContentId()))
+                .isCollected(isContentCollected(content.getContentId()))
                 .build();
     }
 
-
-
-
-
-    private void isContentCollected(Content content) {
+    private boolean isContentCollected(Long contentId) {
         Long userId = BaseContext.getCurrentId();
         if (userId == null) {
-            content.setIsCollected(false);
-            return;
+            return false;
         }
-        String key = CONTENT_COLLECT_KEY + content.getContentId();
+        String key = CONTENT_COLLECT_KEY + contentId;
         Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
         if (score != null) {
-            content.setIsCollected(true);
-            return;
+            return true;
         }
-        boolean collectedInDb = contentMapper.countContentCollect(content.getContentId(), userId) > 0;
-        content.setIsCollected(collectedInDb);
+        boolean collectedInDb = contentInteractionService.isContentCollected(contentId, userId);
         if (collectedInDb) {
             stringRedisTemplate.opsForZSet().add(key, userId.toString(), System.currentTimeMillis());
         }
+        return collectedInDb;
     }
-    private void isContentLiked(Content content) {
+
+    private boolean isContentLiked(Long contentId) {
         Long userId = BaseContext.getCurrentId();
         if (userId == null) {
-            content.setIsLiked(false);
-            return;
+            return false;
         }
-        String key = CONTENT_LIKED_KEY + content.getContentId();
+        String key = CONTENT_LIKED_KEY + contentId;
         Double score = stringRedisTemplate.opsForZSet().score(key, userId.toString());
         if (score != null) {
-            content.setIsLiked(true);
-            return;
+            return true;
         }
-        boolean likedInDb = contentMapper.countContentLiked(content.getContentId(), userId) > 0;
-        content.setIsLiked(likedInDb);
+        boolean likedInDb = contentInteractionService.isContentLiked(contentId, userId);
         if (likedInDb) {
             stringRedisTemplate.opsForZSet().add(key, userId.toString(), System.currentTimeMillis());
         }
+        return likedInDb;
     }
 
     private String resolveFeedKey(Long userId, Integer contentType) {
@@ -494,12 +346,12 @@ public class FollowServiceImpl implements FollowService {
         if (followerId == null || followedUserId == null) {
             return;
         }
-        List<Content> contents = contentMapper.selectApprovedByPublishUserId(
+        List<ContentSnapshotVO> contents = contentQueryService.getApprovedContentSnapshotsByAuthor(
                 followedUserId, FOLLOW_FEED_BACKFILL_PER_USER);
         if (contents == null || contents.isEmpty()) {
             return;
         }
-        for (Content content : contents) {
+        for (ContentSnapshotVO content : contents) {
             if (content == null || content.getContentId() == null || content.getCreateTime() == null) {
                 continue;
             }
@@ -525,12 +377,12 @@ public class FollowServiceImpl implements FollowService {
             return;
         }
         // 查询已取关用户发布的所有帖子
-        List<Content> contents = contentMapper.selectApprovedByPublishUserId(unfollowedUserId, 1000);
+        List<ContentSnapshotVO> contents = contentQueryService.getApprovedContentSnapshotsByAuthor(unfollowedUserId, 1000);
         if (contents == null || contents.isEmpty()) {
             return;
         }
         // 从关注流中删除这些帖子
-        for (Content content : contents) {
+        for (ContentSnapshotVO content : contents) {
             if (content == null || content.getContentId() == null) {
                 continue;
             }
@@ -547,12 +399,27 @@ public class FollowServiceImpl implements FollowService {
     }
 
 
+    @Override
+    public void syncFollowChange(Long followerId, Long followedUserId, boolean followed) {
+        if (followerId == null || followedUserId == null) {
+            return;
+        }
+        if (followed) {
+            backfillFollowFeedForUser(followerId, followedUserId);
+        } else {
+            clearUnfollowedUserPosts(followerId, followedUserId);
+        }
+    }
+
+
 
     @Override
     public void reconcileContentFeed(Long contentId, Long fallbackPublishUserId, Integer fallbackContentType, Long fallbackCreateTime) {
-        Content current = contentMapper.selectById(contentId);
+        ContentSnapshotVO current = contentQueryService.getContentSnapshots(List.of(contentId)).stream()
+                .findFirst()
+                .orElse(null);
 
-        if (current != null && AuditStatus.APPROVED.getCode().equals(current.getAuditStatus())) {
+        if (current != null) {
             // 当前仍然审核通过，无论收到新增还是旧删除事件，最终都应该存在于 Feed。
             long createTime = current.getCreateTime() != null
                     ? current.getCreateTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()

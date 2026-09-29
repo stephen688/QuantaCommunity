@@ -1,18 +1,19 @@
-package com.quanta.demo0.service.Impl;
+package com.quanta.demo0.feed.service.impl;
 import com.quanta.demo0.platform.redis.properties.ReadPathCacheProperties;
 
 
 import com.quanta.demo0.feed.dto.FollowFeedQueryDTO;
+import com.quanta.demo0.feed.service.impl.FollowFeedServiceImpl;
 import com.quanta.demo0.platform.security.context.BaseContext;
-import com.quanta.demo0.content.entity.Content;
+import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentSnapshotVO;
+import com.quanta.demo0.interaction.service.ContentInteractionService;
 import com.quanta.demo0.user.vo.UserAuthInfoVO;
-import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.follow.mapper.FollowMapper;
 import com.quanta.demo0.mapper.UserMapper;
 import com.quanta.demo0.platform.common.result.ScrollResult;
 import com.quanta.demo0.user.service.AuthorProfileCache;
 import com.quanta.demo0.user.service.impl.AuthorProfileCacheImpl;
-import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import com.quanta.demo0.content.vo.ContentVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,37 +40,38 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-class FollowServiceImplAuthorCacheTest {
+class FollowFeedServiceImplAuthorCacheTest {
 
     private static final Long VIEWER_ID = 7L;
 
     private StringRedisTemplate redisTemplate;
-    private ContentMapper contentMapper;
+    private ContentQueryService contentQueryService;
+    private ContentInteractionService contentInteractionService;
     private UserMapper userMapper;
-    private FollowServiceImpl service;
+    private FollowFeedServiceImpl service;
 
     @BeforeEach
     void setUp() {
         BaseContext.setCurrentId(VIEWER_ID);
         redisTemplate = mock(StringRedisTemplate.class, org.mockito.Answers.RETURNS_DEEP_STUBS);
-        contentMapper = mock(ContentMapper.class);
+        contentQueryService = mock(ContentQueryService.class);
+        contentInteractionService = mock(ContentInteractionService.class);
         userMapper = mock(UserMapper.class);
         FollowMapper followMapper = mock(FollowMapper.class);
-        OutboxEventService outboxEventService = mock(OutboxEventService.class);
 
         when(redisTemplate.opsForZSet().zCard(FEED_ALL_KEY + VIEWER_ID)).thenReturn(1L);
         when(redisTemplate.opsForZSet().reverseRangeByScoreWithScores(
                 eq(FEED_ALL_KEY + VIEWER_ID), eq(0D), anyDouble(), eq(0L), eq(3L)
         )).thenReturn(feedEntries(101L, 102L));
-        when(contentMapper.selectImagesByContentIds(anyLong())).thenReturn(Collections.emptyList());
-        when(contentMapper.countContentLiked(anyLong(), eq(VIEWER_ID))).thenReturn(0);
-        when(contentMapper.countContentCollect(anyLong(), eq(VIEWER_ID))).thenReturn(0);
+        when(contentQueryService.getContentImageUrls(anyLong())).thenReturn(Collections.emptyList());
+        when(contentInteractionService.isContentLiked(anyLong(), eq(VIEWER_ID))).thenReturn(false);
+        when(contentInteractionService.isContentCollected(anyLong(), eq(VIEWER_ID))).thenReturn(false);
 
-        service = new FollowServiceImpl();
+        service = new FollowFeedServiceImpl();
         ReflectionTestUtils.setField(service, "followMapper", followMapper);
         ReflectionTestUtils.setField(service, "stringRedisTemplate", redisTemplate);
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
+        ReflectionTestUtils.setField(service, "contentQueryService", contentQueryService);
+        ReflectionTestUtils.setField(service, "contentInteractionService", contentInteractionService);
     }
 
     @AfterEach
@@ -79,7 +81,7 @@ class FollowServiceImplAuthorCacheTest {
 
     @Test
     void feedUsesAuthorCacheBatchWhenAllAuthorsAreAlreadyCached() {
-        contentMapperReturns(contents(101L, 11L, 102L, 12L));
+        contentQueryServiceReturns(contents(101L, 11L, 102L, 12L));
         AuthorProfileCache authorCache = mock(AuthorProfileCache.class);
         when(authorCache.getAll(List.of(11L, 12L)))
                 .thenReturn(Map.of(11L, author(11L, "Ada"), 12L, author(12L, "Grace")));
@@ -95,7 +97,7 @@ class FollowServiceImplAuthorCacheTest {
 
     @Test
     void feedPartiallyMissingAuthorsStillUsesOneBatchCacheLookup() {
-        contentMapperReturns(contents(101L, 11L, 102L, 12L, 103L, 11L));
+        contentQueryServiceReturns(contents(101L, 11L, 102L, 12L, 103L, 11L));
         when(redisTemplate.opsForZSet().reverseRangeByScoreWithScores(
                 eq(FEED_ALL_KEY + VIEWER_ID), eq(0D), anyDouble(), eq(0L), eq(4L)
         )).thenReturn(feedEntries(101L, 102L, 103L));
@@ -114,7 +116,7 @@ class FollowServiceImplAuthorCacheTest {
 
     @Test
     void repeatedAuthorIsLoadedOnceAndMissingAuthorKeepsEmptyFallback() {
-        contentMapperReturns(contents(101L, 11L, 102L, 11L, 103L, 99L));
+        contentQueryServiceReturns(contents(101L, 11L, 102L, 11L, 103L, 99L));
         when(redisTemplate.opsForZSet().reverseRangeByScoreWithScores(
                 eq(FEED_ALL_KEY + VIEWER_ID), eq(0L), anyLong(), eq(0L), eq(4L)
         )).thenReturn(feedEntries(101L, 102L, 103L));
@@ -142,14 +144,14 @@ class FollowServiceImplAuthorCacheTest {
                 .build();
     }
 
-    private void contentMapperReturns(List<Content> contents) {
-        when(contentMapper.selectBatchIds(any())).thenReturn(contents);
+    private void contentQueryServiceReturns(List<ContentSnapshotVO> contents) {
+        when(contentQueryService.getContentSnapshots(any())).thenReturn(contents);
     }
 
-    private List<Content> contents(Object... values) {
-        java.util.ArrayList<Content> contents = new java.util.ArrayList<>();
+    private List<ContentSnapshotVO> contents(Object... values) {
+        java.util.ArrayList<ContentSnapshotVO> contents = new java.util.ArrayList<>();
         for (int i = 0; i < values.length; i += 2) {
-            contents.add(Content.builder()
+            contents.add(ContentSnapshotVO.builder()
                     .contentId((Long) values[i])
                     .publishUserId((Long) values[i + 1])
                     .contentType(1)
