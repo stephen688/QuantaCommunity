@@ -6,7 +6,7 @@ import com.quanta.demo0.feed.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.feed.mq.producer.UserBehaviorProducer;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
-import com.quanta.demo0.service.UserProfileService;
+import com.quanta.demo0.feed.service.UserInterestProfileService;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +39,7 @@ public class UserBehaviorConsumer {
     private final String instanceId = "user-behavior-" + UUID.randomUUID();
 
     private final InboxEventService inboxEventService;
-    private final UserProfileService userProfileService;
+    private final UserInterestProfileService userProfileService;
     private final UserBehaviorProducer userBehaviorProducer;
 
     /** 行为权重配置（D2）：LIKE/COLLECT/COMMENT/VIEW 换算值，唯一真源 quanta.recommend.profile */

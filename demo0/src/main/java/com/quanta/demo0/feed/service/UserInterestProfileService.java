@@ -1,4 +1,4 @@
-package com.quanta.demo0.service;
+package com.quanta.demo0.feed.service;
 
 import com.quanta.demo0.content.entity.Content;
 
@@ -10,7 +10,7 @@ import java.util.Map;
  * 职责：画像的写通道（applyBehavior 累加）与读通道（getProfile 供重排 α 计算）。
  * 边界：画像 Hash 是派生快照，事实源在 MySQL 行为数据；不做重建任务（D10）。
  */
-public interface UserProfileService {
+public interface UserInterestProfileService {
 
     /**
      * 累加一次行为：查帖子当前标签集合，对每个标签 HINCRBYFLOAT 权重，

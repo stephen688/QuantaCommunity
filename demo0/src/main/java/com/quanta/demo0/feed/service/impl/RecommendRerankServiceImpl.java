@@ -7,7 +7,7 @@ import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.feed.service.RecommendRerankService;
-import com.quanta.demo0.service.UserProfileService;
+import com.quanta.demo0.feed.service.UserInterestProfileService;
 import com.quanta.demo0.feed.utils.HotScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +39,7 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
 
     private final StringRedisTemplate stringRedisTemplate;
     private final ContentMapper contentMapper;
-    private final UserProfileService userProfileService;
+    private final UserInterestProfileService userProfileService;
     private final RecommendProperties recommendProperties;
 
     /**

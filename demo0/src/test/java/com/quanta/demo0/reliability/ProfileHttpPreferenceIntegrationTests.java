@@ -32,7 +32,7 @@ import com.quanta.demo0.feed.service.impl.ExplicitPreferenceServiceImpl;
 import com.quanta.demo0.platform.mq.service.impl.InboxEventServiceImpl;
 import com.quanta.demo0.service.Impl.OutboxEventServiceImpl;
 import com.quanta.demo0.feed.service.impl.RecommendRerankServiceImpl;
-import com.quanta.demo0.service.Impl.UserProfileServiceImpl;
+import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
 import com.quanta.demo0.platform.security.utils.JwtUtil;
 import com.rabbitmq.client.GetResponse;
 import org.junit.jupiter.api.AfterEach;
@@ -270,7 +270,7 @@ class ProfileHttpPreferenceIntegrationTests {
         redis.opsForZSet().add(RedisConstants.RECOMMEND_HOT_ALL_KEY, "2", 0.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_ALL_KEY, "1", 100.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_ALL_KEY, "2", 0.0);
-        var profile = new UserProfileServiceImpl(contentMapper, redis);
+        var profile = new UserInterestProfileServiceImpl(contentMapper, redis);
         var rerank = new RecommendRerankServiceImpl(redis, contentMapper, profile, new RecommendProperties());
         assertThat(rerank.rerank(123L, null, 10).contents()).extracting(Content::getContentId)
                 .containsExactly(2L, 1L);

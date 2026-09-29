@@ -4,8 +4,8 @@ import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
-import com.quanta.demo0.service.UserProfileService;
-import com.quanta.demo0.service.Impl.UserProfileServiceImpl;
+import com.quanta.demo0.feed.service.UserInterestProfileService;
+import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -40,7 +40,7 @@ class ExplicitPreferenceRerankTest {
                 .auditStatus(1).isDeleted(0).liked(0).collectCount(0).commentCount(0)
                 .createTime(hotBasketball.getCreateTime()).build();
         when(mapper.selectBatchIds(anyList())).thenReturn(List.of(hotBasketball, coldFootball));
-        UserProfileService profile = new UserProfileServiceImpl(mapper, redis);
+        UserInterestProfileService profile = new UserInterestProfileServiceImpl(mapper, redis);
         var hashes = mock(org.springframework.data.redis.core.HashOperations.class);
         when(redis.opsForHash()).thenReturn(hashes);
         when(hashes.entries(RedisConstants.USER_PROFILE_KEY + 123L)).thenReturn(Map.of());

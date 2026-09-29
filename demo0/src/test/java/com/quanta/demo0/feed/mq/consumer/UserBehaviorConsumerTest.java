@@ -5,7 +5,7 @@ import com.quanta.demo0.feed.mq.message.UserBehaviorMessage;
 import com.quanta.demo0.feed.mq.producer.UserBehaviorProducer;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.platform.mq.service.InboxEventService;
-import com.quanta.demo0.service.UserProfileService;
+import com.quanta.demo0.feed.service.UserInterestProfileService;
 import com.rabbitmq.client.Channel;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
@@ -36,7 +36,7 @@ class UserBehaviorConsumerTest {
     private static final Long CONTENT_ID = 10L;
 
     private final InboxEventService inboxEventService = mock(InboxEventService.class);
-    private final UserProfileService userProfileService = mock(UserProfileService.class);
+    private final UserInterestProfileService userProfileService = mock(UserInterestProfileService.class);
     private final UserBehaviorProducer userBehaviorProducer = mock(UserBehaviorProducer.class);
     private final Channel channel = mock(Channel.class);
 

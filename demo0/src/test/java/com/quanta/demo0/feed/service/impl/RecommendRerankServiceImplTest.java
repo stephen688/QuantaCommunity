@@ -5,7 +5,7 @@ import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.mapper.ContentMapper;
 import com.quanta.demo0.feed.properties.RecommendProperties;
 import com.quanta.demo0.feed.service.RecommendRerankService;
-import com.quanta.demo0.service.UserProfileService;
+import com.quanta.demo0.feed.service.UserInterestProfileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,7 +68,7 @@ class RecommendRerankServiceImplTest {
     @Mock
     private ContentMapper contentMapper;
     @Mock
-    private UserProfileService userProfileService;
+    private UserInterestProfileService userProfileService;
 
     private final RecommendProperties recommendProperties = new RecommendProperties();
 

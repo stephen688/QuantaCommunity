@@ -1,10 +1,10 @@
-package com.quanta.demo0.service.Impl;
+package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.mapper.ContentMapper;
-import com.quanta.demo0.service.UserProfileService;
+import com.quanta.demo0.feed.service.UserInterestProfileService;
 import com.quanta.demo0.feed.service.TopicCatalog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +29,7 @@ import java.util.LinkedHashSet;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UserProfileServiceImpl implements UserProfileService {
+public class UserInterestProfileServiceImpl implements UserInterestProfileService {
 
     /** 内容 Mapper：查帖子当前状态（事实源校验，防脏画像） */
     private final ContentMapper contentMapper;

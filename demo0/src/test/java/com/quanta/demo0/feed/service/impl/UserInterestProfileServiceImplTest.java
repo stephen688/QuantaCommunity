@@ -1,4 +1,4 @@
-package com.quanta.demo0.service.Impl;
+package com.quanta.demo0.feed.service.impl;
 
 import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.content.entity.Content;
@@ -26,10 +26,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * UserProfileServiceImpl 的画像 Hash 读写测试（mock Mapper 与 Redis）。
+ * UserInterestProfileServiceImpl 的画像 Hash 读写测试（mock Mapper 与 Redis）。
  * 真实 Redis 的 HINCRBYFLOAT 行为由 03 分计划的 Testcontainers 集成测试覆盖。
  */
-class UserProfileServiceImplTest {
+class UserInterestProfileServiceImplTest {
 
     private static final Long USER_ID = 3L;
     private static final Long CONTENT_ID = 42L;
@@ -38,7 +38,7 @@ class UserProfileServiceImplTest {
     private ContentMapper contentMapper;
     private StringRedisTemplate stringRedisTemplate;
     private HashOperations<String, Object, Object> hashOperations;
-    private UserProfileServiceImpl service;
+    private UserInterestProfileServiceImpl service;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -47,7 +47,7 @@ class UserProfileServiceImplTest {
         stringRedisTemplate = mock(StringRedisTemplate.class);
         hashOperations = mock(HashOperations.class);
         when(stringRedisTemplate.opsForHash()).thenReturn(hashOperations);
-        service = new UserProfileServiceImpl(contentMapper, stringRedisTemplate);
+        service = new UserInterestProfileServiceImpl(contentMapper, stringRedisTemplate);
     }
 
     private Content approvedContent(Integer contentType) {

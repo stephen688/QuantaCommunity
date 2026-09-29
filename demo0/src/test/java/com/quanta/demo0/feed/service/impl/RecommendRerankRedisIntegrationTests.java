@@ -1,6 +1,6 @@
 package com.quanta.demo0.feed.service.impl;
 
-import com.quanta.demo0.service.Impl.UserProfileServiceImpl;
+import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
 
 
 import com.quanta.demo0.platform.redis.utils.RedisTaskLockAdapter;
@@ -73,7 +73,7 @@ class RecommendRerankRedisIntegrationTests {
 
     /** MySQL 侧 mock：selectById/selectBatchIds 按 contentById 应答，未预置 id 视为不存在 */
     private ContentMapper contentMapper;
-    private UserProfileServiceImpl userProfileService;
+    private UserInterestProfileServiceImpl userProfileService;
     private RecommendRerankServiceImpl rerankService;
 
     /** 按帖 id 索引的测试数据集：mock selectBatchIds 的应答源 */
@@ -93,7 +93,7 @@ class RecommendRerankRedisIntegrationTests {
 
         contentById.clear();
         contentMapper = mock(ContentMapper.class);
-        userProfileService = new UserProfileServiceImpl(contentMapper, redisTemplate);
+        userProfileService = new UserInterestProfileServiceImpl(contentMapper, redisTemplate);
         rerankService = new RecommendRerankServiceImpl(
                 redisTemplate, contentMapper, userProfileService, new RecommendProperties());
     }

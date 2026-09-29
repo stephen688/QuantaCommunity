@@ -27,6 +27,7 @@ import com.quanta.demo0.content.service.ContentTopicTagService;
 import com.quanta.demo0.content.service.impl.ContentTopicTagServiceImpl;
 import com.quanta.demo0.feed.service.ExplicitPreferenceService;
 import com.quanta.demo0.feed.service.TopicCatalog;
+import com.quanta.demo0.feed.service.impl.UserInterestProfileServiceImpl;
 import com.quanta.demo0.feed.service.impl.ExplicitPreferenceServiceImpl;
 import com.quanta.demo0.feed.service.impl.RecommendRerankServiceImpl;
 import com.quanta.demo0.platform.mq.service.impl.InboxEventServiceImpl;
@@ -161,7 +162,7 @@ class ProfilePreferenceIntegrationTests {
         jdbc.update("INSERT INTO tb_content(content_id,content_type,tags,publish_user_id,audit_status,liked) VALUES(1,1,'[\"basketball\"]',123,1,100),(2,1,'[\"football\"]',123,1,0)");
         redis.opsForZSet().add(RedisConstants.RECOMMEND_HOT_ALL_KEY,"1",100.0);
         redis.opsForZSet().add(RedisConstants.RECOMMEND_HOT_ALL_KEY,"2",0.0);
-        var profile = new UserProfileServiceImpl(contentMapper,redis);
+        var profile = new UserInterestProfileServiceImpl(contentMapper,redis);
         var rerank = new RecommendRerankServiceImpl(redis,contentMapper,profile,new RecommendProperties());
         assertThat(rerank.rerank(123L,null,10).contents()).extracting(Content::getContentId).containsExactly(2L,1L);
         // 删除后重新投递旧 UPSERT（新的运输ID，旧版本），不能复活篮球负偏好。
@@ -176,7 +177,7 @@ class ProfilePreferenceIntegrationTests {
         // 新版本再次明确喜欢后恢复；真实画像读层不把版本混入兴趣分母。
         assertThat(preferences.accept(event(300L,"UPSERT","positive"))).isTrue();
         dispatchAndConsumeProfile();
-        assertThat(new UserProfileServiceImpl(contentMapper,redis).getExplicitProfile(123L))
+        assertThat(new UserInterestProfileServiceImpl(contentMapper,redis).getExplicitProfile(123L))
                 .containsExactlyEntriesOf(java.util.Map.of("basketball",0.75));
     }
 
