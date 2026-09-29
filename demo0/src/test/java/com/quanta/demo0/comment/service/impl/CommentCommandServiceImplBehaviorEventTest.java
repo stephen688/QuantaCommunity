@@ -1,4 +1,4 @@
-package com.quanta.demo0.service.Impl;
+package com.quanta.demo0.comment.service.impl;
 
 import com.quanta.demo0.comment.dto.CommentAddDTO;
 import com.quanta.demo0.platform.security.context.BaseContext;
@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class CommentServiceImplBehaviorEventTest {
+class CommentCommandServiceImplBehaviorEventTest {
 
     private static final Long USER_ID = 3L;
     private static final Long AUTHOR_ID = 999L;
@@ -74,7 +74,7 @@ class CommentServiceImplBehaviorEventTest {
     private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
 
     @InjectMocks
-    private CommentServiceImpl service;
+    private CommentCommandServiceImpl service;
 
     private final QuantabotProperties quantabotProperties = new QuantabotProperties();
 

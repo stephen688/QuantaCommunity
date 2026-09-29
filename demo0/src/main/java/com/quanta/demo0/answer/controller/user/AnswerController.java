@@ -4,7 +4,9 @@ import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.answer.dto.AnswerDTO;
 import com.quanta.demo0.interaction.dto.LikeStateDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.answer.service.AnswerService;
+import com.quanta.demo0.answer.service.AnswerCommandService;
+import com.quanta.demo0.answer.service.AnswerQueryService;
+import com.quanta.demo0.interaction.service.AnswerInteractionService;
 import com.quanta.demo0.answer.vo.AnswerVO;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +30,13 @@ import java.util.List;
 public class AnswerController {
 
     @Autowired
-    private AnswerService answerService;
+    private AnswerCommandService answerCommandService;
+
+    @Autowired
+    private AnswerQueryService answerQueryService;
+
+    @Autowired
+    private AnswerInteractionService answerInteractionService;
 
     /**
      * 发布回答
@@ -48,7 +56,7 @@ public class AnswerController {
     @PostMapping("/publish")
     public Result<AnswerVO> publishAnswer(@RequestBody AnswerDTO answerDTO) {
         log.info("发布回答: {}", answerDTO);
-        AnswerVO answerVO = answerService.publishAnswer(answerDTO);
+        AnswerVO answerVO = answerCommandService.publishAnswer(answerDTO);
         return Result.success(answerVO);
     }
 
@@ -64,7 +72,7 @@ public class AnswerController {
     @GetMapping("/list/{questionId}")
     public Result<List<AnswerVO>> getAnswers(@PathVariable Long questionId) {
         log.info("查询回答列表，问题 ID: {}", questionId);
-        List<AnswerVO> answerVOList = answerService.getAnswersByQuestionId(questionId);
+        List<AnswerVO> answerVOList = answerQueryService.getAnswersByQuestionId(questionId);
         return Result.success(answerVOList);
     }
 
@@ -82,7 +90,7 @@ public class AnswerController {
     @PostMapping("/accept/{answerId}")
     public Result acceptAnswer(@PathVariable Long answerId) {
         log.info("采纳回答: {}", answerId);
-        answerService.acceptAnswer(answerId);
+        answerCommandService.acceptAnswer(answerId);
         return Result.success();
     }
 
@@ -95,7 +103,7 @@ public class AnswerController {
     public Result<LikeResultVO> likeAnswer(@PathVariable Long answerId,
                                            @Valid @RequestBody LikeStateDTO stateDTO) {
         log.info("点赞回答: {}，点赞状态：{}", answerId, stateDTO.getLiked());
-        LikeResultVO result = answerService.likeAnswer(answerId, stateDTO.getLiked());
+        LikeResultVO result = answerInteractionService.likeAnswer(answerId, stateDTO.getLiked());
         return Result.success(result);
     }
 
@@ -115,7 +123,7 @@ public class AnswerController {
     @DeleteMapping("/{answerId}")
     public Result deleteAnswer(@PathVariable Long answerId) {
         log.info("删除回答: {}", answerId);
-        answerService.deleteAnswer(answerId);
+        answerCommandService.deleteAnswer(answerId);
         return Result.success();
     }
 
@@ -131,7 +139,7 @@ public class AnswerController {
     @GetMapping("/{answerId}")
     public Result<AnswerVO> getAnswerDetail(@PathVariable Long answerId) {
         log.info("查询回答详情: {}", answerId);
-        AnswerVO answerVO = answerService.getAnswerDetail(answerId);
+        AnswerVO answerVO = answerQueryService.getAnswerDetail(answerId);
         return Result.success(answerVO);
     }
 }

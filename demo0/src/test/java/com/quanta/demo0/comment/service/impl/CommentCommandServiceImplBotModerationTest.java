@@ -1,5 +1,6 @@
-package com.quanta.demo0.service.Impl;
+package com.quanta.demo0.comment.service.impl;
 
+import com.quanta.demo0.comment.service.impl.CommentCommandServiceImpl;
 import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
@@ -24,7 +25,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class CommentServiceImplBotModerationTest {
+class CommentCommandServiceImplBotModerationTest {
 
     @Mock
     private AliyunModerationProperties moderationProperties;
@@ -36,7 +37,7 @@ class CommentServiceImplBotModerationTest {
     private AliyunModerationProperties.TargetConfig commentConfig;
 
     @InjectMocks
-    private CommentServiceImpl service;
+    private CommentCommandServiceImpl service;
 
     private final QuantabotProperties quantabotProperties =
             new QuantabotProperties();

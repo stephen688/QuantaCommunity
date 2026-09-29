@@ -1,8 +1,5 @@
 package com.quanta.demo0.content.service.impl;
 
-import com.quanta.demo0.service.Impl.CommentServiceImpl;
-
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.quanta.demo0.content.dto.ContentAuditDTO;
@@ -12,6 +9,8 @@ import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.comment.entity.ContentComment;
 import com.quanta.demo0.comment.service.impl.AdminCommentServiceImpl;
 import com.quanta.demo0.comment.service.impl.CommentAuditServiceImpl;
+import com.quanta.demo0.comment.service.CommentCounterService;
+import com.quanta.demo0.comment.service.impl.CommentCommandServiceImpl;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.content.enums.ContentDetailState;
 import com.quanta.demo0.content.exception.ContentFailedException;
@@ -531,13 +530,11 @@ class ContentDetailCacheWritePathTest {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        CommentServiceImpl service = new CommentServiceImpl();
-        ReflectionTestUtils.setField(service, "commentMapper", commentMapper);
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
+        CommentCounterService commentCounterService = mock(CommentCounterService.class);
+        StringRedisTemplate stringRedisTemplate = mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS);
+        CommentCommandServiceImpl service = new CommentCommandServiceImpl(
+                commentMapper, contentMapper, questionMapper, null, null, null, null,
+                null, outboxEventService, invalidator, stringRedisTemplate, commentCounterService);
         ContentComment comment = ContentComment.builder()
                 .commentId(100L)
                 .contentId(CONTENT_ID)
@@ -545,6 +542,7 @@ class ContentDetailCacheWritePathTest {
                 .parentId(50L)
                 .build();
         when(commentMapper.selectById(100L)).thenReturn(comment);
+        when(commentCounterService.changeCommentCount(CONTENT_ID, -1)).thenReturn(1);
 
         beginTransaction();
         service.deleteComment(100L);
@@ -560,13 +558,11 @@ class ContentDetailCacheWritePathTest {
         ContentMapper contentMapper = mock(ContentMapper.class);
         QuestionMapper questionMapper = mock(QuestionMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        CommentServiceImpl service = new CommentServiceImpl();
-        ReflectionTestUtils.setField(service, "commentMapper", commentMapper);
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "questionMapper", questionMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
+        CommentCounterService commentCounterService = mock(CommentCounterService.class);
+        StringRedisTemplate stringRedisTemplate = mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS);
+        CommentCommandServiceImpl service = new CommentCommandServiceImpl(
+                commentMapper, contentMapper, questionMapper, null, null, null, null,
+                null, outboxEventService, invalidator, stringRedisTemplate, commentCounterService);
         ContentComment comment = ContentComment.builder()
                 .commentId(100L)
                 .contentId(CONTENT_ID)
@@ -575,13 +571,14 @@ class ContentDetailCacheWritePathTest {
                 .build();
         when(commentMapper.selectById(100L)).thenReturn(comment);
         when(commentMapper.selectReplyIdsByParentId(100L)).thenReturn(List.of(101L));
+        when(commentCounterService.changeCommentCount(CONTENT_ID, -2)).thenReturn(1);
 
         beginTransaction();
         service.deleteComment(100L);
         assertOldDetailCached();
         commit();
 
-        verify(commentMapper).updateCommentCount(CONTENT_ID, -2);
+        verify(commentCounterService).changeCommentCount(CONTENT_ID, -2);
         assertEquals(1, detailCache.evictionCount());
         assertNewDetailLoaded();
     }

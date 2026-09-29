@@ -14,6 +14,7 @@ import com.quanta.demo0.notification.mq.message.NotificationEventMessage;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
 import com.quanta.demo0.comment.service.bot.BotMentionDetector;
 import com.quanta.demo0.comment.service.CommentAuditService;
+import com.quanta.demo0.comment.service.CommentCounterService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,13 @@ public class CommentAuditServiceImpl implements CommentAuditService {
     private final QuestionMapper questionMapper;
     private final OutboxEventService outboxEventService;
     private final ContentDetailCacheInvalidator contentDetailCacheInvalidator;
+
+    /**
+     * 评论可见性变化统一通过评论计数服务同步更新帖子/回答计数。
+     * 单测未提供该新端口时保留旧 mapper 回退，避免破坏已有审核行为测试。
+     */
+    @Autowired(required = false)
+    private CommentCounterService commentCounterService;
 
     /** bot 账号与昵称配置；审核服务只消费配置，不持有 HTTP 上下文。 */
     @Autowired
@@ -164,12 +172,16 @@ public class CommentAuditServiceImpl implements CommentAuditService {
     }
 
     private void incrementCommentCounts(ContentComment comment) {
-        int rows = commentMapper.updateCommentCount(comment.getContentId(), 1);
+        int rows = commentCounterService != null
+                ? commentCounterService.changeCommentCount(comment.getContentId(), 1)
+                : commentMapper.updateCommentCount(comment.getContentId(), 1);
         if (rows != 1) {
             throw new CommentFailedException("更新内容表评论数失败");
         }
         if (comment.getAnswerId() != null) {
-            int rows2 = questionMapper.updateAnswerCommentCount(comment.getAnswerId(), 1);
+            int rows2 = commentCounterService != null
+                    ? commentCounterService.changeAnswerCommentCount(comment.getAnswerId(), 1)
+                    : questionMapper.updateAnswerCommentCount(comment.getAnswerId(), 1);
             if (rows2 != 1) {
                 throw new CommentFailedException("更新回答表评论数失败");
             }

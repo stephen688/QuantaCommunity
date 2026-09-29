@@ -68,7 +68,7 @@ public class CommentZonePolicy {
      * - 专业区（contentType=2）：answerId 必填，否则抛异常
      * - 生活区（contentType=1）：answerId 禁止传，否则抛异常
      * 【使用场景】
-     * 在 CommentServiceImpl.sendComment() 和 commentPage() 中调用，
+     * 在 CommentCommandServiceImpl.sendComment() 和 CommentQueryServiceImpl.commentPage() 中调用，
      * 确保专业区和生活区的 answerId 传递规则正确。
      * @param contentType 内容类型（1=生活区，2=专业区）
      * @param answerId    回答 ID（专业区必填，生活区禁止传）
@@ -92,7 +92,7 @@ public class CommentZonePolicy {
      * - 生活区：500 字（轻互动，短评论为主）
      * - 专业区：1000 字（深度讨论，允许长文本）
      * 【使用场景】
-     * 在 CommentServiceImpl.sendComment() 中校验评论内容长度时调用。
+     * 在 CommentCommandServiceImpl.sendComment() 中校验评论内容长度时调用。
      * @param contentType 内容类型（1=生活区，2=专业区）
      * @return 字数上限（生活区 500，专业区 1000）
      */
@@ -108,7 +108,7 @@ public class CommentZonePolicy {
      * - 生活区：5 张（图片为主，小红书风格）
      * - 专业区：1 张（弱化图片，偏纯文本讨论）
      * 【使用场景】
-     * 在 CommentServiceImpl.sendComment() 中校验评论图片数量时调用。
+     * 在 CommentCommandServiceImpl.sendComment() 中校验评论图片数量时调用。
      * @param contentType 内容类型（1=生活区，2=专业区）
      * @return 图片限额（生活区 5 张，专业区 1 张）
      */
@@ -124,7 +124,7 @@ public class CommentZonePolicy {
      * - 生活区：允许配图（最多 5 张）
      * - 专业区：允许配图（最多 1 张，后续可配置为禁止）
      * 【使用场景】
-     * 在 CommentServiceImpl.sendComment() 中判断是否需要处理图片上传。
+     * 在 CommentCommandServiceImpl.sendComment() 中判断是否需要处理图片上传。
      * @param contentType 内容类型（1=生活区，2=专业区）
      * @return true=允许配图，false=禁止配图
      */

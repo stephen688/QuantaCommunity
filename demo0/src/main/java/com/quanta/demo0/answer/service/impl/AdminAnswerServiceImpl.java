@@ -8,6 +8,7 @@ import com.quanta.demo0.platform.redis.constant.RedisConstants;
 import com.quanta.demo0.answer.dto.AnswerAdminQueryDTO;
 import com.quanta.demo0.content.dto.ContentAuditDTO;
 import com.quanta.demo0.answer.entity.QuestionAnswer;
+import com.quanta.demo0.interaction.mapper.AnswerInteractionMapper;
 import com.quanta.demo0.notification.enums.NotificationType;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.QuestionMapper;
@@ -45,6 +46,9 @@ import java.util.Map;
 public class AdminAnswerServiceImpl  implements AdminAnswerService {
     @Autowired
     private QuestionMapper questionMapper;
+
+    @Autowired
+    private AnswerInteractionMapper answerInteractionMapper;
 
     @Autowired
     private AnswerVectorSyncService answerVectorSyncService;
@@ -103,16 +107,16 @@ public class AdminAnswerServiceImpl  implements AdminAnswerService {
         }
 
         // 3. 软删除回答下的评论
-        questionMapper.softDeleteAnswerComments(answerId);
+        answerInteractionMapper.softDeleteAnswerComments(answerId);
 
         // 4. 物理删除回答评论下的图片
-        questionMapper.deleteAnswerCommentImages(answerId);
+        answerInteractionMapper.deleteAnswerCommentImages(answerId);
 
         // 5. 物理删除回答评论下的点赞记录
-        questionMapper.deleteAnswerCommentLiked(answerId);
+        answerInteractionMapper.deleteAnswerCommentLiked(answerId);
 
         // 6. 物理删除回答点赞记录
-        questionMapper.deleteAnswerLikedByAnswerId(answerId);
+        answerInteractionMapper.deleteAnswerLikedByAnswerId(answerId);
 
         // 7. 软删除回答本身
         questionMapper.softDeleteAnswer(answerId);

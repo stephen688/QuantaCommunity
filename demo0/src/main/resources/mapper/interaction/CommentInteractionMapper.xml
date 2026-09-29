@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.quanta.demo0.interaction.mapper.CommentInteractionMapper">
+
+    <select id="selectCommentLikeIds" resultType="java.lang.Long">
+        SELECT comment_id
+        FROM tb_comment_like
+        WHERE user_id = #{userId}
+          AND comment_id IN
+        <foreach collection="allCommentIds" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </select>
+
+    <insert id="insertCommentLikes">
+        INSERT IGNORE INTO tb_comment_like (comment_id, user_id)
+        VALUES (#{commentId}, #{userId})
+    </insert>
+
+    <delete id="deleteCommentLikeByUser">
+        DELETE FROM tb_comment_like
+        WHERE comment_id = #{commentId} AND user_id = #{userId}
+    </delete>
+
+    <select id="selectValidReportByCommentAndUser"
+            resultType="com.quanta.demo0.interaction.entity.CommentReport">
+        SELECT *
+        FROM tb_comment_report
+        WHERE comment_id = #{commentId}
+          AND reporter_id = #{reporterId}
+          AND is_deleted = 0
+    </select>
+
+    <insert id="insertCommentReport" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_comment_report
+            (comment_id, reporter_id, report_type, status, is_deleted, create_time, update_time)
+        VALUES
+            (#{commentId}, #{reporterId}, #{reportType}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
+    </insert>
+</mapper>

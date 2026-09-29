@@ -21,6 +21,7 @@ import com.quanta.demo0.platform.common.result.PageResult;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import com.quanta.demo0.comment.service.AdminCommentService;
 import com.quanta.demo0.comment.service.CommentAuditService;
+import com.quanta.demo0.comment.service.CommentCounterService;
 import com.quanta.demo0.content.service.ContentDetailCacheInvalidator;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +59,9 @@ public class AdminCommentServiceImpl implements AdminCommentService {
     private CommentAuditService commentAuditService;
     @Autowired
     private ContentDetailCacheInvalidator contentDetailCacheInvalidator;
+
+    @Autowired(required = false)
+    private CommentCounterService commentCounterService;
 
     @Autowired
     private AdminAuditRecorder adminAuditRecorder;
@@ -192,11 +196,19 @@ public class AdminCommentServiceImpl implements AdminCommentService {
         if (comment.getAnswerId() != null) {
             // 回答下的评论：更新回答评论数
             int replyCount = replyIds != null ? replyIds.size() : 0;
-            questionMapper.updateAnswerCommentCount(comment.getAnswerId(), -(1 + replyCount));
+            if (commentCounterService != null) {
+                commentCounterService.changeAnswerCommentCount(comment.getAnswerId(), -(1 + replyCount));
+            } else {
+                questionMapper.updateAnswerCommentCount(comment.getAnswerId(), -(1 + replyCount));
+            }
         } else {
             // 帖子下的一级评论：更新帖子评论数
             int replyCount = replyIds != null ? replyIds.size() : 0;
-            commentMapper.updateCommentCount(comment.getContentId(), -(1 + replyCount));
+            if (commentCounterService != null) {
+                commentCounterService.changeCommentCount(comment.getContentId(), -(1 + replyCount));
+            } else {
+                commentMapper.updateCommentCount(comment.getContentId(), -(1 + replyCount));
+            }
         }
         contentDetailCacheInvalidator.evictAfterCommit(comment.getContentId(), "admin-comment-delete");
 

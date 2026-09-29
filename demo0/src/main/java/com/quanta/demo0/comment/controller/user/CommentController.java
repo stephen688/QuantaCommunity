@@ -8,7 +8,9 @@ import com.quanta.demo0.interaction.dto.CommentReportDTO;
 import com.quanta.demo0.interaction.dto.LikeStateDTO;
 import com.quanta.demo0.comment.dto.ReplyPageDTO;
 import com.quanta.demo0.platform.common.result.Result;
-import com.quanta.demo0.comment.service.CommentService;
+import com.quanta.demo0.comment.service.CommentCommandService;
+import com.quanta.demo0.comment.service.CommentQueryService;
+import com.quanta.demo0.interaction.service.CommentInteractionService;
 import com.quanta.demo0.comment.vo.CommentPageVO;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +26,11 @@ import jakarta.validation.Valid;
 public class CommentController {
 
     @Autowired
-    private CommentService commentService;
+    private CommentCommandService commentCommandService;
+    @Autowired
+    private CommentQueryService commentQueryService;
+    @Autowired
+    private CommentInteractionService commentInteractionService;
 
     /**
      * 发布评论
@@ -41,7 +47,7 @@ public class CommentController {
     @PostMapping("/send")
     public Result sendComment(@RequestBody CommentAddDTO commentAddDTO) {
         log.info("发布评论: {}", commentAddDTO);
-        Long commentId = commentService.sendComment(commentAddDTO);
+        Long commentId = commentCommandService.sendComment(commentAddDTO);
         return Result.success(commentId);
 
 
@@ -54,7 +60,7 @@ public class CommentController {
     @GetMapping("/list")
     public Result<CommentPageVO> commentList(@ModelAttribute("commentPageDTO") CommentPageDTO commentPageDTO) {
         log.info("查询评论列表: {}", commentPageDTO);
-        CommentPageVO commentPageVO = commentService.commentPage(commentPageDTO);
+        CommentPageVO commentPageVO = commentQueryService.commentPage(commentPageDTO);
         return Result.success(commentPageVO);
     }
 
@@ -66,7 +72,7 @@ public class CommentController {
     @GetMapping("/replyList")
     public Result<CommentPageVO> replyList(@ModelAttribute("replyPageDTO") ReplyPageDTO replyPageDTO) {
         log.info("查询回复列表: {}", replyPageDTO);
-        CommentPageVO replyPageVO = commentService.replyPage(replyPageDTO);
+        CommentPageVO replyPageVO = commentQueryService.replyPage(replyPageDTO);
         return Result.success(replyPageVO);
     }
 
@@ -82,7 +88,7 @@ public class CommentController {
     public Result deleteComment(@PathVariable Long commentId) {
 
         log.info("删除评论: {}", commentId);
-        commentService.deleteComment(commentId);
+        commentCommandService.deleteComment(commentId);
         return Result.success();
     }
 
@@ -96,7 +102,7 @@ public class CommentController {
                                             @Valid @RequestBody LikeStateDTO stateDTO) {
 
         log.info("点赞评论: {}，点赞状态：{}", commentId, stateDTO.getLiked());
-        LikeResultVO likeResultVO = commentService.likeComment(commentId, stateDTO.getLiked());
+        LikeResultVO likeResultVO = commentInteractionService.likeComment(commentId, stateDTO.getLiked());
         return Result.success(likeResultVO);
     }
 
@@ -112,7 +118,7 @@ public class CommentController {
     @PostMapping("/report")
     public Result reportComment(@RequestBody CommentReportDTO commentReportDTO) {
         log.info("举报评论: {}", commentReportDTO);
-        commentService.reportComment(commentReportDTO);
+        commentInteractionService.reportComment(commentReportDTO);
         return Result.success();
     }
 
