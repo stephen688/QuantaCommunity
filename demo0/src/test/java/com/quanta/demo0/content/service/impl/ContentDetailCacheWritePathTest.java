@@ -18,6 +18,8 @@ import com.quanta.demo0.content.enums.ContentDetailState;
 import com.quanta.demo0.content.exception.ContentFailedException;
 import com.quanta.demo0.mapper.CommentMapper;
 import com.quanta.demo0.mapper.ContentMapper;
+import com.quanta.demo0.interaction.mapper.ContentInteractionMapper;
+import com.quanta.demo0.interaction.service.impl.ContentInteractionServiceImpl;
 import com.quanta.demo0.mapper.QuestionMapper;
 import com.quanta.demo0.moderation.properties.AliyunModerationProperties;
 import com.quanta.demo0.platform.security.properties.QuantabotProperties;
@@ -154,14 +156,12 @@ class ContentDetailCacheWritePathTest {
         ContentMapper contentMapper = mock(ContentMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS);
-        ContentServiceImpl service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", redisTemplate);
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
+        ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
+                outboxEventService, redisTemplate);
 
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID + 1, 0), content(USER_ID + 1, 1));
-        when(contentMapper.insertContentLiked(any())).thenReturn(1);
+        when(interactionMapper.insertContentLiked(any())).thenReturn(1);
         when(contentMapper.updateLiked(CONTENT_ID, 1)).thenReturn(true);
 
         beginTransaction();
@@ -177,14 +177,12 @@ class ContentDetailCacheWritePathTest {
     void unlikeSuccessEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
+        ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
+                outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
 
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID + 1, 1), content(USER_ID + 1, 0));
-        when(contentMapper.deleteContentLikedByUser(CONTENT_ID, USER_ID)).thenReturn(1);
+        when(interactionMapper.deleteContentLikedByUser(CONTENT_ID, USER_ID)).thenReturn(1);
         when(contentMapper.updateLiked(CONTENT_ID, -1)).thenReturn(true);
 
         beginTransaction();
@@ -199,14 +197,12 @@ class ContentDetailCacheWritePathTest {
     void likeCountFailureDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
+        ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
+                outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
 
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID + 1, 0));
-        when(contentMapper.insertContentLiked(any())).thenReturn(1);
+        when(interactionMapper.insertContentLiked(any())).thenReturn(1);
         when(contentMapper.updateLiked(CONTENT_ID, 1)).thenReturn(false);
 
         assertThrows(ContentFailedException.class, () -> service.likeContent(CONTENT_ID, true));
@@ -219,14 +215,12 @@ class ContentDetailCacheWritePathTest {
     void likeRollbackDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
+        ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
+                outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
 
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID + 1, 0), content(USER_ID + 1, 1));
-        when(contentMapper.insertContentLiked(any())).thenReturn(1);
+        when(interactionMapper.insertContentLiked(any())).thenReturn(1);
         when(contentMapper.updateLiked(CONTENT_ID, 1)).thenReturn(true);
 
         beginTransaction();
@@ -240,14 +234,12 @@ class ContentDetailCacheWritePathTest {
     void collectSuccessEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
+        ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
+                outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
 
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID + 1, 0), content(USER_ID + 1, 0));
-        when(contentMapper.insertCollect(any())).thenReturn(1);
+        when(interactionMapper.insertCollect(any())).thenReturn(1);
         when(contentMapper.updateCollectCount(CONTENT_ID, 1)).thenReturn(1);
 
         beginTransaction();
@@ -262,14 +254,12 @@ class ContentDetailCacheWritePathTest {
     void uncollectSuccessEvictsDetailAfterCommit() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
+        ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
+                outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
 
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID + 1, 0), content(USER_ID + 1, 0));
-        when(contentMapper.deleteCollect(CONTENT_ID, USER_ID)).thenReturn(1);
+        when(interactionMapper.deleteCollect(CONTENT_ID, USER_ID)).thenReturn(1);
         when(contentMapper.updateCollectCount(CONTENT_ID, -1)).thenReturn(1);
 
         beginTransaction();
@@ -284,14 +274,12 @@ class ContentDetailCacheWritePathTest {
     void collectCountFailureDoesNotEvictDetail() {
         ContentMapper contentMapper = mock(ContentMapper.class);
         OutboxEventService outboxEventService = mock(OutboxEventService.class);
-        ContentServiceImpl service = new ContentServiceImpl();
-        ReflectionTestUtils.setField(service, "contentMapper", contentMapper);
-        ReflectionTestUtils.setField(service, "outboxEventService", outboxEventService);
-        ReflectionTestUtils.setField(service, "stringRedisTemplate", mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
-        ReflectionTestUtils.setField(service, "contentDetailCacheInvalidator", invalidator);
+        ContentInteractionMapper interactionMapper = mock(ContentInteractionMapper.class);
+        ContentInteractionServiceImpl service = interactionService(contentMapper, interactionMapper,
+                outboxEventService, mock(StringRedisTemplate.class, Answers.RETURNS_DEEP_STUBS));
 
         when(contentMapper.selectById(CONTENT_ID)).thenReturn(content(USER_ID + 1, 0));
-        when(contentMapper.insertCollect(any())).thenReturn(1);
+        when(interactionMapper.insertCollect(any())).thenReturn(1);
         when(contentMapper.updateCollectCount(CONTENT_ID, 1)).thenReturn(0);
 
         assertThrows(ContentFailedException.class, () -> service.collect(CONTENT_ID, true));
@@ -638,6 +626,21 @@ class ContentDetailCacheWritePathTest {
         assertThrows(IllegalStateException.class, () -> service.deleteComment(100L));
 
         assertOldDetailCached();
+    }
+
+    private ContentInteractionServiceImpl interactionService(
+            ContentMapper contentMapper,
+            ContentInteractionMapper interactionMapper,
+            OutboxEventService outboxEventService,
+            StringRedisTemplate redisTemplate
+    ) {
+        return new ContentInteractionServiceImpl(
+                interactionMapper,
+                new ContentCounterServiceImpl(contentMapper),
+                outboxEventService,
+                invalidator,
+                redisTemplate
+        );
     }
 
     private AdminContentServiceImpl adminContentService(

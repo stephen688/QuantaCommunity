@@ -2,15 +2,12 @@ package com.quanta.demo0.content.service;
 
 
 import com.quanta.demo0.content.dto.ContentDTO;
-import com.quanta.demo0.interaction.dto.ContentReportDTO;
 import com.quanta.demo0.feed.dto.RecommendQueryDTO;
 import com.quanta.demo0.search.dto.SearchDTO;
 import com.quanta.demo0.content.entity.Content;
 import com.quanta.demo0.platform.common.enums.AuditStatus;
 import com.quanta.demo0.platform.common.result.ScrollResult;
-import com.quanta.demo0.interaction.vo.CollectResultVO;
 import com.quanta.demo0.content.vo.ContentVO;
-import com.quanta.demo0.interaction.vo.LikeResultVO;
 import com.quanta.demo0.platform.common.result.PageVO;
 
 import java.time.LocalDateTime;
@@ -23,14 +20,9 @@ public interface ContentService {
 
     ContentVO getContentDetail(Long contentId);
 
-    LikeResultVO likeContent(Long contentId, boolean liked);
-
-
 PageVO<ContentVO> getMyContentList(Long userId, Integer current, Integer size, AuditStatus auditStatus);
 
     void deleteContent(Long contentId);
-
-    CollectResultVO collect(Long contentId, boolean collected);
 
     PageVO<ContentVO> getMyLikedContentList(Long userId, Integer current, Integer size);
 
@@ -48,8 +40,6 @@ PageVO<ContentVO> getMyContentList(Long userId, Integer current, Integer size, A
     void reconcileHotScore(Long contentId);
 
      String resolveRecommendHotKey(Integer contentType);
-
-    void reportContent(ContentReportDTO contentReportDTO);
 
     PageVO<ContentVO> getMyBrowseHistoryContentList(Long userId, Integer current, Integer size);
 
