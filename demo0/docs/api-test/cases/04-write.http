@@ -58,6 +58,7 @@ authorization: {{userToken}}
 # @name publishAnswer2
 POST {{baseUrl}}/answer/publish
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {
@@ -129,6 +130,7 @@ authorization: {{userToken}}
 # @name sendComment
 POST {{baseUrl}}/comment/send
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {
@@ -152,6 +154,7 @@ Content-Type: application/json
 ### P5-10 专业区缺 answerId → body.code=400
 POST {{baseUrl}}/comment/send
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {

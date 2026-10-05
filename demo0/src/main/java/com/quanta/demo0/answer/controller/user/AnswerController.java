@@ -9,6 +9,8 @@ import com.quanta.demo0.answer.service.AnswerQueryService;
 import com.quanta.demo0.interaction.service.AnswerInteractionService;
 import com.quanta.demo0.answer.vo.AnswerVO;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
+import com.quanta.demo0.platform.web.idempotency.enums.SubmissionScene;
+import com.quanta.demo0.platform.web.idempotency.service.SubmissionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,6 +39,8 @@ public class AnswerController {
 
     @Autowired
     private AnswerInteractionService answerInteractionService;
+    @Autowired
+    private SubmissionService submissionService;
 
     /**
      * 发布回答
@@ -54,9 +58,16 @@ public class AnswerController {
     )
     @PreAuthorize("hasRole('" + RoleConstants.VERIFIED_USER + "')")
     @PostMapping("/publish")
-    public Result<AnswerVO> publishAnswer(@RequestBody AnswerDTO answerDTO) {
+    public Result<AnswerVO> publishAnswer(
+            @RequestBody AnswerDTO answerDTO,
+            @RequestHeader(value = "Idempotency-Key", required = false) String submissionToken) {
         log.info("发布回答: {}", answerDTO);
-        AnswerVO answerVO = answerCommandService.publishAnswer(answerDTO);
+        AnswerVO answerVO = submissionService.execute(
+                SubmissionScene.ANSWER_PUBLISH,
+                submissionToken,
+                answerDTO,
+                AnswerVO.class,
+                () -> answerCommandService.publishAnswer(answerDTO));
         return Result.success(answerVO);
     }
 

@@ -2,16 +2,16 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { compileProduction } = require('./production-compiler.cjs');
 
 const {
   BOT_MENTION,
   appendBotMention,
   hasBotMention,
 } = require('../miniprogram/constants/bot.js');
-const {
-  mapCommentRowToItem,
-  sendComment,
-} = require('../miniprogram/services/comment.service.js');
+const commentServiceBuild = compileProduction('miniprogram/services/comment.service.ts');
+const { mapCommentRowToItem, sendComment } = require(commentServiceBuild.entry);
+test.after(() => commentServiceBuild.cleanup());
 
 test('appendBotMention inserts one structured mention and preserves draft', () => {
   assert.equal(BOT_MENTION, '@框框');
@@ -47,6 +47,7 @@ test('mapCommentRowToItem preserves bot identity for top-level and nested replie
 test('sendComment forwards mentionBot only when explicitly true', async () => {
   const previousWx = global.wx;
   const requests = [];
+  const token = '00112233-4455-4677-8899-aabbccddeeff';
   global.wx = {
     getStorageSync: () => '',
     request(options) {
@@ -56,14 +57,16 @@ test('sendComment forwards mentionBot only when explicitly true', async () => {
   };
 
   try {
-    await sendComment({ contentId: 1, content: '@框框 你好', mentionBot: true });
-    await sendComment({ contentId: 1, content: '普通评论', mentionBot: false });
+    await sendComment({ contentId: 1, content: '@框框 你好', mentionBot: true }, token);
+    await sendComment({ contentId: 1, content: '普通评论', mentionBot: false }, token);
   } finally {
     global.wx = previousWx;
   }
 
   assert.equal(requests[0].data.mentionBot, true);
   assert.equal(Object.hasOwn(requests[1].data, 'mentionBot'), false);
+  assert.equal(requests[0].header['Idempotency-Key'], token);
+  assert.equal(requests[1].header['Idempotency-Key'], token);
 });
 
 test('comment composer button appends one mention and emits the updated input', () => {

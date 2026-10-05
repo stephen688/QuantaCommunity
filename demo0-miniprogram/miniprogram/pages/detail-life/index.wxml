@@ -119,6 +119,9 @@
           </text>
           <text class="comment-sheet__reply-cancel" bindtap="onCancelReply">取消</text>
         </view>
+        <view wx:if="{{pendingSubmissionMessage}}" class="comment-sheet__reply-bar">
+          <text class="comment-sheet__reply-text">{{pendingSubmissionMessage}}</text>
+        </view>
         <comment-composer
           value="{{composerValue}}"
           submitting="{{composerSubmitting}}"

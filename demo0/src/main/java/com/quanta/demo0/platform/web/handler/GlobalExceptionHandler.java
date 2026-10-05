@@ -27,6 +27,7 @@ import com.quanta.demo0.comment.exception.CommentFailedException;
 import com.quanta.demo0.user.exception.UserInfoFailedException;
 import com.quanta.demo0.user.exception.LoginFailedException;
 import com.quanta.demo0.search.exception.SearchFailedException;
+import com.quanta.demo0.platform.web.idempotency.exception.SubmissionException;
 
 /**
  * 全局异常处理器，处理项目中抛出的业务异常
@@ -173,6 +174,24 @@ public class GlobalExceptionHandler {
         );
 
         return Result.error(429, exception.getMessage());
+    }
+
+    /**
+     * 提交幂等契约异常：保留 400/409 HTTP 状态和可选 Retry-After 头。
+     */
+    @ExceptionHandler(SubmissionException.class)
+    public Result<Void> handleSubmissionException(
+            SubmissionException exception,
+            HttpServletResponse response
+    ) {
+        response.setStatus(exception.getStatusCode());
+        if (exception.getRetryAfterSeconds() != null) {
+            response.setHeader(
+                    "Retry-After",
+                    String.valueOf(exception.getRetryAfterSeconds())
+            );
+        }
+        return Result.error(exception.getStatusCode(), exception.getMessage());
     }
 
 

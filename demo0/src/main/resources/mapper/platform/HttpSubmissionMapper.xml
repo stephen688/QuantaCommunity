@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.quanta.demo0.platform.web.idempotency.mapper.SubmissionMapper">
+
+    <resultMap id="HttpSubmissionMap"
+               type="com.quanta.demo0.platform.web.idempotency.entity.HttpSubmission">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="scene" column="scene"/>
+        <result property="submissionToken" column="submission_token"/>
+        <result property="requestHash" column="request_hash"/>
+        <result property="status" column="status"/>
+        <result property="responseData" column="response_data"/>
+        <result property="createTime" column="create_time"/>
+        <result property="expiresAt" column="expires_at"/>
+    </resultMap>
+
+    <select id="selectByUserSceneToken" resultMap="HttpSubmissionMap">
+        SELECT id, user_id, scene, submission_token, request_hash, status,
+               response_data, create_time, expires_at
+        FROM tb_http_submission
+        WHERE user_id = #{userId}
+          AND scene = #{scene}
+          AND submission_token = #{submissionToken}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="com.quanta.demo0.platform.web.idempotency.entity.HttpSubmission"
+            useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO tb_http_submission (
+            user_id, scene, submission_token, request_hash, status,
+            response_data, create_time, expires_at
+        ) VALUES (
+            #{userId}, #{scene}, #{submissionToken}, #{requestHash}, #{status},
+            #{responseData}, #{createTime}, #{expiresAt}
+        )
+    </insert>
+
+    <update id="markSucceeded">
+        UPDATE tb_http_submission
+        SET status = 'SUCCEEDED',
+            response_data = #{responseData}
+        WHERE id = #{id}
+          AND status = 'PROCESSING'
+    </update>
+
+    <delete id="deleteExpiredSucceeded">
+        DELETE FROM tb_http_submission
+        WHERE status = 'SUCCEEDED'
+          AND expires_at &lt;= #{before}
+        ORDER BY id
+        LIMIT #{limit}
+    </delete>
+</mapper>

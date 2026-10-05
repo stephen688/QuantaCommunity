@@ -319,6 +319,7 @@ export async function reportContent(payload: ContentReportPayload): Promise<Requ
 /** 发布内容：需登录 */
 export async function publishContent(
   payload: ContentPublishPayload,
+  submissionToken?: string,
 ): Promise<RequestResult<ContentVO>> {
   const res = await request<ContentVO>({
     method: 'POST',
@@ -329,6 +330,7 @@ export async function publishContent(
       content: payload.content,
       images: payload.images,
     },
+    ...(submissionToken ? { header: { 'Idempotency-Key': submissionToken } } : {}),
   });
   if (res.ok) {
     bumpAppRefresh('myContent');

@@ -1,0 +1,156 @@
+# HTTP 提交幂等定向验收
+# 前置：迁移 V_http_submission.sql；有效 VERIFIED_USER；已审核通过的专业帖 questionId、生活帖 contentIdLife。
+# 每轮新验收先替换下面三个 UUID v4；同一轮的首次、重放和查询必须使用同一个值。
+# 本文件与 02/04 普通造数用例不同：不能为每次重试直接写 {{$uuid}}，否则号码变化，无法验证防重。
+# 身份/限流仍有效，遇 429 按 Retry-After 等待。业务/Outbox 唯一性由隔离集成测试断言，不靠 HTTP 200 推断。
+
+@baseUrl = {{baseUrl}}
+@userToken = {{userToken}}
+@questionId = {{questionId}}
+@contentIdLife = {{contentIdLife}}
+@submissionContentKey = a9e21b20-6cc2-4f0e-9c20-7dc8ad8f1641
+@submissionAnswerKey = bfe6e971-0db6-48e5-b322-0e6953b59a42
+@submissionCommentKey = f7b58c63-1c0f-4f2d-a70f-4be9c66cfa43
+
+### S-IDEM-01 发帖首次提交
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Idempotency-Key: {{submissionContentKey}}
+Content-Type: application/json
+
+{"contentType":1,"title":"提交幂等验收","content":"本轮定向验收正文","images":[]}
+
+> {%
+  client.test("first content submission", function () {
+    client.assert(response.status === 200 && response.body.code === 200);
+    client.assert(response.body.data.contentId != null);
+    client.global.set("submissionContentId", String(response.body.data.contentId));
+  });
+%}
+
+### S-IDEM-02 同 Token、同 payload 发帖重放，返回原 ID
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Idempotency-Key: {{submissionContentKey}}
+Content-Type: application/json
+
+{"contentType":1,"title":"提交幂等验收","content":"本轮定向验收正文","images":[]}
+
+> {%
+  client.test("content replay preserves original id", function () {
+    client.assert(response.status === 200 && response.body.code === 200);
+    client.assert(String(response.body.data.contentId) === client.global.get("submissionContentId"));
+  });
+%}
+
+### S-IDEM-03 同 Token 换内容，409 且不写入
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Idempotency-Key: {{submissionContentKey}}
+Content-Type: application/json
+
+{"contentType":1,"title":"提交幂等验收","content":"这个变更不能用原提交凭证写入","images":[]}
+
+> {%
+  client.test("changed payload rejected", function () {
+    client.assert(response.status === 409 && response.body.code === 409);
+    client.assert(response.body.msg === "提交凭证与内容不一致");
+  });
+%}
+
+### S-IDEM-04 恢复查询只读取原结果
+GET {{baseUrl}}/submission/status?scene=content-publish
+authorization: {{userToken}}
+Idempotency-Key: {{submissionContentKey}}
+
+> {%
+  client.test("recovery reads committed result", function () {
+    client.assert(response.status === 200 && response.body.code === 200);
+    client.assert(response.body.data.status === "SUCCEEDED");
+    client.assert(String(response.body.data.data.contentId) === client.global.get("submissionContentId"));
+  });
+%}
+
+### S-IDEM-05 缺失提交头（require-user-key=true 时为 400；兼容模式不是完整防重）
+POST {{baseUrl}}/content/publish
+authorization: {{userToken}}
+Content-Type: application/json
+
+{"contentType":1,"title":"缺头校验","content":"仅在必填开关开启后执行","images":[]}
+
+> {%
+  client.test("required submission key", function () {
+    client.assert(response.status === 400 && response.body.code === 400);
+  });
+%}
+
+### S-IDEM-06 回答首次提交
+POST {{baseUrl}}/answer/publish
+authorization: {{userToken}}
+Idempotency-Key: {{submissionAnswerKey}}
+Content-Type: application/json
+
+{"questionId":{{questionId}},"content":"提交幂等的测试回答"}
+
+> {%
+  client.test("first answer submission", function () {
+    client.assert(response.status === 200 && response.body.code === 200);
+    client.global.set("submissionAnswerId", String(response.body.data.answerId));
+  });
+%}
+
+### S-IDEM-07 回答重放
+POST {{baseUrl}}/answer/publish
+authorization: {{userToken}}
+Idempotency-Key: {{submissionAnswerKey}}
+Content-Type: application/json
+
+{"questionId":{{questionId}},"content":"提交幂等的测试回答"}
+
+> {%
+  client.test("answer replay preserves original id", function () {
+    client.assert(response.status === 200 && response.body.code === 200);
+    client.assert(String(response.body.data.answerId) === client.global.get("submissionAnswerId"));
+  });
+%}
+
+### S-IDEM-08 生活帖一级评论首次提交（回复同走此入口，完整上下文由集成测试覆盖）
+POST {{baseUrl}}/comment/send
+authorization: {{userToken}}
+Idempotency-Key: {{submissionCommentKey}}
+Content-Type: application/json
+
+{"contentId":{{contentIdLife}},"content":"提交幂等的测试评论","imageUrls":[]}
+
+> {%
+  client.test("first comment submission", function () {
+    client.assert(response.status === 200 && response.body.code === 200);
+    client.assert(typeof response.body.data === "number");
+    client.global.set("submissionCommentId", String(response.body.data));
+  });
+%}
+
+### S-IDEM-09 评论重放
+POST {{baseUrl}}/comment/send
+authorization: {{userToken}}
+Idempotency-Key: {{submissionCommentKey}}
+Content-Type: application/json
+
+{"contentId":{{contentIdLife}},"content":"提交幂等的测试评论","imageUrls":[]}
+
+> {%
+  client.test("comment replay preserves original id", function () {
+    client.assert(response.status === 200 && response.body.code === 200);
+    client.assert(String(response.body.data) === client.global.get("submissionCommentId"));
+  });
+%}
+
+### S-IDEM-10 未认证用户不能查询提交结果
+GET {{baseUrl}}/submission/status?scene=comment-send
+Idempotency-Key: {{submissionCommentKey}}
+
+> {%
+  client.test("anonymous recovery query rejected", function () {
+    client.assert(response.status === 401);
+  });
+%}

@@ -16,7 +16,7 @@ import {
 } from '../../services/comment.service';
 import { setContentLike, setContentCollect } from '../../services/interaction.service';
 import type { ApiErrorType } from '../../types/api';
-import type { CommentItemModel } from '../../types/comment';
+import type { CommentAddDTO, CommentItemModel } from '../../types/comment';
 import type { ContentDetailModel } from '../../types/detail';
 import { getUserInfo } from '../../services/user.service';
 import { ensureRealNameVerified } from '../../services/real-name.service';
@@ -48,6 +48,17 @@ import {
   type PageRefreshSnapshot,
 } from '../../utils/page-refresh';
 import { navigateToUserProfileFromEvent } from '../../utils/user-profile-nav';
+import { querySubmissionStatus } from '../../services/submission.service';
+import {
+  clearPendingSubmission,
+  isSubmissionExpired,
+  isPendingSubmissionOwner,
+  isPendingSubmissionCurrent,
+  listPendingSubmissions,
+  prepareSubmission,
+  validatePendingSubmissionForSend,
+  type PendingSubmission,
+} from '../../utils/submission';
 
 type PageData = {
   contentIdNum: number | null;
@@ -76,6 +87,7 @@ type PageData = {
   replyTargetNick: string;
   contentDeleted: boolean;
   currentUserId: number | null;
+  pendingSubmissionMessage: string;
 };
 
 function detailErrorState(res: RequestFailure): {
@@ -129,6 +141,7 @@ Page({
     replyTargetNick: '',
     contentDeleted: false,
     currentUserId: null,
+    pendingSubmissionMessage: '',
   } as PageData,
 
   _commentLock: false,
@@ -140,6 +153,8 @@ Page({
       }
     | null,
   _refreshSnapshot: createPageRefreshSnapshot() as PageRefreshSnapshot,
+  _pendingSubmission: null as PendingSubmission<CommentAddDTO> | null,
+  _submissionRestoreChecked: false,
 
   onLoad(query: Record<string, string | undefined>) {
     const id = parseDetailContentId(query.contentId);
@@ -153,12 +168,17 @@ Page({
       return;
     }
     this.setData({ contentIdNum: id, invalidId: false, contentDeleted: false });
+    this._submissionRestoreChecked = false;
     void this.syncCurrentUser();
     void this.loadDetail(false);
+    void this.restorePendingSubmission();
   },
 
   onShow() {
     handleDetailProfileRefreshOnShow(this, () => this.applyProfileRefresh());
+    if (!this._submissionRestoreChecked && this.data.contentIdNum) {
+      void this.restorePendingSubmission();
+    }
   },
 
   async applyProfileRefresh() {
@@ -544,49 +564,196 @@ Page({
   ) {
     const cid = this.data.contentIdNum;
     const text = (e.detail?.content ?? this.data.composerValue).trim();
-    if (!cid || !text || this.data.composerSubmitting) {
+    if (!cid || this.data.composerSubmitting) {
       return;
     }
+    if (!text && !this._pendingSubmission) {
+      return;
+    }
+    this.setData({ composerSubmitting: true, pendingSubmissionMessage: '' });
     const verified = await ensureRealNameVerified({
       reason: '发表评论',
       description: '发表评论需先完成校友实名认证，审核通过后即可互动。',
     });
     if (!verified) {
+      this.setData({ composerSubmitting: false });
       return;
     }
-    this.setData({ composerSubmitting: true });
-    const payload: {
-      contentId: number;
-      content: string;
-      mentionBot?: boolean;
-      parentId?: number;
-      replyCommentId?: number;
-      replyUserId?: number;
-    } = {
+    const nextPayload: CommentAddDTO = {
       contentId: cid,
       content: text,
       mentionBot: e.detail?.mentionBot === true,
     };
     if (this._replyTarget) {
-      payload.parentId = this._replyTarget.parentId;
-      payload.replyCommentId = this._replyTarget.replyCommentId;
-      payload.replyUserId = this._replyTarget.replyUserId;
+      nextPayload.parentId = this._replyTarget.parentId;
+      nextPayload.replyCommentId = this._replyTarget.replyCommentId;
+      nextPayload.replyUserId = this._replyTarget.replyUserId;
     }
-    const res = await sendComment(payload);
-    this.setData({ composerSubmitting: false });
-    if (!res.ok) {
-      wx.showToast({ title: res.message.slice(0, 14) || '发送失败', icon: 'none' });
+    try {
+      const contextKey = this.commentSubmissionContextKey(cid, nextPayload);
+      let prepared = this._pendingSubmission;
+      if (prepared && !isPendingSubmissionOwner(prepared)) {
+        this._pendingSubmission = null;
+        wx.showToast({ title: '登录状态已变化，请重新提交', icon: 'none' });
+        return;
+      }
+      if (prepared && prepared.contextKey !== contextKey) {
+        prepared = null;
+      }
+      if (!prepared && !text) {
+        return;
+      }
+      if (!prepared) {
+        const result = await prepareSubmission('comment-send', contextKey, nextPayload);
+        if (!result.ok) {
+          wx.showToast({ title: result.message.slice(0, 14), icon: 'none' });
+          return;
+        }
+        prepared = result.data;
+        this._pendingSubmission = prepared;
+      }
+      const sendCheck = validatePendingSubmissionForSend(prepared);
+      if (!sendCheck.ok) {
+        if (sendCheck.errorType === 'expired') {
+          clearPendingSubmission(prepared);
+        }
+        this._pendingSubmission = null;
+        this.setData({ pendingSubmissionMessage: sendCheck.message });
+        wx.showToast({ title: sendCheck.message.slice(0, 14), icon: 'none' });
+        return;
+      }
+      if (String(prepared.payload.content || '').trim() !== text) {
+        const frozenContent = String(prepared.payload.content || '');
+        this.setData({
+          composerValue: frozenContent,
+          pendingSubmissionMessage: '存在未确认评论，请点击发送重试',
+        });
+        wx.showToast({ title: '存在未确认评论，请点击发送重试', icon: 'none' });
+        return;
+      }
+      const res = await sendComment(prepared.payload, prepared.token);
+      if (!isPendingSubmissionOwner(prepared)) {
+        this._pendingSubmission = null;
+        return;
+      }
+      if (!res.ok) {
+        this.showSubmissionError(res.message || '发送失败，请稍后重试', res.errorType, res.businessCode);
+        return;
+      }
+      clearPendingSubmission(prepared);
+      this._pendingSubmission = null;
+      this._replyTarget = null;
+      this.setData({
+        composerValue: '',
+        replyPlaceholder: '友善评论，文明发言',
+        replyTargetNick: '',
+        composerVisible: false,
+        composerAutoFocus: false,
+        pendingSubmissionMessage: '',
+      });
+      wx.showToast({ title: '评论已提交审核', icon: 'success' });
+    } finally {
+      this.setData({ composerSubmitting: false });
+    }
+  },
+
+  commentSubmissionContextKey(contentId: number, payload: CommentAddDTO): string {
+    return [
+      `comment:${contentId}`,
+      `answer:${payload.answerId ?? 0}`,
+      `parent:${payload.parentId ?? 0}`,
+      `reply:${payload.replyCommentId ?? 0}`,
+    ].join(':');
+  },
+
+  async restorePendingSubmission() {
+    const cid = this.data.contentIdNum;
+    if (!cid || this._pendingSubmission) {
       return;
     }
-    this._replyTarget = null;
+    const prefix = `comment:${cid}:answer:0:`;
+    const records = listPendingSubmissions<CommentAddDTO>('comment-send', prefix);
+    this._submissionRestoreChecked = true;
+    if (records.length === 0) {
+      return;
+    }
+    const record = records[0];
+    if (isSubmissionExpired(record)) {
+      clearPendingSubmission(record);
+      wx.showToast({ title: '提交凭证已过期，请先核对发布记录', icon: 'none' });
+      return;
+    }
+    this._pendingSubmission = record;
+    const status = await querySubmissionStatus<number>('comment-send', record.token);
+    if (!isPendingSubmissionCurrent(this._pendingSubmission, record)) {
+      if (this._pendingSubmission?.token === record.token) {
+        this._pendingSubmission = null;
+      }
+      return;
+    }
+    if (!status.ok) {
+      this.showPendingPrompt(record);
+      return;
+    }
+    if (status.data.status === 'SUCCEEDED' && status.data.data !== undefined) {
+      clearPendingSubmission(record);
+      this._pendingSubmission = null;
+      wx.showToast({ title: '评论已提交审核', icon: 'success' });
+      void this.loadComments(true);
+      return;
+    }
+    if (status.data.status === 'EXPIRED') {
+      clearPendingSubmission(record);
+      this._pendingSubmission = null;
+      wx.showToast({ title: '提交凭证已过期，请先核对发布记录', icon: 'none' });
+      return;
+    }
+    this.showPendingPrompt(record);
+  },
+
+  showPendingPrompt(record: PendingSubmission<CommentAddDTO>) {
+    this.restorePendingReplyTarget(record);
     this.setData({
-      composerValue: '',
-      replyPlaceholder: '友善评论，文明发言',
-      replyTargetNick: '',
-      composerVisible: false,
+      composerValue: record.payload.content || '',
+      composerVisible: true,
       composerAutoFocus: false,
+      pendingSubmissionMessage: '存在未确认评论，请点击发送重试',
     });
-    wx.showToast({ title: '评论已提交审核', icon: 'success' });
+    wx.showToast({ title: '存在未确认评论，请点击发送重试', icon: 'none' });
+  },
+
+  restorePendingReplyTarget(record: PendingSubmission<CommentAddDTO>) {
+    const parentId = Number(record.payload.parentId);
+    const replyCommentId = Number(record.payload.replyCommentId);
+    const replyUserId = Number(record.payload.replyUserId);
+    if (
+      !Number.isFinite(parentId) ||
+      parentId <= 0 ||
+      !Number.isFinite(replyCommentId) ||
+      replyCommentId <= 0 ||
+      !Number.isFinite(replyUserId) ||
+      replyUserId <= 0
+    ) {
+      this._replyTarget = null;
+      this.setData({ replyPlaceholder: '友善评论，文明发言', replyTargetNick: '' });
+      return;
+    }
+    this._replyTarget = { parentId, replyCommentId, replyUserId };
+    const target = findCommentInTree(this.data.comments, replyCommentId);
+    const nick = target?.nickName?.trim() || '原评论';
+    this.setData({ replyPlaceholder: `回复 ${nick}：`, replyTargetNick: nick });
+  },
+
+  showSubmissionError(message: string, errorType: string, businessCode?: number) {
+    if (errorType === 'submissionExpired' || businessCode === 400) {
+      const record = this._pendingSubmission;
+      if (record) {
+        clearPendingSubmission(record);
+      }
+      this._pendingSubmission = null;
+    }
+    this.setData({ pendingSubmissionMessage: message });
+    wx.showToast({ title: message.slice(0, 14) || '发送失败', icon: 'none' });
   },
 
   async onDetailLike() {

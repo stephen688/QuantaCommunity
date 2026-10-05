@@ -85,6 +85,7 @@ Content-Type: image/png
 # @name publishProf
 POST {{baseUrl}}/content/publish
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {
@@ -113,6 +114,7 @@ Content-Type: application/json
 # @name publishLife
 POST {{baseUrl}}/content/publish
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {
@@ -138,6 +140,7 @@ Content-Type: application/json
 ### P2-06 缺 title → body.code=400
 POST {{baseUrl}}/content/publish
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {
@@ -157,6 +160,7 @@ Content-Type: application/json
 ### P2-07 标题 51 字 → body.code=400
 POST {{baseUrl}}/content/publish
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {
@@ -176,6 +180,7 @@ Content-Type: application/json
 ### P2-08 图片 6 张 → body.code=400
 POST {{baseUrl}}/content/publish
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {
@@ -202,6 +207,7 @@ Content-Type: application/json
 ### P2-09 contentType=99 → body.code=400
 POST {{baseUrl}}/content/publish
 authorization: {{userToken}}
+Idempotency-Key: {{$uuid}}
 Content-Type: application/json
 
 {

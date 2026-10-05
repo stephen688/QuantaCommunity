@@ -14,6 +14,8 @@ import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.interaction.vo.LikeResultVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.quanta.demo0.platform.web.idempotency.enums.SubmissionScene;
+import com.quanta.demo0.platform.web.idempotency.service.SubmissionService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,9 +55,16 @@ public class ContentController {
     )
     @PreAuthorize("hasRole('" + RoleConstants.VERIFIED_USER + "')")
     @PostMapping("/publish")
-    public Result<ContentVO> publish(@RequestBody ContentDTO contentDTO) {
+    public Result<ContentVO> publish(
+            @RequestBody ContentDTO contentDTO,
+            @RequestHeader(value = "Idempotency-Key", required = false) String submissionToken) {
         log.info("发布内容：{}", contentDTO);
-        ContentVO contentVO = contentCommandService.publish(contentDTO);
+        ContentVO contentVO = submissionService.execute(
+                SubmissionScene.CONTENT_PUBLISH,
+                submissionToken,
+                contentDTO,
+                ContentVO.class,
+                () -> contentCommandService.publish(contentDTO));
         return Result.success(contentVO);
     }
     /**
@@ -69,6 +78,8 @@ public class ContentController {
         return Result.success(scrollResult);
     }
 
+    @Autowired
+    private SubmissionService submissionService;
     /**
      * 根据contentId查询内容详情
      */

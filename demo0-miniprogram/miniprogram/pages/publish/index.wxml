@@ -68,6 +68,7 @@
 
   <view class="publish-submit-bar" style="bottom: {{keyboardInset}}px;">
     <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+    <view wx:elif="{{pendingSubmissionMessage}}" class="error-text">{{pendingSubmissionMessage}}</view>
     <view wx:elif="{{uploading}}" class="publish-bar-hint">图片上传中，请稍候</view>
     <button
       class="submit-btn {{submitting ? 'submit-btn--busy' : ''}} {{uploading && !submitting ? 'submit-btn--upload-blocked' : ''}}"
