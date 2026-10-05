@@ -39,6 +39,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
@@ -75,6 +76,17 @@ class SecurityFilterChainTests {
                 .andExpect(content().string("anonymous"));
 
         verifyNoInteractions(tokenAuthenticationService);
+    }
+
+    @Test
+    void exposurePathIsPublicButAdjacentContentWritesStayProtected() throws Exception {
+        // 无业务映射时返回404，证明真实SecurityConfiguration已放行精确路径。
+        mockMvc.perform(post("/content/recommend/exposures"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/content/publish"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(tokenAuthenticationService);
+        assertNull(BaseContext.getCurrentId());
     }
 
     @Test

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,13 +25,14 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 画像流重排服务实现（推荐流个性化 03 Task 3.2，D6/D7）。
- * 核心流程：召回（hot∪latest 双池 ZREVRANGE top N，contentId 去重、不读 score）→
+ * 画像重排与旧推荐协议兼容实现。
+ * 旧 rerank 流程：召回（hot∪latest 双池 ZREVRANGE top N，contentId 去重、不读 score）→
  * 曝光过滤（仅登录用户，recommend:exposed:{userId} 为隐式游标）→ MySQL 可见性兜底 →
  * 读画像 → finalScore = α·normHot + (1-α)·matchScore + explicitScore 算分排序 → 截页回写曝光。
- * 边界：匿名 α=1 纯热度、不读不写曝光；归一化在候选集内做 min-max（最热=1.0，单候选=1.0）；
+ * 旧协议边界：匿名 α=1 纯热度、不读不写曝光；归一化在候选集内做 min-max（最热=1.0，单候选=1.0）；
  * 显式偏好独立有符号加分（④）：不参与行为分母，负偏好只降权不剔除；
  * 曝光读写语义从 ContentServiceImpl 既有逻辑迁移（key / TTL 24h / 超 1000 pop 100 逐字保留）。
+ * 新推荐会话只调用 rankCandidates 纯排序；真实曝光和近期探索由会话服务独立处理，游客同样支持。
  */
 @Slf4j
 @Service
@@ -96,6 +98,38 @@ public class RecommendRerankServiceImpl implements RecommendRerankService {
 
         // ========== 步骤 8：hasMore = 过滤曝光与不可见帖后的候选数 > pageSize ==========
         return new RerankResult(pageContents, hasMore);
+    }
+
+    /**
+     * 纯候选重排入口：复用画像流算分公式，但不触碰召回和曝光状态。
+     * 空候选直接返回空列表；空快照或缺少 contentId 的脏候选不会进入排序。
+     */
+    @Override
+    public List<ContentSnapshotVO> rankCandidates(Long userId, List<ContentSnapshotVO> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, ContentSnapshotVO> candidateById = new LinkedHashMap<>();
+        for (ContentSnapshotVO content : candidates) {
+            if (content != null && content.getContentId() != null) {
+                candidateById.putIfAbsent(content.getContentId(), content);
+            }
+        }
+        List<ContentSnapshotVO> validCandidates = new ArrayList<>(candidateById.values());
+        if (validCandidates.isEmpty()) {
+            return List.of();
+        }
+        RecommendProperties.Profile profileConfig = recommendProperties.getProfile();
+        Map<String, Double> loadedProfile = userId == null
+                ? Collections.emptyMap()
+                : userProfileService.getProfile(userId);
+        Map<String, Double> profile = loadedProfile == null ? Collections.emptyMap() : loadedProfile;
+        Map<String, Double> loadedExplicitProfile = userId == null
+                ? Collections.emptyMap()
+                : userProfileService.getExplicitProfile(userId);
+        Map<String, Double> explicitProfile = loadedExplicitProfile == null
+                ? Collections.emptyMap() : loadedExplicitProfile;
+        return scoreAndSort(validCandidates, profile, explicitProfile, profileConfig);
     }
 
     /**

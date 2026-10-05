@@ -246,6 +246,7 @@ public class SecurityConfiguration {
                                  */
                                 authorize.requestMatchers(
                                         "/content/recommend",
+                                        "/content/recommend/exposures",
                                         "/search/content",
                                         "/search/trending"
                                 ).permitAll();

@@ -44,5 +44,14 @@ public class RecommendQueryDTO implements Serializable {
     @Builder.Default
     private Integer pageSize = 5;
 
+    /** 新推荐协议的浏览轮次；旧客户端不传时保持原契约。 */
+    private String feedSessionId;
+
+    /** 服务端生成的不可猜测页游标，重试同一页时保持不变。 */
+    private String pageCursor;
+
+    /** 用户主动再看已看内容时，引用同主体已耗尽的上一轮。 */
+    private String revisitOfSessionId;
+
 }
 

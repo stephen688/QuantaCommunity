@@ -172,5 +172,50 @@
         ORDER BY create_time DESC
     </select>
 
+    <!-- 推荐窗口外扩召回：create_time + content_id 复合游标，且始终受会话上界约束。 -->
+    <select id="getApprovedRecommendCandidates" resultType="com.quanta.demo0.content.entity.Content">
+        SELECT c.content_id,
+               c.content_type,
+               c.title,
+               IF(CHAR_LENGTH(c.content) > 100,
+                  CONCAT(LEFT(c.content, 100), '...'),
+                  c.content) AS content,
+               c.publish_user_id,
+               c.audit_status,
+               c.tags,
+               c.create_time,
+               c.update_time,
+               c.liked,
+               c.comment_count,
+               c.collect_count,
+               c.is_deleted
+        FROM tb_content c
+        WHERE c.is_deleted = 0
+          AND c.audit_status = 1
+        <if test="contentType != null">
+          AND c.content_type = #{contentType}
+        </if>
+          AND c.create_time &lt;= #{upperTime}
+          AND c.content_id &lt;= #{upperId}
+        <if test="beforeTime != null and beforeId != null">
+          AND (c.create_time &lt; #{beforeTime}
+               OR (c.create_time = #{beforeTime} AND c.content_id &lt; #{beforeId}))
+        </if>
+        ORDER BY c.create_time DESC, c.content_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 推荐会话固定上界：upperTime 由服务端会话创建时生成。 -->
+    <select id="getApprovedRecommendUpperId" resultType="java.lang.Long">
+        SELECT COALESCE(MAX(c.content_id), 0)
+        FROM tb_content c
+        WHERE c.is_deleted = 0
+          AND c.audit_status = 1
+          AND c.create_time &lt;= #{upperTime}
+        <if test="contentType != null">
+          AND c.content_type = #{contentType}
+        </if>
+    </select>
+
 
 </mapper>

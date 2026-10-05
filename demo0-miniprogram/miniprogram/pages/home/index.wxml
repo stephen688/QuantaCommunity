@@ -83,25 +83,49 @@
       variant="bulletin"
       title="{{emptyTitle}}"
       description="{{emptyDesc}}"
-      actionText="去发布"
+      actionText="{{recommendationState === 'SEARCHING' ? '继续查找' : (recommendationState === 'EXHAUSTED' && canRevisit ? '再看已看内容' : '去发布')}}"
       bind:action="onEmptyAction"
     />
   </view>
 
   <view wx:else class="home__feed feed-panel content-reveal {{switching ? 'feed-panel--switching' : ''}}">
     <view class="home__cards feed-panel__body">
-      <content-card
+      <view
         wx:for="{{list}}"
         wx:key="contentId"
-        item="{{item}}"
+        class="home__observed-card"
         data-content-id="{{item.contentId}}"
-        data-content-type="{{item.contentType}}"
-        showAuthor="{{true}}"
-        bind:cardtap="onCardTap"
-        bind:tapauthor="onCardAuthorTap"
-        bind:interactionchange="onCardInteractionChange"
-      />
-    </view>
+      >
+        <content-card
+          item="{{item}}"
+          data-content-id="{{item.contentId}}"
+          data-content-type="{{item.contentType}}"
+          showAuthor="{{true}}"
+          bind:cardtap="onCardTap"
+          bind:tapauthor="onCardAuthorTap"
+          bind:interactionchange="onCardInteractionChange"
+        />
+      </view>
+      <view
+        wx:if="{{scene === 'recommend' && recommendationState === 'SEARCHING'}}"
+        class="home__recommend-state"
+      >
+        <text class="home__recommend-state-text">正在寻找更多内容</text>
+      </view>
+      <view
+        wx:elif="{{scene === 'recommend' && recommendationState === 'EXHAUSTED'}}"
+        class="home__recommend-state home__recommend-state--exhausted"
+      >
+        <text class="home__recommend-state-text">暂时没有新内容</text>
+        <view
+          wx:if="{{canRevisit}}"
+          class="home__recommend-revisit"
+          hover-class="home__recommend-revisit--hover"
+          bindtap="onStateAction"
+        >
+          <text>再看已看内容</text>
+        </view>
+      </view>
     <page-list-footer
       visible="{{list.length > 0 && !switching}}"
       loading-more="{{loadingMore}}"

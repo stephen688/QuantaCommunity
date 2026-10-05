@@ -88,7 +88,7 @@ function scoreOf(item: ContentVO): number {
   return (item.liked ?? 0) * 3 + (item.commentCount ?? 0) * 2 + (item.collectCount ?? 0);
 }
 
-function sortByScene(pool: ContentVO[], scene: RecommendScene = 'latest'): ContentVO[] {
+function sortByScene(pool: ContentVO[], scene: RecommendScene = 'recommend'): ContentVO[] {
   const list = [...pool];
   if (scene === 'hot') {
     list.sort((a, b) => scoreOf(b) - scoreOf(a) || Number(b.contentId) - Number(a.contentId));
@@ -100,7 +100,7 @@ function sortByScene(pool: ContentVO[], scene: RecommendScene = 'latest'): Conte
 
 export function getRecommendMockPool(
   contentType?: ContentType,
-  scene: RecommendScene = 'latest',
+  scene: RecommendScene = 'recommend',
 ): ContentVO[] {
   if (contentType === CONTENT_TYPE_LIFE) {
     return sortByScene(LIFE_POOL, scene);

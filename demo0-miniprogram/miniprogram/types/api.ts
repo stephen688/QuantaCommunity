@@ -10,6 +10,7 @@ export type ApiErrorType =
   | 'unauthorized'
   | 'forbidden'
   | 'rateLimited'
+  | 'recommendExpired'
   | 'submissionPending'
   | 'submissionConflict'
   | 'submissionExpired'
@@ -42,6 +43,14 @@ export interface ScrollResultVO<T = unknown> {
   minScore?: number | null;
   offset?: number | null;
   hasMore?: boolean | null;
+}
+
+/** 与推荐会话协议对齐；旧服务未返回会话字段时保持可选。 */
+export interface RecommendPageVO<T = unknown> extends ScrollResultVO<T> {
+  feedSessionId?: string | null;
+  nextCursor?: string | null;
+  recommendationState?: 'READY' | 'SEARCHING' | 'EXHAUSTED' | string | null;
+  canRevisit?: boolean | null;
 }
 
 /** 与后端 PageVO<T> 对齐 */

@@ -2,14 +2,25 @@ import type { ContentTypeFilter } from '../constants/content';
 import type { ApiErrorType } from './api';
 
 /** GET /content/recommend */
-export type RecommendScene = 'latest' | 'hot';
+export type RecommendScene = 'recommend' | 'latest' | 'hot';
+
+export type RecommendationState = 'READY' | 'SEARCHING' | 'EXHAUSTED';
+
+export interface RecommendQueryOptions {
+  feedSessionId?: string;
+  pageCursor?: string;
+  revisitOfSessionId?: string;
+}
 
 /** GET /content/recommend */
 export interface RecommendQuery {
   lastScore?: number;
+  pageCursor?: string;
   offset?: number;
   contentType?: 1 | 2;
   scene?: RecommendScene;
+  feedSessionId?: string;
+  revisitOfSessionId?: string;
   pageSize: number;
 }
 

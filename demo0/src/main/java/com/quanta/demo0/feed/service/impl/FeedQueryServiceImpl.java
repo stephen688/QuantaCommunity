@@ -6,6 +6,11 @@ import com.quanta.demo0.content.service.ContentQueryService;
 import com.quanta.demo0.content.vo.ContentSnapshotVO;
 import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.feed.dto.RecommendQueryDTO;
+import com.quanta.demo0.feed.dto.RecommendVisitor;
+import com.quanta.demo0.feed.properties.RecommendProperties;
+import com.quanta.demo0.feed.service.RecommendSessionService;
+import com.quanta.demo0.feed.vo.RecommendPageVO;
+import com.quanta.demo0.feed.vo.RecommendSessionPage;
 import com.quanta.demo0.feed.service.FeedQueryService;
 import com.quanta.demo0.feed.service.HotContentService;
 import com.quanta.demo0.feed.service.RecommendRerankService;
@@ -48,26 +53,58 @@ public class FeedQueryServiceImpl implements FeedQueryService {
     private final StringRedisTemplate stringRedisTemplate;
     private final HotContentService hotContentService;
     private final ContentInteractionService contentInteractionService;
+    private final RecommendSessionService recommendSessionService;
+    private final RecommendProperties recommendProperties;
+
+    /** 新协议只改变推荐发现路径，旧接口及热度路径继续使用原实现。 */
+    @Override
+    public RecommendPageVO recommend(RecommendQueryDTO query, RecommendVisitor visitor) {
+        boolean isHot = query != null && "hot".equals(query.getScene());
+        boolean newSession = query != null && query.getFeedSessionId() != null;
+        if (!isHot && newSession && recommendProperties.getDiscovery().isEnabled()) {
+            String scene = query.getScene();
+            if (scene != null && !"recommend".equals(scene) && !"latest".equals(scene)) {
+                throw new ContentFailedException("场景参数异常");
+            }
+            RecommendSessionPage page = recommendSessionService.page(visitor, query);
+            return RecommendPageVO.builder()
+                    .list(assembleSnapshotVOs(page.getContents(), visitor.userId()))
+                    .minScore(null).offset(0).hasMore(page.getHasMore())
+                    .feedSessionId(page.getFeedSessionId()).nextCursor(page.getNextCursor())
+                    .recommendationState(page.getRecommendationState()).canRevisit(page.getCanRevisit())
+                    .build();
+        }
+        ScrollResult legacy = recommend(query);
+        @SuppressWarnings("unchecked")
+        List<ContentVO> contents = (List<ContentVO>) legacy.getList();
+        return RecommendPageVO.builder().list(contents).minScore(legacy.getMinScore())
+                .offset(legacy.getOffset()).hasMore(legacy.getHasMore()).build();
+    }
 
     @Override
     @Transactional
     public ScrollResult recommend(RecommendQueryDTO recommendQueryDTO) {
-        if (recommendQueryDTO == null) {
+        // 处理空参数
+               if (recommendQueryDTO == null) {
             recommendQueryDTO = RecommendQueryDTO.builder().build();
         }
+         // 处理内容类型参数
         Integer contentType = recommendQueryDTO.getContentType();
         if (contentType != null && contentType != 1 && contentType != 2) {
             throw new ContentFailedException("内容类型必须为 1 或者 2或者 null");
         }
+        // 处理分页参数
         int pageSize = recommendQueryDTO.getPageSize() == null || recommendQueryDTO.getPageSize() <= 0
                 ? 5 : recommendQueryDTO.getPageSize();
         String scene = recommendQueryDTO.getScene();
         if (scene == null || "latest".equals(scene) || "recommend".equals(scene)) {
             return recommendByProfileFlow(contentType, pageSize);
         }
+        // 处理场景参数，只支持 hot 场景
         if (!"hot".equals(scene)) {
             throw new ContentFailedException("场景参数异常");
         }
+        // 处理 hot 场景参数
         return recommendByHotFlow(recommendQueryDTO, pageSize);
     }
 
@@ -106,6 +143,11 @@ public class FeedQueryServiceImpl implements FeedQueryService {
     }
 
     private List<ContentVO> assembleSnapshotVOs(List<ContentSnapshotVO> snapshots) {
+        return assembleSnapshotVOs(snapshots, BaseContext.getCurrentId());
+    }
+
+    /** 内容VO不缓存，按本次可信主体重新补齐互动状态。 */
+    private List<ContentVO> assembleSnapshotVOs(List<ContentSnapshotVO> snapshots, Long visitorUserId) {
         if (snapshots == null || snapshots.isEmpty()) {
             return new ArrayList<>();
         }
@@ -134,9 +176,9 @@ public class FeedQueryServiceImpl implements FeedQueryService {
                     .quantaDepartment(author.getQuantaDepartment())
                     .quantaBatch(author.getQuantaBatch())
                     .isLiked(contentInteractionService.isContentLiked(
-                            snapshot.getContentId(), BaseContext.getCurrentId()))
+                            snapshot.getContentId(), visitorUserId))
                     .isCollected(contentInteractionService.isContentCollected(
-                            snapshot.getContentId(), BaseContext.getCurrentId()))
+                            snapshot.getContentId(), visitorUserId))
                     .build();
         }).toList();
     }

@@ -33,6 +33,23 @@ public class RedisConstants {
     public static final String RECOMMEND_EXPOSED_KEY_PREFIX = "recommend:exposed:";
     public static final long RECOMMEND_EXPOSED_TTL_HOURS = 24L;
 
+    /**
+     * 推荐发现协议 v2 的隔离命名空间。旧的 recommend:exposed:{userId} 是返回即曝光
+     * 的兼容逻辑，不能与真实可视曝光 ZSET 混用。
+     */
+    public static final String RECOMMEND_V2_PREFIX = "recommend:v2:";
+    public static final String RECOMMEND_V2_EXPOSURE_KEY_PREFIX =
+            RECOMMEND_V2_PREFIX + "exposed:";
+    public static final String RECOMMEND_V2_SESSION_KEY_PREFIX =
+            RECOMMEND_V2_PREFIX + "session:";
+    public static final String RECOMMEND_V2_SESSION_LOCK_KEY_PREFIX =
+            RECOMMEND_V2_PREFIX + "session-lock:";
+    public static final String RECOMMEND_V2_SESSION_ACTIVE_KEY_PREFIX =
+            RECOMMEND_V2_PREFIX + "active:";
+    public static final String RECOMMEND_V2_SESSION_TOMBSTONE_KEY_PREFIX =
+            RECOMMEND_V2_PREFIX + "tombstone:";
+    public static final long RECOMMEND_V2_SESSION_LOCK_TTL_SECONDS = 5L;
+
 
     public static final String FEED_ALL_KEY = "feed:all:";                    // 全部关注（混合）
     public static final String FEED_PROFESSIONAL_KEY = "feed:professional:";  // 专业区

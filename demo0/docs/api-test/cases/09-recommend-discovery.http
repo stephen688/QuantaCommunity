@@ -1,0 +1,50 @@
+### 推荐发现手工验收（本地显式开启 QUANTA_RECOMMEND_DISCOVERY_ENABLED=true 后重启）
+### REST Client 手动把 nextCursor 写入 @nextCursor，把真实下发 contentId 写入 @contentId。
+### 微信工具/真机需滚动确认卡片 >=50% 才上报，API 请求不能证明可视阈值。
+@baseUrl = http://localhost:9191
+@guestA = 9845e25a-4e42-4f71-ab21-964ec8a68fb5
+@guestB = d7d8b2cb-637f-4aec-b3aa-b573e724fa4a
+@sessionA = 7fac5fa8-8b33-48ec-bd5b-6c2e8e762fc0
+@refreshSession = 9b63fc56-4e91-4f9e-8657-0fe22bfc0c48
+@nextCursor = 替换为首屏nextCursor
+@contentId = 1
+
+### A 首屏：新协议；重复执行同一请求应重放 ID、nextCursor 与状态
+GET {{baseUrl}}/content/recommend?scene=recommend&feedSessionId={{sessionA}}&pageSize=5
+X-Guest-Id: {{guestA}}
+
+### 下一页：不得重复首屏已下发内容；失败后用同游标重试
+GET {{baseUrl}}/content/recommend?scene=recommend&feedSessionId={{sessionA}}&pageCursor={{nextCursor}}&pageSize=5
+X-Guest-Id: {{guestA}}
+
+### 仅上报实际可见且本轮下发的 ID；重传不续期
+POST {{baseUrl}}/content/recommend/exposures
+X-Guest-Id: {{guestA}}
+Content-Type: application/json
+
+{"feedSessionId":"{{sessionA}}","contentIds":[{{contentId}}]}
+
+### 刷新：排除上述真实曝光，未上报的内容仍可出现
+GET {{baseUrl}}/content/recommend?scene=recommend&feedSessionId={{refreshSession}}&pageSize=5
+X-Guest-Id: {{guestA}}
+
+### 游客 B 不受 A 曝光影响
+GET {{baseUrl}}/content/recommend?scene=recommend&feedSessionId={{refreshSession}}&pageSize=5
+X-Guest-Id: {{guestB}}
+
+### 耗尽后再看：引用 A 同分类已耗尽轮次（若还未 EXHAUSTED，此请求应失败）
+GET {{baseUrl}}/content/recommend?scene=recommend&feedSessionId=83d37f42-ae37-41f1-8b41-a2c347d0db2c&revisitOfSessionId={{refreshSession}}&pageSize=5
+X-Guest-Id: {{guestA}}
+
+### 热度保持旧分数分页，不带推荐会话，不按推荐曝光排除
+GET {{baseUrl}}/content/recommend?scene=hot&pageSize=5
+
+### 旧客户端兼容；关闭开关时新请求也回到旧响应
+GET {{baseUrl}}/content/recommend?scene=latest&pageSize=5
+
+### 非法曝光：HTTP 400，不能任意写曝光
+POST {{baseUrl}}/content/recommend/exposures
+X-Guest-Id: {{guestA}}
+Content-Type: application/json
+
+{"feedSessionId":"{{sessionA}}","contentIds":[-1]}
