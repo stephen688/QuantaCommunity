@@ -16,6 +16,7 @@ import com.quanta.demo0.platform.security.context.BaseContext;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.SecurityProperties;
+import com.quanta.demo0.platform.web.trace.RequestTraceFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +66,7 @@ class SecurityFilterChainTests {
         reset(tokenAuthenticationService);
         BaseContext.removeCurrentId();
         mockMvc = webAppContextSetup(applicationContext)
+                .addFilters(new RequestTraceFilter())
                 .apply(springSecurity())
                 .build();
     }
@@ -93,6 +95,7 @@ class SecurityFilterChainTests {
     void protectedPathWithoutTokenReturnsJson401() throws Exception {
         mockMvc.perform(get("/private"))
                 .andExpect(status().isUnauthorized())
+                .andExpect(header().exists("X-Request-Id"))
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.msg").value("未登录或登录状态已失效"));
@@ -147,6 +150,7 @@ class SecurityFilterChainTests {
         mockMvc.perform(get("/admin/check")
                         .header("authorization", "user-token"))
                 .andExpect(status().isForbidden())
+                .andExpect(header().exists("X-Request-Id"))
                 .andExpect(jsonPath("$.code").value(403))
                 .andExpect(jsonPath("$.msg").value("没有权限执行该操作"));
     }
@@ -172,6 +176,18 @@ class SecurityFilterChainTests {
                 .andExpect(header().string(
                         "Access-Control-Allow-Origin",
                         "http://localhost:5173"
+                ));
+    }
+
+    @Test
+    void configuredOriginCanReadRequestIdResponseHeader() throws Exception {
+        mockMvc.perform(get("/content/recommend")
+                        .header("Origin", "http://localhost:5173"))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Request-Id"))
+                .andExpect(header().string(
+                        "Access-Control-Expose-Headers",
+                        "X-Request-Id"
                 ));
     }
 

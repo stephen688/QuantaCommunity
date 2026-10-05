@@ -25,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Map;
@@ -140,6 +142,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         createCommentSearchEvents(comment, "COMMENT_ADD");
         // C-1/C-4：评论可见后再判定 bot mention，并将触发事件写入同一事务。
         maybeCreateBotMentionEvent(comment);
+        logAuditAfterCommit(commentId, AuditStatus.APPROVED.getCode());
         return true;
     }
 
@@ -170,6 +173,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
             log.info("评论已非待审，跳过驳回 commentId={}", commentId);
             return false;
         }
+        logAuditAfterCommit(commentId, AuditStatus.REJECTED.getCode());
         return true;
     }
 
@@ -201,6 +205,7 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         createCommentSearchEvents(comment, "COMMENT_ADD");
         // C-1/C-4：驳回评论重新通过也必须进入同一 bot 触发判定。
         maybeCreateBotMentionEvent(comment);
+        logAuditAfterCommit(commentId, AuditStatus.APPROVED.getCode());
         return true;
     }
 
@@ -232,7 +237,20 @@ public class CommentAuditServiceImpl implements CommentAuditService {
         // 评论数减少和热度 Outbox 必须在同一个事务中提交。
         feedEventProducer.createHotScoreRecalculateEvent(comment.getContentId(), "COMMENT_DELETE");
         createCommentSearchEvents(comment, "COMMENT_DELETE");
+        logAuditAfterCommit(commentId, AuditStatus.REJECTED.getCode());
         return true;
+    }
+
+    /** 审核状态和副作用事务提交后留痕；不记录驳回正文或尚未提交的成功。 */
+    private void logAuditAfterCommit(Long commentId, Integer auditStatus) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    log.info("comment_audit_committed commentId={}, auditStatus={}", commentId, auditStatus);
+                }
+            });
+        }
     }
 
     /** 内容表必加、回答表按需加；任何一处 UPDATE 不到 1 行就抛异常，回滚整个审核事务。 */

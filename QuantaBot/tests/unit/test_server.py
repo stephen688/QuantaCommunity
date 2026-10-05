@@ -33,6 +33,21 @@ def test_health_fake_mode(tmp_path) -> None:
         live = client.get("/live")
         assert live.status_code == 200
         assert live.json()["status"] == "ok"
+        assert live.headers["X-Request-Id"]
+
+
+def test_unhandled_error_response_keeps_trace_header(tmp_path) -> None:
+    app = create_app(_settings(audit_db_path=str(tmp_path / "error.db")))
+
+    @app.get("/trace-test-error")
+    async def fail() -> None:
+        raise RuntimeError("trace test failure")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/trace-test-error", headers={"X-Request-Id": "error-A"})
+
+    assert response.status_code == 500
+    assert response.headers["X-Request-Id"] == "error-A"
 
 
 def test_health_real_mode_unconfigured_shows_not_configured(tmp_path) -> None:

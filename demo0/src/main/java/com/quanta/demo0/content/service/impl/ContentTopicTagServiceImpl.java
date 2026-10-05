@@ -9,6 +9,7 @@ import com.quanta.demo0.content.properties.ContentTopicProperties;
 import com.quanta.demo0.content.service.ContentTopicTagService;
 import com.quanta.demo0.content.mq.producer.ContentEventProducer;
 import com.quanta.demo0.feed.service.TopicCatalog;
+import com.quanta.demo0.platform.web.trace.TraceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -156,7 +157,8 @@ public class ContentTopicTagServiceImpl implements ContentTopicTagService {
 
     private ChatResponse callModel(String promptText) {
         CompletableFuture<ChatResponse> future = CompletableFuture.supplyAsync(
-                () -> chatModel.call(new Prompt(promptText)));
+                TraceContext.wrapSupplier(
+                        () -> chatModel.call(new Prompt(promptText))));
         try {
             return future.get(Math.max(1L, properties.getTimeoutSeconds()), TimeUnit.SECONDS);
         } catch (InterruptedException exception) {

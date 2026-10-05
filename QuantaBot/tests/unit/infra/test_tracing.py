@@ -21,6 +21,8 @@ def _trace(**overrides) -> RunTrace:
         completion_tokens=100,
         cost_li=8,
         daily_cost_li_after=16,
+        trace_id="request-A",
+        event_id="evt-7",
     )
     base.update(overrides)
     return RunTrace(**base)
@@ -94,6 +96,8 @@ async def test_langfuse_tracer_records_trace_and_generation() -> None:
     assert call["as_type"] == "span"
     assert call["input"] == "@框框 hi"
     assert call["output"] == "replied: 链路完整"
+    assert call["metadata"]["business_trace_id"] == "request-A"
+    assert call["metadata"]["event_id"] == "evt-7"
     assert len(stub.root_handles) == 1
     root = stub.root_handles[0]
     assert root.ended, "root observation 应在退出 context manager 时 end"

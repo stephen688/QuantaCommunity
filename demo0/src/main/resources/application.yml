@@ -96,6 +96,18 @@ mybatis:
     map-underscore-to-camel-case: true
 # 日志
 logging:
+  file:
+    name: ${QUANTA_LOG_FILE:logs/demo0.log}
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC} %-5level service=demo0 thread=%thread traceId=%X{traceId:-} eventId=%X{eventId:-} logger=%logger{36} %msg%n"
+    file: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC} %-5level service=demo0 thread=%thread traceId=%X{traceId:-} eventId=%X{eventId:-} logger=%logger{36} %msg%n"
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${QUANTA_LOG_FILE:logs/demo0.log}.%d{yyyy-MM-dd,UTC}.%i.gz
+      max-file-size: ${QUANTA_LOG_MAX_FILE_SIZE:20MB}
+      max-history: ${QUANTA_LOG_MAX_HISTORY:14}
+      total-size-cap: ${QUANTA_LOG_TOTAL_SIZE_CAP:300MB}
+      clean-history-on-start: true
   level:
     com:
       quanta:

@@ -135,6 +135,8 @@ class RunTrace(BaseModel):
 
     comment_id: int
     post_id: int
+    trace_id: str | None = None
+    event_id: str | None = None
     trigger_content: str
     decision: Decision
     mode: str | None = None

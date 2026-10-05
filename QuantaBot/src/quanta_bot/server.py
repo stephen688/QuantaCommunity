@@ -10,22 +10,95 @@
 
 import logging
 import secrets
+import time
 from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Response, status
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from quanta_bot import __version__
 from quanta_bot.composition import Runtime, build_runtime
+from quanta_bot.crosscutting.trace_context import resolve_trace_id, trace_scope
 from quanta_bot.infra import mq as infra_mq
 from quanta_bot.infra.content_sync import ingest_content
 from quanta_bot.infra.kv import RedisKV
+from quanta_bot.infra.logging_config import (
+    configure_logging,
+    shutdown_logging,
+)
 from quanta_bot.infra.settings import Settings
 
 logger = logging.getLogger(__name__)
 
 # 健康探测统一档（秒）——与业务超时档分离
 _PROBE_TIMEOUT_SECONDS = 5.0
+
+
+class TraceIdMiddleware:
+    """纯 ASGI 请求关联中间件：生成响应头并隔离每个 HTTP 协程上下文。"""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get("type") != "http":
+            await self._app(scope, receive, send)
+            return
+
+        candidate_values: list[object] = []
+        for key, value in scope.get("headers", []):
+            if key.lower() == b"x-request-id":
+                try:
+                    candidate_values.append(value.decode("ascii"))
+                except UnicodeDecodeError:
+                    candidate_values.append(None)
+        candidate = candidate_values[0] if len(candidate_values) == 1 else None
+        trace_id = resolve_trace_id(candidate)
+        started_at = time.monotonic()
+        status_code = 500
+
+        async def send_with_trace(message: Message) -> None:
+            nonlocal status_code
+            if message.get("type") == "http.response.start":
+                status_code = int(message.get("status", 500))
+                response = dict(message)
+                response_headers = [
+                    (key, value)
+                    for key, value in message.get("headers", [])
+                    if key.lower() != b"x-request-id"
+                ]
+                response_headers.append((b"x-request-id", trace_id.encode("ascii")))
+                response["headers"] = response_headers
+                message = response
+            await send(message)
+
+        with trace_scope(trace_id):
+            try:
+                await self._app(scope, receive, send_with_trace)
+            except Exception:
+                logger.exception(
+                    "HTTP请求未处理 method=%s path=%s",
+                    scope.get("method", "-"),
+                    scope.get("path", "-"),
+                )
+                raise
+            finally:
+                duration_ms = round((time.monotonic() - started_at) * 1000)
+                logger.info(
+                    "http_request_completed method=%s path=%s status=%s durationMs=%s",
+                    scope.get("method", "-"),
+                    scope.get("path", "-"),
+                    status_code,
+                    duration_ms,
+                )
+
+
+class CorrelatedFastAPI(FastAPI):
+    """将请求关联放到错误处理中间件外侧，使默认 500 响应也带编号。"""
+
+    def build_middleware_stack(self) -> ASGIApp:
+        return TraceIdMiddleware(super().build_middleware_stack())
 
 
 async def _probe(
@@ -135,34 +208,42 @@ async def _check_dependencies(settings: Settings, runtime: Runtime | None) -> di
 async def _lifespan(app: FastAPI):
     """启动装配 Runtime；关闭统一收尾（真模式才起控制面轮询）。"""
     settings: Settings = app.state.settings
-    runtime = build_runtime(settings)
-    # Qdrant 记忆 collection 幂等创建（真模式 + QdrantStore 时；失败 WARNING 不阻断启动
-    # ——记忆是可降级通道，运行期召回失败走管线降级路径）
-    memory_store = runtime.deps.memory_store
-    if settings.qdrant_url and hasattr(memory_store, "ensure_collection"):
+    logging_runtime = configure_logging(settings)
+    runtime: Runtime | None = None
+    try:
+        runtime = build_runtime(settings)
+        # Qdrant 记忆 collection 幂等创建（真模式 + QdrantStore 时；失败 WARNING 不阻断启动
+        # ——记忆是可降级通道，运行期召回失败走管线降级路径）
+        memory_store = runtime.deps.memory_store
+        if settings.qdrant_url and hasattr(memory_store, "ensure_collection"):
+            try:
+                await memory_store.ensure_collection(settings.embedding_dim)
+            except Exception as exc:
+                logger.warning("Qdrant collection 初始化失败（记忆将走运行期降级）：%s", exc)
+        rag = getattr(runtime, "rag", None)
+        content_index = getattr(rag, "index", None)
+        if (
+            settings.qdrant_url
+            and content_index is not None
+            and hasattr(content_index, "ensure_collection")
+        ):
+            # 内容索引维度错配会令所有摄取/检索失败，必须在启动时显式阻断。
+            await content_index.ensure_collection(settings.embedding_dim)
+        runtime.start()
+        app.state.runtime = runtime
+        yield
+    finally:
         try:
-            await memory_store.ensure_collection(settings.embedding_dim)
-        except Exception as exc:
-            logger.warning("Qdrant collection 初始化失败（记忆将走运行期降级）：%s", exc)
-    rag = getattr(runtime, "rag", None)
-    content_index = getattr(rag, "index", None)
-    if (
-        settings.qdrant_url
-        and content_index is not None
-        and hasattr(content_index, "ensure_collection")
-    ):
-        # 内容索引维度错配会令所有摄取/检索失败，必须在启动时显式阻断。
-        await content_index.ensure_collection(settings.embedding_dim)
-    runtime.start()
-    app.state.runtime = runtime
-    yield
-    await runtime.aclose()
+            if runtime is not None:
+                await runtime.aclose()
+        finally:
+            shutdown_logging(logging_runtime)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """构建 FastAPI 应用；settings 缺省时读环境配置（uvicorn 入口路径）。"""
     s = settings or Settings()
-    app = FastAPI(title="QuantaBot", version=__version__, lifespan=_lifespan)
+    app = CorrelatedFastAPI(title="QuantaBot", version=__version__, lifespan=_lifespan)
     app.state.settings = s
 
     @app.get("/live")

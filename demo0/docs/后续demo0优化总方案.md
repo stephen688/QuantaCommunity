@@ -21,6 +21,7 @@
 | 10 | 定时任y务多实例防重 | 现有任务（对账/热度重算）多实例重复跑的真 bug；轻量锁 + 幂等语义，**不做框架** | 中 |
 | 11 | 慢 SQL 治理 + 索引优化 | 搭压测的车：slow log 找慢查询，EXPLAIN 前后对比 | 中 |
 | 12 | 按域分包重构（package-by-feature） | 单模块模块化单体；迁包、大类拆分和架构门禁已实现；验收状态见执行计划及 API 结果 | 中 |
+| 13 | traceId 关联日志 | HTTP、Outbox、MQ、Bot 写回共用编号，文件日志持续保存与滚动 | 中 |
 
 ### 当前实施状态（2026-09-28）
 
@@ -225,3 +226,13 @@
 （后续改造项追加于此，同样格式：是什么 / 为什么 / 怎么做要点）
 
 待补充：lua总限流？推荐流语义？权限可视化？traceId（?
+
+## 13. traceId 关联日志（本地完成，待发布）
+
+**是什么**：为一次 HTTP 请求及其异步副作用建立可查询的关联标识，支持从请求追到 Outbox 事件及 MQ 消费日志。
+
+**已确定范围**：HTTP X-Request-Id 校验/回传、MDC 生命周期、Outbox 元数据持久化、MQ 头传递/消费恢复、Bot 协程与写回、Langfuse metadata 关联、运行日志落盘和有界归档。traceId 用于关联排查，eventId 用于事件身份与 Inbox 幂等，两者职责分开。执行入口见 [专项计划](plans/2026-10-05-trace-id-correlated-logging.md)，使用方式见 [排查手册](trace-id-troubleshooting.md)。
+
+**验收方向**：同一次请求的关键日志可串联；异步消费与重试能关联原触发；线程复用时不串号；日志不记录凭据和完整敏感 payload。保留现有事件契约兼容性，本项不引入 Prometheus／Grafana 看板。
+
+**实际证据**：见 RESULTS 的 S-TRACE，正常/受控模型失败各一例使用隔离 MySQL、RabbitMQ、Redis 和真实主服务鉴权/写回/机审，Langfuse metadata 真查询通过。生成模型使用受控替身，不等于人格发布验收；切换新 Java 版本前须对目标库执行新增 trace_id 列的迁移。

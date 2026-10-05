@@ -24,6 +24,8 @@ import com.quanta.demo0.platform.mq.service.impl.OutboxEventServiceImpl;
 import com.quanta.demo0.content.mq.producer.ContentEventProducer;
 import com.quanta.demo0.feed.mq.producer.FeedEventProducer;
 import com.quanta.demo0.platform.mq.producer.OutboxEventAppender;
+import com.quanta.demo0.platform.web.trace.TraceContext;
+import org.slf4j.MDC;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
@@ -125,6 +127,9 @@ class ReliabilityMySqlIntegrationTests {
     private ContentEventProducer contentEventProducer;
 
     @Autowired
+    private OutboxEventAppender outboxEventAppender;
+
+    @Autowired
     private InboxEventService inboxEventService;
 
     @Autowired
@@ -168,6 +173,38 @@ class ReliabilityMySqlIntegrationTests {
                     comment_id, content_id, user_id, content, like_count, audit_status, is_deleted
                 ) VALUES (1000, 10, 2, '评论', 0, 1, 0)
                 """);
+    }
+
+    @Test
+    void outboxKeepsOriginalTraceIdAcrossDuplicateAppendAndClaim() {
+        String eventId = UUID.randomUUID().toString();
+
+        try (TraceContext.Scope ignored = TraceContext.open("request-A", null)) {
+            outboxEventAppender.appendIfAbsent(
+                    eventId,
+                    "NOTIFICATION_REQUESTED",
+                    "CONTENT",
+                    10L,
+                    java.util.Map.of("eventId", eventId)
+            );
+        }
+        assertNull(MDC.get(TraceContext.TRACE_ID_KEY));
+
+        try (TraceContext.Scope ignored = TraceContext.open("request-B", null)) {
+            outboxEventAppender.appendIfAbsent(
+                    eventId,
+                    "NOTIFICATION_REQUESTED",
+                    "CONTENT",
+                    10L,
+                    java.util.Map.of("eventId", eventId)
+            );
+        }
+
+        OutboxEvent persisted = outboxEventMapper.selectByEventId(eventId);
+        assertEquals("request-A", persisted.getTraceId());
+
+        OutboxEvent claimed = outboxEventService.claimBatch("trace-test-instance").get(0);
+        assertEquals("request-A", claimed.getTraceId());
     }
 
     @Test

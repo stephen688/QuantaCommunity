@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.platform.web.trace.TraceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -55,6 +56,7 @@ public class OutboxEventAppender {
 
         OutboxEvent event = OutboxEvent.builder()
                 .eventId(eventId)
+                .traceId(TraceContext.currentTraceId())
                 .eventType(eventType)
                 .aggregateType(aggregateType)
                 .aggregateId(aggregateId)

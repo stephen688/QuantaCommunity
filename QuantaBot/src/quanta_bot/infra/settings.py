@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     fake_mode: bool = True
     # 决策日志 SQLite 路径（相对路径按 PROJECT_ROOT 解析，见 resolve_data_path）
     audit_db_path: str = "data/decisions.db"
+    # 运行日志：空 log_file 明确关闭文件输出，仅保留控制台；归档容量为单进程本地上限
+    log_file: str = "data/logs/quantabot.log"
+    log_level: str = "INFO"
+    log_max_bytes: int = 20 * 1024 * 1024
+    log_retention_days: int = 14
+    log_total_size_bytes: int = 300 * 1024 * 1024
 
     # ---- M2 真依赖（Tranche A）----
     # Redis（幂等/控制面/成本键；生产用主服务共用实例；本地 compose 用 redis://agent-redis:6379/0）
@@ -139,4 +145,15 @@ class Settings(BaseSettings):
         """生产真模式必须保护会改写内容索引的管理端点。"""
         if self.app_env == "prod" and not self.fake_mode and not self.admin_token:
             raise ValueError("prod real mode requires admin_token")
+        return self
+
+    @model_validator(mode="after")
+    def validate_logging_limits(self) -> "Settings":
+        """日志阈值必须为正，log_file 为空才表示有意关闭文件输出。"""
+        if self.log_max_bytes <= 0:
+            raise ValueError("log_max_bytes must be positive")
+        if self.log_retention_days <= 0:
+            raise ValueError("log_retention_days must be positive")
+        if self.log_total_size_bytes <= 0:
+            raise ValueError("log_total_size_bytes must be positive")
         return self

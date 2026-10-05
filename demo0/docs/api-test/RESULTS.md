@@ -2467,3 +2467,39 @@ TDD 记录：配置缺少 Discovery API 的 RED、实际推荐 HTTP 丢失会话
 用户后续明确前端无需继续扩测，前端验证在当前8项专项与typecheck后停止；保留已完成回归，不再重复执行或扩展设备/网络测试。
 
 独立审查最终 PASS：Selector 主推荐排除、新页删帖补位、同主体多批曝光 drain 与新GET顺序三项均闭环；复查未发现明确残留 P1/P2。复查仅检查相关源码和已执行证据，没有新增测试。
+
+## S-TRACE：traceId 关联日志与持久化（2026-10-05）
+
+**状态：本地实现与边界验收 PASS，未发布。** 计划为 `docs/plans/2026-10-05-trace-id-correlated-logging.md`，使用/迁移方式见 `docs/trace-id-troubleshooting.md`。本轮保留既有前端、Feed、提交幂等与历史验收改动；没有提交、合并或 push。
+
+环境：Windows、本地 Java 21 / Maven 3.9.11、Python 3.12 / uv；Java 使用隔离端口 9192，MySQL 使用只复制结构的 `demo_trace_20261005_1791193189`，RabbitMQ 独立 vhost `trace-20261005-1791193218`，Redis 使用独立 6388 实例。原 9191 服务、demo 业务库的 trace_id 迁移和原队列均未切换。合成用户/帖子 ID 为 9100501。Bot 真实鉴权、评论树、写回、MQ、Redis、SQLite 和 Langfuse；仅模型决策/生成使用受控 FakeLLM，关闭无关记忆/RAG，不把本轮当作模型能力、人格或生产验收。Bot 回复仍执行真实主服务机审。
+
+| 验证 | 实际结果 |
+|---|---|
+| Java 定向组：RequestTraceFilterTest、SecurityFilterChainTests、RabbitTraceAdviceTest、ReliabilityMySqlIntegrationTests、OutboxRabbitIntegrationTests、ConsumerReliabilityTests、NotificationConsumerReliabilityTest | 53 个不同用例最终通过；首次组跑 1 个测试队列清空错误，修复测试夹具后 Rabbit 组 5/5 通过；最后 HTTP 19/19 通过 |
+| `mvn -DskipTests package` | BUILD SUCCESS；HTTP redispatch 注册收尾后又通过定向编译/测试 |
+| Bot `uv run pytest tests/unit -q` | 264 passed；之后新增 500 响应头回归先 RED（缺头），修复后 server 6 passed；日志文案/收尾改动的 consumer/server/logging 13 passed |
+| Bot ruff | 仅格式化本轮修改文件；`ruff format --check src tests`：102 files already formatted；`ruff check src tests`：All checks passed |
+| Java 文件 smoke | 正常业务日志 UTF-8；重启后小阈值 20KB 触发 `.gz` 归档，旧 A 链路及回复 503 审核结果仍可解压读取，新 `restart-smoke` 的 401 请求追加到活动文件 |
+| Bot 文件 smoke | 同一路径重启追加中文；QueueHandler 入队时捕获编号；模拟跨日产生 gzip；14 天过期归档和超容量归档被清理；无关 keep.gz 保留；大小轮转由已有小阈值单测覆盖 |
+| Langfuse 真实查询 | A、B 两例根 observation metadata 的 business_trace_id/event_id 可关联；v2 查询须显式 `fields=core,basic,metadata`，默认响应不含 metadata |
+
+正常例 `trace-check-20261005-A`：HTTP 响应编号 A → 原评论 502 → Outbox `BOT_MENTION_REQUESTED`（eventId `bbf499dc-9c67-4d4b-88b6-b788c61d5ebd`、trace_id=A、SENT）→ Bot 文件日志 A、decision=replied → HTTP 写回请求 A → 回复 503 → 二次机审 audit_status=1。原评论也为 audit_status=1。不是仅凭 HTTP 200 判定成功。
+
+受控失败例 `trace-check-20261005-B`：原评论 504 正常提交/通过；Outbox eventId `ed339895-0696-4d3d-bd0f-d93a0cae6f01`、trace_id=B、SENT；模型适配器抛受控 LLMClientError → Bot 同号 decision=failed → ACK，查询确认没有该触发的新 Bot 回复。静默失败规则未改变。
+
+验收脚本首次检查用了错误表名 tb_comment；更正为项目实际 tb_content_comment 后复用已成功的 A 请求，未重复生成/机审。Langfuse 首次读取漏传 metadata 字段组，更正查询后直接读取既有两条 observation，未重复执行业务链路。Java 重启 smoke 首次只停止了 PATH Java shim，子进程仍占 9192；核验端口进程的 jar/参数后只停止本轮实例，改用真实 Java 可执行文件并重启成功。
+
+临时脱敏证据在 `C:\Users\dwc12\AppData\Local\Temp\quanta-trace-20261005`：evidence.json、java.log/归档、bot.log、logging-smoke。凭据只在进程内读取，不写入本记录。正常 shutdown/队列排空不保证断电或强杀后的零丢失；本次没有磁盘故障、生产容量、压测或真实设备验收。
+
+验收后停止隔离 Java，删除本轮 RabbitMQ vhost 和独立 Redis 容器；核对标题后移除本轮合成的 ES 文档 9100501，未清空现有索引。临时证据和合成 MySQL 测试库保留以便复查；原 9191 监听仍存在。文件 smoke 只改变隔离进程的环境参数，源码默认容量没有改小。最后补 pipeline 的有限阶段耗时/异常类型日志，消费者 5 项定向回归通过；没有扩跑人格或全套 API。
+
+独立审查完成：没有可确认的 Important/Critical 阻塞问题。初审曾将容器 advice 误作业务方法 AOP，认为审核消费者拿不到 Message；核对 spring-rabbit 3.2.9 的 ContainerDelegate 代理字节码及真实回复 503 的同号审核日志后，审查者明确撤回该意见。这里审查的是容器转换前的原始消息边界，业务监听方法无需额外声明 Message 参数。其余未实际演练的生产死信/文件故障/容量边界仍按本节标明，不追加测试工程。最终源码再次 `mvn -DskipTests package` BUILD SUCCESS，diff 空白检查通过。
+
+发布前置：对目标业务库显式执行 `src/main/resources/db/V_trace_id_logging.sql`，再发布 Java/Bot 并配置可写目录；目前原 9191 仍运行旧版本，不能把隔离验收称为它已具备新功能。默认 20MB 单文件、14 天/300MB 历史归档是配置预算，活动文件额外占空间，高日志量下可能保存不到 14 天。
+
+### S-TRACE 本地业务库迁移与 Git 交付（2026-10-05）
+
+用户已明确授权执行迁移、提交、合并和 push。对 `127.0.0.1:3306/demo` 检查目标列不存在后执行上述一次性脚本；复查 `trace_id=varchar(64), nullable=YES`。迁移前后 Outbox 行数和 distinct event_id 均为 1474，非空 trace_id 为 0，没有回填历史、删除记录或修改事件身份。证据为临时目录中的 `business-migration-evidence.json`。此次没有重启/部署原 9191 服务；新代码运行前置中的本地数据库迁移已完成，其他环境须各自执行。
+
+Git 仅包含本轮 traceId/日志代码、测试、迁移与对应文档；混合文件按本轮差异暂存，其他任务的工作区修改保留。授权后的提交、main 合并和远端结果由 Git 历史及交付回复提供，前文“没有提交”仅描述初次本地验收时的状态。

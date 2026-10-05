@@ -105,6 +105,12 @@ public class SecurityConfiguration {
         configuration.setAllowedHeaders(List.of("*"));
 
         /*
+         * 浏览器脚本可以读取后端回传的请求关联编号，
+         * 便于把用户反馈与服务端日志对应起来。
+         */
+        configuration.setExposedHeaders(List.of("X-Request-Id"));
+
+        /*
          * 当前Token放在自定义Header中，
          * 不依赖跨域Cookie，因此不携带浏览器凭证。
          */

@@ -4,7 +4,9 @@ import com.quanta.demo0.platform.mq.entity.OutboxEvent;
 import com.quanta.demo0.platform.mq.message.OutboxRoute;
 import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.platform.web.trace.TraceContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +73,16 @@ public class OutboxDispatcher {
      * 发送单条 Outbox 事件。
      */
     private void dispatchOne(OutboxEvent event) {
+        String traceId = TraceContext.resolveEvent(event.getTraceId(), event.getEventId());
+        try (TraceContext.Scope ignored = TraceContext.open(traceId, event.getEventId())) {
+            dispatchOneInScope(event);
+        }
+    }
+
+    /**
+     * 在当前事件的 trace scope 内完成路由、投递确认和状态推进。
+     */
+    private void dispatchOneInScope(OutboxEvent event) {
         try {
             OutboxRoute route =
                     outboxRouteRegistry.resolve(event);
@@ -84,6 +96,7 @@ public class OutboxDispatcher {
                     route.getExchange(),
                     route.getRoutingKey(),
                     route.getMessage(),
+                    traceHeaders(event),
                     correlationData
             );
 
@@ -167,6 +180,26 @@ public class OutboxDispatcher {
                             + exception.getMessage()
             );
         }
+    }
+
+    /**
+     * 将已持久化的关联编号写入 RabbitMQ 消息头，支持首投、重试和死信重放共用同一编号。
+     */
+    private MessagePostProcessor traceHeaders(OutboxEvent event) {
+        return message -> {
+            message.getMessageProperties().setHeader(
+                    TraceContext.REQUEST_ID_HEADER,
+                    TraceContext.currentTraceId()
+            );
+            if (event.getEventId() != null
+                    && event.getEventId().matches("[A-Za-z0-9_.:-]{1,128}")) {
+                message.getMessageProperties().setHeader(
+                        TraceContext.EVENT_ID_HEADER,
+                        event.getEventId()
+                );
+            }
+            return message;
+        };
     }
 
     /**

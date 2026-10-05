@@ -2,6 +2,7 @@ package com.quanta.demo0.platform.audit.service.impl;
 
 import com.quanta.demo0.platform.audit.entity.AdminAuditLog;
 import com.quanta.demo0.platform.audit.mapper.AdminAuditLogMapper;
+import com.quanta.demo0.platform.web.trace.TraceContext;
 import com.quanta.demo0.platform.security.model.AuthenticatedUser;
 import com.quanta.demo0.platform.audit.service.AdminAuditRecorder;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 管理员审计记录器实现类。
@@ -140,7 +140,12 @@ public class AdminAuditRecorderImpl
         // 2. 从当前请求取 requestId 和客户端信息
         HttpServletRequest request = currentRequest();
         if (request != null) {
-            auditLog.setRequestId(resolveRequestId(request));
+            String traceId = TraceContext.currentTraceId();
+            auditLog.setRequestId(
+                    traceId != null
+                            ? traceId
+                            : resolveRequestId(request)
+            );
             auditLog.setHttpMethod(request.getMethod());
             auditLog.setRequestPath(request.getRequestURI());
             auditLog.setClientIp(resolveClientIp(request));
@@ -202,15 +207,14 @@ public class AdminAuditRecorderImpl
     }
 
     /**
-     * requestId：优先读取X-Request-Id请求头，否则生成UUID。
+     * 没有 HTTP 过滤器上下文时，从请求头兼容读取关联编号。
      */
     private String resolveRequestId(
             HttpServletRequest request
     ) {
-        String requestId = request.getHeader("X-Request-Id");
-        return StringUtils.hasText(requestId)
-                ? requestId
-                : UUID.randomUUID().toString();
+        return TraceContext.resolveHttp(
+                request.getHeader(TraceContext.REQUEST_ID_HEADER)
+        );
     }
 
     /**

@@ -33,6 +33,11 @@ public class OutboxEvent implements Serializable {
     private String eventId;
 
     /**
+     * 日志关联编号。它用于串联 HTTP、Outbox 和 MQ 日志，不参与事件幂等。
+     */
+    private String traceId;
+
+    /**
      * 事件类型，例如 MODERATION_REQUESTED。
      */
     private String eventType;

@@ -33,8 +33,9 @@ class SpyTracer:
 class StubMessage:
     """aio-pika IncomingMessage 的最小替身（body + ack）。"""
 
-    def __init__(self, body: bytes) -> None:
+    def __init__(self, body: bytes, headers: dict[str, object] | None = None) -> None:
         self.body = body
+        self.headers = headers or {}
         self.acked = False
 
     async def ack(self) -> None:
@@ -85,6 +86,26 @@ async def test_handle_valid_message_runs_pipeline_and_acks(tmp_path) -> None:
     assert len(writer.written) == 1
     entries = await audit.fetch_entries()
     assert entries[-1].decision == "replied"
+
+
+async def test_handle_propagates_message_trace_to_run_trace_and_restores_context(tmp_path) -> None:
+    """合法 MQ headers → pipeline/RunTrace 复用同一编号，处理结束恢复协程上下文。"""
+    deps, audit, writer, kv = _deps(tmp_path)
+    consumer = CommentEventConsumer("amqp://x", deps, ControlPlane(kv))
+    msg = StubMessage(
+        _msg(11, "@框框 帮我选课"),
+        headers={"X-Request-Id": "request-A", "X-Event-Id": "evt-11"},
+    )
+
+    await consumer._handle(msg)
+
+    assert msg.acked is True
+    assert deps.tracer.traces[-1].trace_id == "request-A"
+    assert deps.tracer.traces[-1].event_id == "evt-11"
+    from quanta_bot.crosscutting.trace_context import current_event_id, current_trace_id
+
+    assert current_trace_id() is None
+    assert current_event_id() is None
 
 
 async def test_handle_contract_violation_drops_and_audits(tmp_path) -> None:

@@ -269,6 +269,7 @@ Content-Type: application/json
 POST {{baseUrl}}/comment/send
 authorization: {{userToken}}
 Content-Type: application/json
+X-Request-Id: trace-bot-{{$timestamp}}
 
 {
   "contentId": {{botTestContentId}},
@@ -282,7 +283,9 @@ Content-Type: application/json
     client.assert(response.status === 200);
     client.assert(response.body.code === 200);
     client.assert(response.body.data != null, "missing trigger comment id");
+    client.assert(response.headers.valueOf("X-Request-Id"), "missing correlation response header");
   });
+  client.global.set("botTriggerTraceId", response.headers.valueOf("X-Request-Id"));
   if (response.body.code === 200 && response.body.data != null) {
     var triggerId = String(response.body.data);
     client.global.set("botTriggerCommentId", triggerId);

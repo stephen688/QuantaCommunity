@@ -301,6 +301,15 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         }
 
         //8.返回评论id
+        // 只有外层提交幂等事务也提交后才记录落库结果，日志不代表审核通过。
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    log.info("comment_submission_committed commentId={}, contentId={}", commentId, contentId);
+                }
+            });
+        }
         return commentId;
 
     }

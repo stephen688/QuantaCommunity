@@ -4,6 +4,7 @@ package com.quanta.demo0.rag.retrieval;
 import com.quanta.demo0.rag.exception.RagRetrieveException;
 import com.quanta.demo0.rag.properties.RagProperties;
 import com.quanta.demo0.rag.model.RagCandidate;
+import com.quanta.demo0.platform.web.trace.TraceContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -95,7 +96,8 @@ public class RagRetrieveFacade {
 
         // 第 2 步：并行执行双路召回
         // ES 召回（关键词精准匹配）
-        CompletableFuture<List<RagCandidate>> esFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<List<RagCandidate>> esFuture = CompletableFuture.supplyAsync(
+                TraceContext.wrapSupplier(() -> {
             try {
                 List<RagCandidate> candidates = esRecallService.recall(query, contentType, esTopK);
                 log.info("[RAG-FACADE] ES 召回完成: {} 条", candidates != null ? candidates.size() : 0);
@@ -104,10 +106,11 @@ public class RagRetrieveFacade {
                 log.error("[RAG-FACADE] ES 召回失败", e);
                 return new ArrayList<>(); // 失败返回空列表
             }
-        });
+                }));
 
         // 向量召回（语义模糊匹配）
-        CompletableFuture<List<RagCandidate>> vectorFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<List<RagCandidate>> vectorFuture = CompletableFuture.supplyAsync(
+                TraceContext.wrapSupplier(() -> {
             try {
                 List<RagCandidate> candidates = vectorRecallService.recall(query, contentType, vectorTopK);
                 log.info("[RAG-FACADE] 向量召回完成: {} 条", candidates != null ? candidates.size() : 0);
@@ -116,7 +119,7 @@ public class RagRetrieveFacade {
                 log.error("[RAG-FACADE] 向量召回失败", e);
                 return new ArrayList<>(); // 失败返回空列表
             }
-        });
+                }));
 
         // 第 3 步：等待两路召回完成
         CompletableFuture.allOf(esFuture, vectorFuture).join();
