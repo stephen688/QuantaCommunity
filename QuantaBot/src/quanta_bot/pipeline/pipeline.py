@@ -35,6 +35,7 @@ from quanta_bot.crosscutting.ports import (
     KeyValueStore,
     TruncationRecord,
 )
+from quanta_bot.crosscutting.trace_context import current_event_id, current_trace_id
 from quanta_bot.memory import dialogue, user_memory
 from quanta_bot.memory.ports import UserMemoryStore
 from quanta_bot.pipeline import context, decision, generation, trigger
@@ -184,6 +185,13 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
     started_at = time.monotonic()  # ① 管线计时：不包含MQ排队和主服务异步终审
     outcome = await _execute(event, deps)  # 执行链路各分支
     duration_ms = round((time.monotonic() - started_at) * 1000)
+    logger.info(
+        "bot_pipeline_result commentId=%s decision=%s durationMs=%s stageMs=%s",
+        event.comment_id,
+        outcome.decision,
+        duration_ms,
+        outcome.stage_ms,
+    )
     await deps.audit.record(  # 记录决策日志
         DecisionLogEntry(
             comment_id=event.comment_id,
@@ -198,6 +206,8 @@ async def run(event: TriggerEvent, deps: PipelineDeps) -> Decision:
         RunTrace(
             comment_id=event.comment_id,
             post_id=event.post_id,
+            trace_id=current_trace_id(),
+            event_id=current_event_id() or event.event_id,
             trigger_content=event.content,
             decision=outcome.decision,
             mode=outcome.mode,
@@ -521,6 +531,12 @@ async def _execute_inner(event: TriggerEvent, deps: PipelineDeps, health: _RunHe
                         cost_after = None
         else:  # M5：拉取/写库域失败（main_service 承接）
             health.main_service_failed = True
+        logger.warning(
+            "bot_pipeline_dependency_failed commentId=%s exceptionType=%s stageMs=%s",
+            event.comment_id,
+            type(exc).__name__,
+            health.stage_ms,
+        )
         return _Outcome(
             "failed",
             f"链路异常静默不回：{exc}",

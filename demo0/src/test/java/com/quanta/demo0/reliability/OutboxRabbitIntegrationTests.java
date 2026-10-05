@@ -6,6 +6,8 @@ import com.quanta.demo0.platform.mq.outbox.OutboxDispatcher;
 import com.quanta.demo0.platform.mq.outbox.OutboxRouteRegistry;
 import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.platform.web.trace.TraceContext;
+import org.springframework.amqp.core.Message;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -32,6 +34,8 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class OutboxRabbitIntegrationTests {
@@ -153,6 +157,29 @@ class OutboxRabbitIntegrationTests {
         verify(service).markSent(eq(event.getId()), anyString());
     }
 
+    @Test
+    @Order(5)
+    void dispatcherPublishesTraceAndEventHeaders() {
+        drainQueue();
+        OutboxEventService service = mock(OutboxEventService.class);
+        OutboxRouteRegistry registry = mock(OutboxRouteRegistry.class);
+        OutboxEvent event = testEvent();
+        event.setTraceId("request-A");
+
+        when(service.claimBatch(anyString())).thenReturn(List.of(event));
+        when(service.markSent(eq(event.getId()), anyString())).thenReturn(true);
+        when(registry.resolve(event)).thenReturn(route(ROUTING_KEY));
+
+        dispatcher(service, registry).dispatch();
+
+        Message received = rabbitTemplate.receive(QUEUE, 2_000);
+        assertNotNull(received);
+        assertEquals("request-A",
+                received.getMessageProperties().getHeader(TraceContext.REQUEST_ID_HEADER));
+        assertEquals(event.getEventId(),
+                received.getMessageProperties().getHeader(TraceContext.EVENT_ID_HEADER));
+    }
+
     private static OutboxDispatcher dispatcher(
             OutboxEventService service,
             OutboxRouteRegistry registry
@@ -214,6 +241,11 @@ class OutboxRabbitIntegrationTests {
         rabbitAdmin.declareExchange(exchange);
         rabbitAdmin.declareQueue(queue);
         rabbitAdmin.declareBinding(BindingBuilder.bind(queue).to(exchange).with(ROUTING_KEY));
+    }
+
+    private static void drainQueue() {
+        // Purge does not depend on a cached consumer surviving the preceding outage case.
+        rabbitAdmin.purgeQueue(QUEUE, false);
     }
 
     private static void waitUntilRabbitMqReady() throws Exception {

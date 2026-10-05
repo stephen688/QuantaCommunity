@@ -6,6 +6,7 @@ import com.quanta.demo0.platform.mq.enums.OutboxEventStatus;
 import com.quanta.demo0.platform.mq.mapper.OutboxEventMapper;
 import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
 import com.quanta.demo0.platform.mq.service.OutboxEventService;
+import com.quanta.demo0.platform.web.trace.TraceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -128,6 +129,7 @@ public class OutboxEventServiceImpl implements OutboxEventService {
         event.setStatus(event.getStatus() == null
                 ? OutboxEventStatus.PENDING.getCode()
                 : event.getStatus());
+        event.setTraceId(TraceContext.resolveEvent(event.getTraceId(), event.getEventId()));
         event.setRetryCount(event.getRetryCount() == null ? 0 : event.getRetryCount());
         event.setNextRetryTime(event.getNextRetryTime() == null ? now : event.getNextRetryTime());
         event.setReplayCount(event.getReplayCount() == null ? 0 : event.getReplayCount());

@@ -27,6 +27,8 @@ secrets.*
 
 # ---- 运行数据 / 本地状态 ----
 *.log
+demo0/logs/
+QuantaBot/data/logs/
 data/
 vector-store/
 *.sqlite

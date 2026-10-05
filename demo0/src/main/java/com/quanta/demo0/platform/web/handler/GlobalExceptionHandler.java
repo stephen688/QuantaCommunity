@@ -139,8 +139,7 @@ public class GlobalExceptionHandler {
     // 7. 系统异常 → 500
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception ex){
-        log.error("系统异常：{}", ex.getMessage());
-        ex.printStackTrace();
+        log.error("系统异常", ex);
         return Result.error(500, "系统繁忙，请稍后再试");
     }
 

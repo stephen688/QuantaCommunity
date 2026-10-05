@@ -5,6 +5,7 @@ import json
 import httpx
 import pytest
 
+from quanta_bot.crosscutting.trace_context import trace_scope
 from quanta_bot.infra.main_service import (
     HTTPCommentTreeFetcher,
     HTTPReplyWriter,
@@ -205,6 +206,35 @@ async def test_http_reply_writer_posts_comment_add_dto() -> None:
     assert body["replyUserId"] == 5
     assert body["content"] == "[框框·AI 学长] 回复内容"
     assert body["imageUrls"] == []
+
+
+async def test_main_service_requests_capture_current_request_id_without_mutating_shared_headers() -> (
+    None
+):
+    """同一共享客户端的并发调用按当前协程上下文携带 X-Request-Id。"""
+    seen: list[httpx.Request] = []
+
+    async def request_with_trace(trace_id: str, path: str) -> None:
+        with trace_scope(trace_id, f"event-{trace_id}"):
+            await client.get_json(path)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"code": 200, "data": {}})
+
+    client = _client(handler)
+    try:
+        import asyncio
+
+        await asyncio.gather(
+            request_with_trace("request-A", "/bot/comment/history"),
+            request_with_trace("request-B", "/bot/comment/chain"),
+        )
+    finally:
+        await client.aclose()
+
+    assert {request.headers["X-Request-Id"] for request in seen} == {"request-A", "request-B"}
+    assert all(request.headers["Authorization"] == "Bearer svc-token" for request in seen)
 
 
 async def test_http_reply_writer_wraps_failure() -> None:

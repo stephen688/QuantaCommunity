@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS tb_notification (
 CREATE TABLE IF NOT EXISTS tb_outbox_event (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     event_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    trace_id VARCHAR(64) DEFAULT NULL,
     event_type VARCHAR(64) NOT NULL,
     aggregate_type VARCHAR(64) NOT NULL,
     aggregate_id BIGINT NOT NULL,

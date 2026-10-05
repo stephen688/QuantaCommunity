@@ -18,6 +18,11 @@ from pydantic import ValidationError
 
 from quanta_bot.crosscutting.killswitch import ControlPlane
 from quanta_bot.crosscutting.ports import DecisionLogEntry
+from quanta_bot.crosscutting.trace_context import (
+    is_valid_event_id,
+    resolve_trace_id,
+    trace_scope,
+)
 from quanta_bot.pipeline.pipeline import PipelineDeps, run
 from quanta_bot.pipeline.trigger import TriggerEvent
 
@@ -65,31 +70,90 @@ class CommentEventConsumer:
 
     async def _handle(self, message: aio_pika.IncomingMessage) -> None:
         """单条消息处理：kill 暂停 → 契约校验 → pipeline → ack。"""
-        # kill 暂停（G5）：不 ack 持有消息等待恢复（prefetch=1 backpressure）
-        while self._control_plane.snapshot.kill:
-            await asyncio.sleep(self._poll_seconds)
-        try:
-            event = TriggerEvent.model_validate(json.loads(message.body))
-        except (json.JSONDecodeError, UnicodeDecodeError, ValidationError) as exc:
-            # 毒丸：契约不符丢弃 + 决策日志留痕（comment_id 未知用 0 哨兵）
-            logger.warning("消息契约不符（丢弃）：%s", exc)
-            await self._deps.audit.record(
-                DecisionLogEntry(
-                    comment_id=0, decision="failed", mode=None, reason=f"消息契约不符丢弃：{exc}"
+        headers = getattr(message, "headers", None) or {}
+        header_trace_id = _header_value(headers, "x-request-id")
+        header_event_id = _header_value(headers, "x-event-id")
+        body_event_id = _body_event_id(message.body)
+        event_id = (
+            header_event_id
+            if is_valid_event_id(header_event_id)
+            else body_event_id
+            if is_valid_event_id(body_event_id)
+            else None
+        )
+        trace_id = resolve_trace_id(header_trace_id, event_id)
+
+        with trace_scope(trace_id, event_id):
+            logger.info("mq_message_started")
+            # kill 暂停（G5）：不 ack 持有消息等待恢复（prefetch=1 backpressure）
+            while self._control_plane.snapshot.kill:
+                await asyncio.sleep(self._poll_seconds)
+            try:
+                event = TriggerEvent.model_validate(json.loads(message.body))
+            except (json.JSONDecodeError, UnicodeDecodeError, ValidationError) as exc:
+                # 毒丸：契约不符丢弃 + 决策日志留痕（comment_id 未知用 0 哨兵）
+                logger.warning("消息契约不符（丢弃）：%s", type(exc).__name__)
+                await self._deps.audit.record(
+                    DecisionLogEntry(
+                        comment_id=0,
+                        decision="failed",
+                        mode=None,
+                        reason=f"消息契约不符丢弃：{type(exc).__name__}",
+                    )
                 )
-            )
-            await message.ack()
-            return
-        try:
-            await run(event, self._deps)
-        except Exception as exc:  # 消费兜底：管线未覆盖异常记 failed（静默不回）
-            logger.warning("管线异常兜底（记 failed）：%s", exc)
-            await self._deps.audit.record(
-                DecisionLogEntry(
-                    comment_id=event.comment_id,
-                    decision="failed",
-                    mode=None,
-                    reason=f"消费者兜底：{exc}",
+                await message.ack()
+                return
+            try:
+                # Pydantic 校验后的 eventId 优先，保证旧消息无 header 时仍稳定关联。
+                if event_id is None and is_valid_event_id(event.event_id):
+                    with trace_scope(trace_id, event.event_id):
+                        decision = await run(event, self._deps)
+                else:
+                    decision = await run(event, self._deps)
+                logger.info(
+                    "bot_pipeline_completed commentId=%s decision=%s",
+                    event.comment_id,
+                    decision,
                 )
-            )
-        await message.ack()  # 成功 ack 消息，确认处理完成
+            except Exception as exc:  # 消费兜底：管线未覆盖异常记 failed（静默不回）
+                logger.warning("管线异常兜底（记 failed）：%s", type(exc).__name__, exc_info=True)
+                await self._deps.audit.record(
+                    DecisionLogEntry(
+                        comment_id=event.comment_id,
+                        decision="failed",
+                        mode=None,
+                        reason=f"消费者兜底：{type(exc).__name__}",
+                    )
+                )
+            await message.ack()  # 成功 ack 消息，确认处理完成
+            logger.info("mq_message_acked commentId=%s", event.comment_id)
+
+
+def _header_value(headers: object, name: str) -> object | None:
+    """大小写不敏感读取单值 MQ header；重复/容器值视为不可信。"""
+    if not hasattr(headers, "items"):
+        return None
+    matches: list[object] = []
+    for key, value in headers.items():
+        if isinstance(key, bytes):
+            try:
+                key = key.decode("ascii")
+            except UnicodeDecodeError:
+                continue
+        if isinstance(key, str) and key.lower() == name:
+            matches.append(value)
+    if len(matches) != 1 or isinstance(matches[0], (list, tuple, set, dict)):
+        return None
+    return matches[0]
+
+
+def _body_event_id(body: bytes) -> str | None:
+    """仅读取 JSON 根 eventId，毒丸/其他字段不进入日志上下文。"""
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    value = payload.get("eventId")
+    return value if isinstance(value, str) else None

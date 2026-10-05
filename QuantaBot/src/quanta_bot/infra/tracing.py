@@ -49,7 +49,11 @@ class LangfuseTracer:
                 as_type="span",
                 input=trace.trigger_content,
                 output=f"{trace.decision}: {trace.reason}",
-                metadata=trace.model_dump(mode="json"),
+                metadata={
+                    **trace.model_dump(mode="json"),
+                    "business_trace_id": trace.trace_id,
+                    "event_id": trace.event_id,
+                },
                 end_on_exit=True,
             ) as root:
                 if trace.generated_content is not None:

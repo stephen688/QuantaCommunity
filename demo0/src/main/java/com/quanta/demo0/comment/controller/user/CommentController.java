@@ -77,7 +77,8 @@ public class CommentController {
             @RequestHeader(value = "Idempotency-Key", required = false) String submissionToken) {
         // 注意返回值只给新评论 ID：评论此时是"待审核"状态（见 sendComment 第 5 步），
         // 前端可先本地渲染草稿，待审核事件走完后由列表查询刷新为可见。
-        log.info("发布评论: {}", commentAddDTO);
+        log.info("comment_submission_started contentId={}, parentId={}",
+                commentAddDTO.getContentId(), commentAddDTO.getParentId());
         Long commentId = submissionService.execute(
                 SubmissionScene.COMMENT_SEND,
                 submissionToken,

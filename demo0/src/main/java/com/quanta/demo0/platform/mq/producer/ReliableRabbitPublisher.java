@@ -1,6 +1,8 @@
 package com.quanta.demo0.platform.mq.producer;
 
 import com.quanta.demo0.platform.mq.properties.OutboxDispatchProperties;
+import com.quanta.demo0.platform.web.trace.TraceContext;
+import org.springframework.amqp.core.MessagePostProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
@@ -29,15 +31,21 @@ public class ReliableRabbitPublisher {
             Object message,
             String eventId
     ) {
-        CorrelationData correlationData = new CorrelationData(
-                eventId + "-" + UUID.randomUUID()
+        String traceId = TraceContext.resolveEvent(
+                TraceContext.currentTraceId(),
+                eventId
         );
 
-        try {
+        try (TraceContext.Scope ignored = TraceContext.open(traceId, eventId)) {
+            CorrelationData correlationData = new CorrelationData(
+                    eventId + "-" + UUID.randomUUID()
+            );
+
             rabbitTemplate.convertAndSend(
                     exchange,
                     routingKey,
                     message,
+                    traceHeaders(eventId),
                     correlationData
             );
 
@@ -68,5 +76,24 @@ public class ReliableRabbitPublisher {
                     eventId, exchange, routingKey, exception);
             return false;
         }
+    }
+
+    /**
+     * 为重试或死信消息附加关联元数据。消息体契约保持不变，旧消费者会忽略未知头。
+     */
+    private MessagePostProcessor traceHeaders(String eventId) {
+        return rabbitMessage -> {
+            rabbitMessage.getMessageProperties().setHeader(
+                    TraceContext.REQUEST_ID_HEADER,
+                    TraceContext.currentTraceId()
+            );
+            if (eventId != null && eventId.matches("[A-Za-z0-9_.:-]{1,128}")) {
+                rabbitMessage.getMessageProperties().setHeader(
+                        TraceContext.EVENT_ID_HEADER,
+                        eventId
+                );
+            }
+            return rabbitMessage;
+        };
     }
 }

@@ -23,6 +23,7 @@
 新增 `tb_outbox_event`，主要字段：
 
 - `event_id`：UUID，事件唯一标识；
+- `trace_id`：可空 VARCHAR(64)，日志关联编号；创建事件时与业务同事务保存，旧记录在投递时按 event_id 稳定兜底；它不参与 Inbox 去重或租约。
 - `event_type`：事件类型；
 - `aggregate_type`、`aggregate_id`：关联的业务对象；
 - `payload`：投递所需的最小 JSON 消息；

@@ -9,6 +9,7 @@
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
+from quanta_bot.crosscutting.trace_context import current_trace_id
 from quanta_bot.pipeline.generation import GeneratedReply
 from quanta_bot.pipeline.ports import (
     CommentFetchError,
@@ -47,18 +48,24 @@ class MainServiceClient:
         [联调校准点] 外壳与成功码形状按 demo0 现有接口惯例（code/msg/data）；
         D1-D7 落地联调时如实际不同，改此处一处即可（所有 /bot/* 接口共用本基座）。
         """
-        resp = await self._http.get(path, params=params)
+        resp = await self._http.get(path, params=params, headers=_trace_headers())
         resp.raise_for_status()
         return _unwrap_result(resp.json())
 
     async def post_json(self, path: str, payload: dict[str, object]) -> object:
         """POST 并剥壳（写库用，Task 16）。"""
-        resp = await self._http.post(path, json=payload)
+        resp = await self._http.post(path, json=payload, headers=_trace_headers())
         resp.raise_for_status()
         return _unwrap_result(resp.json())
 
     async def aclose(self) -> None:
         await self._http.aclose()
+
+
+def _trace_headers() -> dict[str, str]:
+    """为本次请求创建局部关联 header，不修改共享 AsyncClient 默认 headers。"""
+    trace_id = current_trace_id()
+    return {"X-Request-Id": trace_id} if trace_id else {}
 
 
 def _unwrap_result(body: object) -> object:
