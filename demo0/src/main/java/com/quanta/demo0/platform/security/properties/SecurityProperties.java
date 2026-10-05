@@ -28,6 +28,9 @@ public class SecurityProperties {
      */
     private Boolean apiDocsEnabled = Boolean.FALSE;
 
+    /** 测试 code 登录仅供本地联调；默认关闭，不能绕过管理密码登录。 */
+    private Boolean devLoginEnabled = Boolean.FALSE;
+
     /**
      * CORS跨域配置。
      */

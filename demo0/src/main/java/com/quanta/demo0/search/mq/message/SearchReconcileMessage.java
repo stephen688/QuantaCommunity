@@ -8,6 +8,13 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * ES 索引校准消息（对账指令）。
+ *
+ * <p>贯穿"Outbox 落库 → OutboxDispatcher 首投 → 主队列消费 → 失败重试 → 死信"
+ * 全生命周期的载体，字段保持最小集合：只告诉消费者"对谁对账"，
+ * 不携带"对成什么样"——目标状态永远由消费时重新查 MySQL 得出。</p>
+ */
 @Data
 @Builder
 @AllArgsConstructor

@@ -1,0 +1,7 @@
+flowchart TD
+    A["① POST /content/publish<br/>@RateLimit 5 次/60s · @PreAuthorize(VERIFIED_USER)"] --> B["② 敏感词校验：先标题，后内容"]
+    B --> C["③ 参数校验：类型 1/2 · 标题≤50 · 内容≤500 · 图片≤5"]
+    C --> D["④ INSERT tb_content，audit_status = PENDING"]
+    D --> E["⑤ 同事务登记审核 Outbox：MODERATION_REQUESTED"]
+    E --> F["⑥ 事务提交 → Outbox Dispatcher 投递到 RabbitMQ"]
+    F --> G["⑦ 审核消费者异步处理（见链路二）"]

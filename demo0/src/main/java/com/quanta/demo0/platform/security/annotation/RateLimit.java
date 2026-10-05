@@ -12,11 +12,14 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)// 运行时注解
 public @interface RateLimit {
 
-    String scene();
+    String scene();// 场景，用于限流统计。
 
-    int limit();
+    int limit();// 限流配额（次/窗口）。
 
-    int windowSeconds();
+    /**
+     * 窗口时间（秒）。
+     */
+    int windowSeconds();// 窗口时间（秒）,。
 
     /**
      * BOT 角色独立配额（次/窗口）。
@@ -28,5 +31,5 @@ public @interface RateLimit {
     /**
      * Redis异常时是否拒绝请求。
      */
-    boolean failClosed() default true;
+    boolean failClosed() default true;// Redis异常时是否拒绝请求。
 }

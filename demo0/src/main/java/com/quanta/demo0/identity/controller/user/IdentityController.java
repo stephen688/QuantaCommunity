@@ -21,6 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
  * 保留原 UserController 下的 /user/auth/* 路径，只负责请求映射和统一响应，
  * 认证申请与状态业务全部委托给 IdentityService。
  */
+
+/**
+ * （补充）三个接口的"当前用户"都不从参数里来：/auth/status、/auth/detail 直接
+ * BaseContext.getCurrentId()（登录过滤器校验 token 后写入 ThreadLocal），
+ * /auth/add 由服务层自己取——**用户永远只能操作自己的认证**。
+ * 返回的 UserAuth 是完整实体（含审核备注），但只会是本人数据，
+ * 且 /auth/detail 只放行已通过的记录。
+ */
 @Tag(name = "用户身份认证", description = "用户身份认证相关接口")
 @RestController
 @RequestMapping("/user")

@@ -2,6 +2,14 @@ package com.quanta.demo0.comment.service;
 
 /**
  * 评论审核服务：审核通过后执行计数、热度、ES、通知等副作用
+ *
+ * 【三类调用方，一个状态机】moderation 工作流（机审 PASS/REJECT 回调，
+ * 见 ModerationWorkflowServiceImpl.dispatchCommentDecision）、发布链路
+ * （机审关闭且 disabled-policy=APPROVED 时同事务自动过审，见
+ * CommentCommandServiceImpl.sendComment）、管理端（人工审核/翻案/撤回，
+ * 见 AdminCommentServiceImpl）。所有迁移都是 CAS 条件更新
+ * （updateAuditStatusIfCurrent）：并发调用只有一个赢家，返回 false
+ * 表示"已被别人处理"而非错误。
  */
 public interface CommentAuditService {
 

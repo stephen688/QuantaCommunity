@@ -9,5 +9,11 @@ import com.quanta.demo0.search.result.ReindexResult;
  */
 public interface SearchReindexService {
 
+    /**
+     * 触发 MySQL → ES 的全量重建（当前覆盖 content 索引）。
+     *
+     * @param batchSize 每批从 MySQL 捞取的行数；<=0 时实现回退默认值 1000
+     * @return 统计结果；completed=false 表示中途失败，可直接重跑（幂等）
+     */
     ReindexResult reindexAllFromMySql(int batchSize);
 }

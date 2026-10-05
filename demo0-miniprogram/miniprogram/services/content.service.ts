@@ -10,14 +10,20 @@ import { mockDelay } from '../mock/delay';
 import { seedInteractionFromContentVO } from '../mock/detail-interaction';
 import { findMockContentById, getRecommendMockPool } from '../mock/recommend-pool';
 import { sliceMockScrollResult } from '../mock/scroll-slice';
-import type { ScrollResultVO } from '../types/api';
+import type { RecommendPageVO } from '../types/api';
 import type { ContentDetailModel } from '../types/detail';
 import type { ContentPublishPayload } from '../types/publish';
 import type { ContentCardModel, ContentReportPayload, ContentVO } from '../types/content';
-import type { RecommendQuery, RecommendScene } from '../types/feed';
+import type {
+  RecommendQuery,
+  RecommendQueryOptions,
+  RecommendScene,
+  RecommendationState,
+} from '../types/feed';
 import { bumpAppRefresh } from '../utils/app-refresh-bus';
 import { request, type RequestResult } from '../utils/request';
 import { normalizeImages, withDefaultAvatar } from '../utils/image';
+import { getRecommendVisitor, type RecommendVisitor } from '../utils/recommend-visitor';
 
 export interface RecommendFeedPage {
   list: ContentVO[];
@@ -26,6 +32,10 @@ export interface RecommendFeedPage {
   /** 下一页请求的 lastScore */
   nextLastScore?: number;
   nextOffset: number;
+  feedSessionId?: string;
+  nextCursor?: string;
+  recommendationState?: RecommendationState;
+  canRevisit?: boolean;
 }
 
 function toContentType(n?: number | string): ContentType | undefined {
@@ -121,7 +131,8 @@ export function buildRecommendQuery(
   cursor: number | string | undefined,
   offset: number,
   pageSize: number = DEFAULT_PAGE_SIZE,
-  scene: RecommendScene = 'latest',
+  scene: RecommendScene = 'recommend',
+  options: RecommendQueryOptions = {},
 ): RecommendQuery {
   const q: RecommendQuery = {
     pageSize,
@@ -133,6 +144,17 @@ export function buildRecommendQuery(
   }
   if (typeof cursor === 'number' && !Number.isNaN(cursor)) {
     q.lastScore = cursor;
+  } else if (typeof cursor === 'string' && cursor.trim()) {
+    q.pageCursor = cursor;
+  }
+  if (options.feedSessionId?.trim()) {
+    q.feedSessionId = options.feedSessionId.trim();
+  }
+  if (options.pageCursor?.trim()) {
+    q.pageCursor = options.pageCursor.trim();
+  }
+  if (options.revisitOfSessionId?.trim()) {
+    q.revisitOfSessionId = options.revisitOfSessionId.trim();
   }
   return q;
 }
@@ -173,14 +195,73 @@ function compactQuery(q: RecommendQuery): Record<string, string | number> {
   if (q.lastScore !== undefined && !Number.isNaN(q.lastScore)) {
     out.lastScore = q.lastScore;
   }
+  if (q.pageCursor?.trim()) {
+    out.pageCursor = q.pageCursor.trim();
+  }
   if (q.scene !== undefined) {
     out.scene = q.scene;
+  }
+  if (q.feedSessionId?.trim()) {
+    out.feedSessionId = q.feedSessionId.trim();
+  }
+  if (q.revisitOfSessionId?.trim()) {
+    out.revisitOfSessionId = q.revisitOfSessionId.trim();
   }
   return out;
 }
 
+function recommendationFailure<T>(res: RequestResult<T>): RequestResult<T> {
+  if (res.ok || res.statusCode !== 409) {
+    return res;
+  }
+  return {
+    ...res,
+    errorType: 'recommendExpired',
+    message: '推荐会话已过期，请刷新',
+    businessCode: 409,
+  };
+}
+
+function parseRecommendationState(value: unknown): RecommendationState | undefined {
+  return value === 'READY' || value === 'SEARCHING' || value === 'EXHAUSTED'
+    ? value
+    : undefined;
+}
+
+function toRecommendPage(
+  scroll: RecommendPageVO<ContentVO>,
+): RecommendFeedPage {
+  const nextLast =
+    scroll.minScore === null || scroll.minScore === undefined
+      ? undefined
+      : Number(scroll.minScore);
+  const nextOffset =
+    scroll.offset === null || scroll.offset === undefined ? 0 : Number(scroll.offset);
+  const nextCursor =
+    scroll.nextCursor === null || scroll.nextCursor === undefined
+      ? undefined
+      : String(scroll.nextCursor);
+  const feedSessionId =
+    scroll.feedSessionId === null || scroll.feedSessionId === undefined
+      ? undefined
+      : String(scroll.feedSessionId);
+  return {
+    list: Array.isArray(scroll.list) ? scroll.list : [],
+    hasMore: scroll.hasMore === true ? true : scroll.hasMore === false ? false : undefined,
+    nextLastScore: Number.isNaN(nextLast as number) ? undefined : nextLast,
+    nextOffset: Number.isNaN(nextOffset) ? 0 : nextOffset,
+    ...(feedSessionId ? { feedSessionId } : {}),
+    ...(nextCursor ? { nextCursor } : {}),
+    ...(parseRecommendationState(scroll.recommendationState)
+      ? { recommendationState: parseRecommendationState(scroll.recommendationState) }
+      : {}),
+    ...(typeof scroll.canRevisit === 'boolean' ? { canRevisit: scroll.canRevisit } : {}),
+  };
+}
+
 export async function getRecommendFeed(
   query: RecommendQuery,
+  visitorOverride?: RecommendVisitor,
 ): Promise<RequestResult<RecommendFeedPage>> {
   if (USE_MOCK) {
     await mockDelay();
@@ -204,39 +285,75 @@ export async function getRecommendFeed(
         hasMore,
         nextLastScore: Number.isNaN(nextLast as number) ? undefined : nextLast,
         nextOffset: Number.isNaN(nextOffset) ? 0 : nextOffset,
+        ...(query.feedSessionId ? { feedSessionId: query.feedSessionId } : {}),
+        ...(query.feedSessionId && scroll.hasMore === true
+          ? { nextCursor: String(nextOffset) }
+          : {}),
+        ...(scroll.hasMore === false
+          ? { recommendationState: 'EXHAUSTED' as const, canRevisit: true }
+          : { recommendationState: 'READY' as const }),
       },
     };
   }
 
-  const res = await request<ScrollResultVO<ContentVO>>({
+  const discoveryRequest = query.scene !== 'hot' && Boolean(query.feedSessionId);
+  let visitor: RecommendVisitor | undefined;
+  if (discoveryRequest) {
+    try {
+      visitor = visitorOverride ?? (await getRecommendVisitor());
+    } catch {
+      return { ok: false, errorType: 'invalidData', message: '无法生成游客标识，请重试' };
+    }
+  }
+  const res = await request<RecommendPageVO<ContentVO>>({
     method: 'GET',
     url: '/content/recommend',
     data: compactQuery(query) as Record<string, unknown>,
+    ...(visitor ? { header: { 'X-Guest-Id': visitor.guestId } } : {}),
   });
-  if (!res.ok) {
-    return res;
+  const normalized = recommendationFailure(res);
+  if (!normalized.ok) {
+    return normalized;
   }
-  const scroll = res.data;
+  const scroll = normalized.data;
   if (!scroll || !Array.isArray(scroll.list)) {
     return { ok: false, errorType: 'invalidData', message: '推荐数据格式异常' };
   }
-  const hasMore: boolean | undefined =
-    scroll.hasMore === true ? true : scroll.hasMore === false ? false : undefined;
-  const nextLast =
-    scroll.minScore === null || scroll.minScore === undefined
-      ? undefined
-      : Number(scroll.minScore);
-  const nextOffset =
-    scroll.offset === null || scroll.offset === undefined ? 0 : Number(scroll.offset);
-  return {
-    ok: true,
-    data: {
-      list: scroll.list,
-      hasMore,
-      nextLastScore: Number.isNaN(nextLast as number) ? undefined : nextLast,
-      nextOffset: Number.isNaN(nextOffset) ? 0 : nextOffset,
-    },
-  };
+  return { ok: true, data: toRecommendPage(scroll) };
+}
+
+/** 将进入可视区域的推荐内容回传给服务端；同一批次由调用方负责重试。 */
+export async function reportRecommendExposures(payload: {
+  feedSessionId: string;
+  contentIds: number[];
+}, visitorOverride?: RecommendVisitor): Promise<RequestResult<void>> {
+  const contentIds = Array.from(
+    new Set(
+      payload.contentIds.filter(
+        (contentId) => Number.isInteger(contentId) && contentId > 0,
+      ),
+    ),
+  ).slice(0, 50);
+  if (!payload.feedSessionId?.trim() || contentIds.length === 0) {
+    return { ok: false, errorType: 'invalidData', message: '曝光参数无效' };
+  }
+  if (USE_MOCK) {
+    await mockDelay();
+    return { ok: true, data: undefined };
+  }
+  let visitor: RecommendVisitor;
+  try {
+    visitor = visitorOverride ?? (await getRecommendVisitor());
+  } catch {
+    return { ok: false, errorType: 'invalidData', message: '无法生成游客标识，请重试' };
+  }
+  const res = await request<void>({
+    method: 'POST',
+    url: '/content/recommend/exposures',
+    data: { feedSessionId: payload.feedSessionId.trim(), contentIds },
+    header: { 'X-Guest-Id': visitor.guestId },
+  });
+  return recommendationFailure(res);
 }
 
 /** 内容详情：需登录；非法 id 不发起请求 */
@@ -319,6 +436,7 @@ export async function reportContent(payload: ContentReportPayload): Promise<Requ
 /** 发布内容：需登录 */
 export async function publishContent(
   payload: ContentPublishPayload,
+  submissionToken?: string,
 ): Promise<RequestResult<ContentVO>> {
   const res = await request<ContentVO>({
     method: 'POST',
@@ -329,6 +447,7 @@ export async function publishContent(
       content: payload.content,
       images: payload.images,
     },
+    ...(submissionToken ? { header: { 'Idempotency-Key': submissionToken } } : {}),
   });
   if (res.ok) {
     bumpAppRefresh('myContent');

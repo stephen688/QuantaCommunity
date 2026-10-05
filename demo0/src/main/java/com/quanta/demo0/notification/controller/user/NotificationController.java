@@ -10,6 +10,13 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 用户端 - 通知控制器
+ *
+ * 通知域的 HTTP 读侧入口：列表、未读数、已读标记。
+ * 通知的"产生"不在这里——那走 MQ 消费链路（NotificationConsumer），
+ * 前端到本控制器只能拉取和确认，两侧通过 tb_notification 解耦。
+ *
+ * 【越权防线收在服务层】四个接口都不接 userId 参数（登录人由
+ * BaseContext 提供），且全部 @PreAuthorize("isAuthenticated()") 挡住匿名请求。
  */
 @RestController
 @RequestMapping("/notification")
@@ -44,6 +51,9 @@ public class NotificationController {
     /**
      * 查询未读通知数量
      * @return 未读数量
+     *
+     * 【红点数据源】实时 count(tb_notification)，无缓存无计数器，
+     * 与列表页的已读状态强一致；配合 WebSocket 推送即可实现"弹提醒 + 红点"。
      */
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/unreadCount")
@@ -62,6 +72,9 @@ public class NotificationController {
      * 标记单条通知为已读
      * @param id 通知ID
      * @return 操作结果
+     *
+     * 【id 属于谁，SQL 说了算】更新条件带当前登录人（见 NotificationMapper.xml），
+     * 拿别人的通知 id 调用只会影响 0 行，服务层抛 NoFoundException。
      */
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/read/{id}")
@@ -75,6 +88,8 @@ public class NotificationController {
 
     /**
      * 标记当前用户全部通知为已读
+     *
+     * 一条 UPDATE 刷完（只更新未读行），无分页无上限，幂等可重复调用。
      */
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/readAll")

@@ -34,25 +34,32 @@ function tickClock() {
   })
 }
 
-/** @typedef {'loading' | 'error' | number} StatValue */
+/** @typedef {'loading' | 'error' | 'unavailable' | number} StatValue */
 
-/** @type {{ pendingContent: StatValue, pendingAnswer: StatValue, pendingPostReport: StatValue, pendingCommentReport: StatValue, pendingIdentity: StatValue }} */
+/** @type {{ pendingContent: StatValue, pendingAnswer: StatValue, pendingPostReport: StatValue, pendingCommentReport: StatValue, pendingComment: StatValue, pendingIdentity: StatValue }} */
 const stats = reactive({
   pendingContent: 'loading',
   pendingAnswer: 'loading',
   pendingPostReport: 'loading',
   pendingCommentReport: 'loading',
+  pendingComment: 'loading',
   pendingIdentity: 'loading',
 })
 
 const shortcuts = [
-  { path: '/user', label: '用户管理', icon: User },
-  { path: '/content', label: '帖子管理', icon: Document },
-  { path: '/answer', label: '回答管理', icon: ChatLineRound },
-  { path: '/comment', label: '评论管理', icon: ChatDotRound },
-  { path: '/report', label: '举报管理', icon: Warning },
-  { path: '/identity', label: '身份认证', icon: Stamp },
+  { path: '/user', label: '用户管理', icon: User, authority: 'USER_BAN' },
+  { path: '/content', label: '帖子管理', icon: Document, authority: 'CONTENT_READ_ADMIN' },
+  { path: '/answer', label: '回答管理', icon: ChatLineRound, authority: 'CONTENT_READ_ADMIN' },
+  { path: '/comment', label: '评论管理', icon: ChatDotRound, authority: 'CONTENT_READ_ADMIN' },
+  { path: '/report', label: '举报管理', icon: Warning, authority: 'CONTENT_READ_ADMIN' },
+  { path: '/identity', label: '身份认证', icon: Stamp, authority: 'IDENTITY_AUDIT' },
 ]
+
+const canReadContent = computed(() => userStore.hasAuthority('CONTENT_READ_ADMIN'))
+const canAuditIdentity = computed(() => userStore.hasAuthority('IDENTITY_AUDIT'))
+const visibleShortcuts = computed(() => shortcuts.filter((item) => (
+  !item.authority || userStore.hasAuthority(item.authority)
+)))
 
 function go(path) {
   router.push(path)
@@ -60,7 +67,7 @@ function go(path) {
 
 function formatStat(v) {
   if (v === 'loading') return '…'
-  if (v === 'error') return '—'
+  if (v === 'error' || v === 'unavailable') return '—'
   return String(v)
 }
 
@@ -76,28 +83,42 @@ async function fetchTotals() {
   const jobs = [
     {
       key: 'pendingContent',
+      authority: 'CONTENT_READ_ADMIN',
       run: () => contentApi.page({ auditStatus: 0, pageSize: 1 }),
     },
     {
       key: 'pendingAnswer',
+      authority: 'CONTENT_READ_ADMIN',
       run: () => answerApi.page({ auditStatus: 0, pageSize: 1 }),
     },
     {
       key: 'pendingPostReport',
+      authority: 'CONTENT_READ_ADMIN',
       run: () => contentApi.reportPage({ status: 0, pageSize: 1 }),
     },
     {
       key: 'pendingCommentReport',
+      authority: 'CONTENT_READ_ADMIN',
       run: () => commentApi.reportPage({ status: 0, pageSize: 1 }),
     },
     {
+      key: 'pendingComment',
+      authority: 'CONTENT_READ_ADMIN',
+      run: () => commentApi.page({ auditStatus: 0, pageSize: 1 }),
+    },
+    {
       key: 'pendingIdentity',
+      authority: 'IDENTITY_AUDIT',
       run: () => identityExamApi.page({ auditStatus: 0, pageSize: 1 }),
     },
   ]
 
   await Promise.all(
-    jobs.map(async ({ key, run }) => {
+    jobs.map(async ({ key, authority, run }) => {
+      if (authority && !userStore.hasAuthority(authority)) {
+        stats[key] = 'unavailable'
+        return
+      }
       try {
         const data = await run()
         stats[key] = Number(data?.total ?? 0)
@@ -113,8 +134,12 @@ const recentEvents = ref([])
 async function fetchRecentEvents() {
   try {
     const [contentRes, identityRes] = await Promise.allSettled([
-      contentApi.page({ pageNum: 1, pageSize: 3 }),
-      identityExamApi.page({ pageNum: 1, pageSize: 3 }),
+      canReadContent.value
+        ? contentApi.page({ pageNum: 1, pageSize: 3 })
+        : Promise.resolve(null),
+      canAuditIdentity.value
+        ? identityExamApi.page({ pageNum: 1, pageSize: 3 })
+        : Promise.resolve(null),
     ])
     const events = []
     if (contentRes.status === 'fulfilled' && contentRes.value) {
@@ -193,6 +218,7 @@ onUnmounted(() => {
     <section class="dash-stats" aria-label="待处理统计">
       <div class="dash-stats-grid">
         <button
+          v-if="canReadContent"
           type="button"
           class="dash-stat card-lift"
           :class="{ 'dash-stat--pending': isPendingStat(stats.pendingContent) }"
@@ -209,6 +235,7 @@ onUnmounted(() => {
         </button>
 
         <button
+          v-if="canReadContent"
           type="button"
           class="dash-stat card-lift"
           :class="{ 'dash-stat--pending': isPendingStat(stats.pendingAnswer) }"
@@ -225,6 +252,7 @@ onUnmounted(() => {
         </button>
 
         <button
+          v-if="canReadContent"
           type="button"
           class="dash-stat card-lift"
           :class="{ 'dash-stat--pending': isPendingStat(stats.pendingPostReport) }"
@@ -241,6 +269,7 @@ onUnmounted(() => {
         </button>
 
         <button
+          v-if="canReadContent"
           type="button"
           class="dash-stat card-lift"
           :class="{ 'dash-stat--pending': isPendingStat(stats.pendingCommentReport) }"
@@ -257,6 +286,24 @@ onUnmounted(() => {
         </button>
 
         <button
+          v-if="canReadContent"
+          type="button"
+          class="dash-stat card-lift"
+          :class="{ 'dash-stat--pending': isPendingStat(stats.pendingComment) }"
+          @click="go('/comment')"
+        >
+          <div class="dash-stat-top">
+            <div class="dash-stat-icon">
+              <el-icon :size="22"><ChatDotRound /></el-icon>
+            </div>
+            <span class="dash-stat-num count-animate">{{ formatStat(stats.pendingComment) }}</span>
+          </div>
+          <p class="dash-stat-label">待审核评论</p>
+          <span class="dash-stat-link">查看 <el-icon :size="14"><ArrowRight /></el-icon></span>
+        </button>
+
+        <button
+          v-if="canAuditIdentity"
           type="button"
           class="dash-stat card-lift"
           :class="{ 'dash-stat--pending': isPendingStat(stats.pendingIdentity) }"
@@ -278,7 +325,7 @@ onUnmounted(() => {
       <h3 class="dash-shortcuts-title">快捷入口</h3>
       <div class="dash-shortcuts-grid">
         <button
-          v-for="item in shortcuts"
+          v-for="item in visibleShortcuts"
           :key="item.path"
           type="button"
           class="dash-shortcut card-lift"
@@ -432,7 +479,7 @@ onUnmounted(() => {
 
 @media (min-width: 1400px) {
   .dash-stats-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
   }
 }
 

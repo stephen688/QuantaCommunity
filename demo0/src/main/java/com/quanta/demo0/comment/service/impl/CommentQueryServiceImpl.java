@@ -39,6 +39,35 @@ import java.util.stream.Collectors;
  * 评论查询服务实现。
  *
  * 负责评论与回复分页查询、点赞状态和用户展示信息组装，不承担写操作。
+ *
+ * ============================================================
+ * 【为什么"两段式分页"而不是一次查出整棵评论树？】
+ * ============================================================
+ * 如果用一条 SQL 把"一级评论 + 全部楼中楼"整棵树查出来，有两个代价：
+ * 分页只能作用在整棵树上（LIMIT 会把排在后面的楼的回复拦腰截断），
+ * 且热帖的全树数据量没有上限。所以这里拆成两个入口：
+ * commentPage() 只对一级评论分页（SQL 里 parent_id IS NULL，见 CommentMapper.xml 的
+ * selectFirstLevelComments），并为每个一楼内联前 3 条回复做预览
+ * （selectTopRepliesByParentIds 用 ROW_NUMBER() 窗口函数一次取每组前 3）；
+ * 用户点开某楼后再调 replyPage() 对该楼的回复单独分页（selectByParentId）。
+ * **翻页语义清晰，且单次请求的数据量有确定上限**。
+ *
+ * ============================================================
+ * 【可见性口径压在 SQL 层，而不是 Java 层】
+ * ============================================================
+ * 所有用户侧查询 SQL 统一带 is_deleted = 0 AND audit_status = 1（见 CommentMapper.xml 的
+ * selectFirstLevelComments / selectReplyCountsByParentIds / selectTopRepliesByParentIds /
+ * selectByParentId），即待审(0)和驳回(2)的评论一律不可见。过滤写死在 SQL 里，Java 层不做
+ * 二次筛选，**口径只维护一处，多个入口不会看到不一致的评论**。
+ * commentPage 开头还会先校验内容本身：帖子不存在或未过审时直接报错，不给不可见内容吐评论区。
+ *
+ * ============================================================
+ * 【N+1 的防与不防】
+ * ============================================================
+ * 回复数用 GROUP BY 一次聚合（selectReplyCountsByParentIds），回复预览用窗口函数一次取
+ * 每组前 3，用户信息与点赞状态都按 id 集合批量查——**每页的 SQL 次数固定，不随评论数增长**。
+ * 唯一留下的重复：answerId 非空时 getAnswerSnapshot 会被查两次（一次开头校验、一次取答主 id），
+ * 多付一次读查询，换取两段代码各自只干一件事。
  */
 @Service
 @RequiredArgsConstructor
@@ -64,6 +93,10 @@ public class CommentQueryServiceImpl implements CommentQueryService {
     /**
      * 查询一级评论、回复预览、点赞状态和用户展示信息。
      *
+     * <p>【PageHelper 坑】startPage 只对"紧接着执行的下一条 SQL"生效（ThreadLocal 拦截实现），
+     * 中间若插入其他查询会被误分页——所以 startPage 之后必须紧跟 selectFirstLevelComments。
+     * Page 对象除当页数据外还带符合条件的 total，供 hasMore 与总数透出。</p>
+     *
      * @param commentPageDTO 评论分页请求
      * @return 评论分页结果
      */
@@ -79,9 +112,11 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         int sortType = (commentPageDTO.getSortType() == null ||
                 (commentPageDTO.getSortType() != 1 && commentPageDTO.getSortType() != 2))
                 ? 1 : commentPageDTO.getSortType();
+        // 【口径】sortType 只认 1(时间倒序)/2(点赞倒序)，null 或其它值一律回落 1——分页参数不信任前端
 
 
         //2. 查询内容是否存在，且审核状态为通过
+        // audit_status 取值见 AuditStatus 枚举：0 待审 / 1 通过 / 2 驳回，只有通过的内容才开放评论区
         ContentSnapshotVO content = contentQueryService.getContentSnapshot(commentPageDTO.getContentId());
         if (content == null) {
             throw new CommentFailedException("内容不存在");
@@ -101,6 +136,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
 
         }
         //4.分页查询一级评论
+        // 【坑】startPage 只拦"下一条" SQL，必须紧贴 selectFirstLevelComments，中间不能插别的查询
         PageHelper.startPage(pageNum, pageSize);
         Page<ContentComment> page = commentMapper.selectFirstLevelComments(commentPageDTO.getContentId(), commentPageDTO.getAnswerId(), sortType);
 
@@ -133,6 +169,8 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         // parentIds = [1, 2, 3]
 
         // 6.批量查询回复数量（目的：为一级评论添加回复数量）
+        // 【防 N+1】一条 GROUP BY 把本页所有一楼的回复数一次查回，映射成 parentId -> count；
+        // (a,b)->a 是 toMap 的 merge 函数，防重复 key（GROUP BY 结果理论不重复，防御式写法）
         Map<Long, Long> replyCountsMap = commentMapper.selectReplyCountsByParentIds(parentIds)
                 .stream()
                 .collect(Collectors.toMap(
@@ -151,6 +189,9 @@ public class CommentQueryServiceImpl implements CommentQueryService {
 
 
         //7. 批量查询一级评论下的前 3 条回复（内联）
+        // 【防 N+1】XML 用 ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY create_time ASC)
+        // 给每条回复按楼分组编号，外层取 rn <= 3，即每楼时间最早的 3 条做预览；
+        // 外层 SELECT 没有 ORDER BY，组内返回顺序不作强保证
         Map<Long, List<ContentComment>> replyGroups = commentMapper.selectTopRepliesByParentIds(parentIds, 3)
                 .stream()
                 .collect(Collectors.groupingBy(ContentComment::getParentId));
@@ -184,6 +225,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
 
 
         //8.查询点赞状态
+        // 一、二级评论 id 合并后一次查"当前用户点过赞的集合"，未登录时返回空集（全部 isLiked=false）
         Set<Long> likeCommentIds = queryCommentLikeIds(allCommentIds);
         //9.查询用户信息（发布者+被回复用户）
         Set<Long> allUserIds = new HashSet<>();
@@ -224,6 +266,8 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         //     10: 用户 10
         // }
         //用于身份标识
+        // 题主/答主 id 只在此取一次，前端据此渲染身份角标；answerId 非空时这里是本方法第二次
+        // 查回答快照（第一次在开头做校验），见类头【N+1 的防与不防】
         Long contentAuthorId = content.getPublishUserId();  // 题主 ID
         Long answerAuthorId = null;  // 答主 ID（仅专业区有）
         if (commentPageDTO.getAnswerId() != null) {
@@ -318,6 +362,8 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         if (parentComment == null) {
             throw new CommentFailedException("一级评论不存在");
         }
+        // 【层级约定】整棵评论树只有两层：parentId 为 null 的是一楼，回复都挂在一楼下。
+        // 传进来若是二级评论（parentId 非空）直接拒绝——楼中楼不嵌套楼中楼
         if (parentComment.getParentId() != null) {
             throw new CommentFailedException("一级评论不能回复二级评论");
         }
@@ -336,6 +382,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
 
         }
         //3.分页查询二级评论
+        // 同 commentPage：startPage 必须紧贴下一条 SQL（这里即 selectByParentId）
         PageHelper.startPage(pageNum, pageSize);
         Page<ContentComment> page = commentMapper.selectByParentId(replyPageDTO.getParentCommentId(), sortType);
         if (page.isEmpty()) {
@@ -395,6 +442,8 @@ public class CommentQueryServiceImpl implements CommentQueryService {
     }
 
     //查询用户信息
+    // 【防 N+1】按 id 集合一次批量拉用户资料，转 map 供组装时 O(1) 取用；
+    // (v1,v2)->v1 防重复 key（入参是 Set 理论不重复，防御式写法）
     private Map<Long, UserAuthInfoVO> queryUserInfoMap(Set<Long> userIds) {
         if (userIds.isEmpty()) {
             return new HashMap<>();
@@ -410,6 +459,7 @@ public class CommentQueryServiceImpl implements CommentQueryService {
 
 
     //查询点赞信息
+    // 未登录（当前线程没有用户上下文）时直接返回空集，跳过点赞查询
     private Set<Long> queryCommentLikeIds(List<Long> commentIds) {
         Long userId = BaseContext.getCurrentId();
         if (userId == null || commentIds.isEmpty()) {
@@ -419,6 +469,8 @@ public class CommentQueryServiceImpl implements CommentQueryService {
     }
 
     //封装二级评论列表
+    // commentPage 的内联预览与 replyPage 的整页回复共用本方法，
+    // 保证 isBot / 题主 / 答主等身份标识在两个入口的口径一致
     private List<Map<String, Object>> buildReplyList(
             List<ContentComment> replies,
             Set<Long> likeCommentIds,
@@ -468,6 +520,8 @@ public class CommentQueryServiceImpl implements CommentQueryService {
         return replyList;
     }
 
+    // 与写路径 CommentCommandServiceImpl.isBotUser 同判据：bot 固定账号 id
+    // （application.yml 的 quantabot.bot-user-id，默认 10000L），前端据此渲染"AI"角标（C-4）
     private boolean isBotUser(Long userId) {
         return userId != null
                 && userId.equals(quantabotProperties.getBotUserId());

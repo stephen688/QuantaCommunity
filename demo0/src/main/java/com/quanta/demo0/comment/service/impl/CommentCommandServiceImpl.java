@@ -45,6 +45,35 @@ import java.util.Objects;
  *
  * 负责评论发布与删除，保留审核、Outbox、Bot mention 和详情缓存失效语义。
  * 查询与点赞/举报分别由 CommentQueryServiceImpl 和 CommentInteractionServiceImpl 承担。
+ *
+ * ============================================================
+ * 【发布链路全景：一条评论要过几道闸？】
+ * ============================================================
+ * 第一道是同步闸（sendComment 方法内，毫秒级、不打任何外部 API）：
+ * 内容快照校验 → 分区字数上限（CommentZonePolicy：生活区 500 / 专业区 1000）
+ * → 敏感词（SensitiveWordChecker.findFirstHit，classpath 词库同步比对）
+ * → 楼层关系三层校验（父评论 / 回答 / 被回复评论）。
+ * 第二道是异步闸（事务提交之后）：评论入库即 audit_status=0（PENDING），
+ * 机审任务经 Outbox 事件（CommentEventProducer.createCommentModerationEvent）
+ * 交给 moderation 包异步消费，结论再回调 CommentAuditService 流转状态机。
+ *
+ * ============================================================
+ * 【为什么"先落库待审"而不是"审完再落库"？】
+ * ============================================================
+ * 若同步等云审核返回再入库，发布 RT 就被第三方 SLA 绑死，审核服务抖动时
+ * 用户的输入还可能丢失。先以 PENDING 落库 + 审核事件写入同一个事务的
+ * Outbox：发布接口只依赖本地校验，**机审链路失败可以整段重试，用户内容
+ * 永不丢**。代价是待审期间评论不可见——C 端查询 SQL 统一携带
+ * audit_status = 1 过滤（见 CommentMapper.xml 的 selectFirstLevelComments、
+ * selectByParentId 等），管理端 pageAdmin 则不过滤，便于人工处理待审。
+ *
+ * ============================================================
+ * 【安全边界：哪些字段由服务端决定？】
+ * ============================================================
+ * userId 从登录态取（BaseContext 的 ThreadLocal，由 OptionalJwtAuthenticationFilter
+ * 解析 JWT 后写入），**绝不信前端传值**；likeCount 固定 0、auditStatus 固定
+ * PENDING 都由服务端覆盖；parentId / replyCommentId / answerId 虽取自请求，
+ * 但逐项校验归属一致性，杜绝跨内容、跨楼层、跨回答的回复。
  */
 @Service
 @Slf4j
@@ -70,6 +99,13 @@ public class CommentCommandServiceImpl implements CommentCommandService {
     /**
      * 校验并写入评论、图片和用户行为事件；审核开启时同时写入审核 Outbox。
      *
+     * 【整体编排】校验闸门（内容 → 楼层关系 → 分区规则 → 回答 → 被回复评论）
+     * → 落库 → 图片落库 → Outbox/自动通过，全程包在同一个数据库事务里：
+     * 任何一处抛异常，评论、图片、行为事件要么全有要么全无。
+     * 【坑】本方法不做登录态判空：userId 直接取 ThreadLocal，未登录时插入的
+     * user_id 就是 null——身份保证完全依赖入口层（Controller/JWT 过滤器），
+     * 这也是"服务只管业务校验，鉴权前置"的分工约定。
+     *
      * @param commentAddDTO 评论发布请求
      * @return 新评论 ID
      */
@@ -83,10 +119,13 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         //1.校验内容（是否不为空且未被删除，是否通过审核，是否超过500，是否有敏感词）
         Long contentId = commentAddDTO.getContentId();
         ContentSnapshotVO content = contentQueryService.getContentSnapshot(contentId);
+        // getContentSnapshot 是"事实快照"：直查 MySQL、不过滤审核态（见 ContentQueryService 契约），
+        // 所以"存在"与"可见"必须在这里手动判定：null=不存在，auditStatus!=1=未过审。
         if (content == null || content.getAuditStatus() != 1) {
             throw new CommentFailedException("内容不存在或未通过审核");
         }
         int length = commentAddDTO.getContent().length();
+        // 字数上限按分区取值（生活区 500 / 专业区 1000，CommentZonePolicy 常量），规则收口在策略类里
         int maxLength = commentZonePolicy.getMaxLength(content.getContentType());
         if (length > maxLength) {
             throw new CommentFailedException("内容长度超过"+maxLength+"字");
@@ -101,6 +140,10 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         //2如果父级评论不是0，检查父级评论是否存在（是否被删除），
         // 校验父级评论的内容id是否与前端的一致，校验父级评论的parentID是否为0
 
+        // 【数据模型】楼中楼是"两层"结构：parent_id 指向所属一级评论（楼层），
+        // reply_comment_id 指向楼内被回复的那条评论（可为空=直接评论楼层本身）。
+        // 楼内回复分页永远按 parent_id 拉取（见 CommentMapper.selectByParentId），
+        // 因此这里强制"回复只能挂在一级评论下"，从写入侧保证永远查不出三级楼层。
         if (commentAddDTO.getParentId() != null) {
             ContentComment parentComment = commentMapper.selectById(commentAddDTO.getParentId());
 
@@ -135,6 +178,8 @@ public class CommentCommandServiceImpl implements CommentCommandService {
             if (replyComment == null) {
                 throw new CommentFailedException("被回复的评论不存在或已被删除");
             }
+            // 【注意】replyUserId 由前端传入且未与 replyComment.getUserId() 交叉校验，
+            // 回复关系的归属以 replyCommentId 为准；replyUserId 仅用于通知投递与 bot 触发判定。
             // 回复一级评论时 parentId 为 null，其「所属楼层」即 commentId；回复二级时 parentId 为一级评论 id
             Long expectedParentId = replyComment.getParentId() != null
                     ? replyComment.getParentId()
@@ -179,6 +224,8 @@ public class CommentCommandServiceImpl implements CommentCommandService {
 
 
         commentMapper.insert(contentComment);
+        // insert 配置了 useGeneratedKeys + keyProperty=commentId（CommentMapper.xml），
+        // 自增主键在这里被回填进实体，后续图片批量插入和 Outbox 事件都依赖它。
 
 
         Long commentId = contentComment.getCommentId();
@@ -229,8 +276,22 @@ public class CommentCommandServiceImpl implements CommentCommandService {
 
         // 用户新增评论成功：画像行为事件与评论写入同一个事务提交（D2）。
         // 管理员删除/审核驳回路径不经过此处，不重复发事件。
+        // createUserBehaviorEvent 落的是 Outbox 表行（USER_BEHAVIOR_REQUESTED），
+        // 随本事务提交、由 OutboxDispatcher 异步投递——事务回滚则事件行一并回滚，
+        // 不会出现"没有评论却记了 COMMENT 行为"的幽灵画像数据。
         feedEventProducer.createUserBehaviorEvent(userId, contentId, "COMMENT");
 
+        /*
+         * 7. 审核衔接的三分支配置矩阵（配置落点 application.yml: quanta.moderation）：
+         * - shouldModerateComment()=true：写 MODERATION_REQUESTED Outbox，机审异步进行，
+         *   结论由 moderation 工作流回调 CommentAuditService（本方法不直接改状态）；
+         * - 机审关闭但 disabled-policy=APPROVED（当前 yml 对评论的默认值）：
+         *   同事务内直接走一遍 approveComment——CAS 过审、计数、缓存、通知、
+         *   热度、搜索、bot 判定一次到位，相当于"复用审核通道的完整副作用清单，
+         *   而不是在发布链路里再散落一份 if-else"；
+         * - 机审关闭且 policy=PENDING：什么都不做，评论停在待审等人工处理
+         *   （帖子/回答的 disabled-policy 就是这个值，见 yml targets 段）。
+         */
         // 7. 审核开启时，评论、图片和审核 Outbox 在同一个事务中提交。
         if (shouldModerateComment()) {
             commentEventProducer.createCommentModerationEvent(contentComment, imageUrls);
@@ -245,6 +306,11 @@ public class CommentCommandServiceImpl implements CommentCommandService {
     }
 
     /** 全局开关 + 评论类型开关均开启时才走 AI 审核；bot 评论强制机审（总开关与评论开关均不豁免）。 */
+    // 配置落点（application.yml）：quanta.moderation.enabled（总开关，当前 true）+
+    // quanta.moderation.targets.comment.enabled（分类型开关，当前 false 省费用），
+    // 所以默认路径本方法返回 false、由 disabled-policy 分支接管。
+    // bot 账号（quantabot.bot-user-id=10000）的评论在总开关之前判定，任何开关
+    // 组合下都强制机审——bot 的回复是系统生成内容，必须留有可追溯的机审记录。
     boolean shouldModerateComment() {
         // C-6：bot 来源评论强制机审——在总开关之前判定，任何开关组合下 bot 回复都过二审
         if (isBotUser(BaseContext.getCurrentId())) {
@@ -264,12 +330,17 @@ public class CommentCommandServiceImpl implements CommentCommandService {
     }
 
     /** 评论 AI 关闭时默认 policy=APPROVED，避免评论堆积人工审核 */
+    // 对照 yml targets 段：帖子/回答的 disabled-policy=PENDING（关闭机审后
+    // 全部积压到人工），评论则是 APPROVED——低风险、高频、单条价值低的内容
+    // 直接放行，治理预算优先留给帖子这类主内容。
     private boolean isAutoApproveWhenModerationDisabled() {
         AliyunModerationProperties.TargetConfig commentConfig = getCommentTargetConfig();
+        // 配置缺失时按 "APPROVED" 兜底，与 yml 默认值保持一致
         String policy = commentConfig != null ? commentConfig.getDisabledPolicy() : "APPROVED";
         return "APPROVED".equalsIgnoreCase(policy);
     }
 
+    /** 读取 quanta.moderation.targets.comment 配置节；targets 整体未配置或 comment 节缺失时返回 null。 */
     private AliyunModerationProperties.TargetConfig getCommentTargetConfig() {
         AliyunModerationProperties.Targets targets = moderationProperties.getTargets();
         return targets != null ? targets.getComment() : null;
@@ -277,6 +348,14 @@ public class CommentCommandServiceImpl implements CommentCommandService {
 
     /**
      * 校验操作者权限后软删除评论及其回复，并在同一事务中更新派生计数和重建事件。
+     *
+     * 【权限模型】三级放行：评论本人 → 题主（内容发布者）→ 答主（专业区回答
+     * 作者），依次降级查询快照、命中即停；三者皆非才拒绝。社区场景里题主/
+     * 答主有权清理自己页面下的评论，比"仅本人可删"更贴合运营直觉。
+     * 【级联范围】一级评论删除会带走其全部楼内回复（软删评论行 + 物理删图片
+     * 和点赞明细），计数一次减掉 1+回复数；二级评论删除只处理自己一条。
+     * 计数 SQL 是 set xxx = GREATEST(0, xxx + #{i})（见 ContentMapper
+     * .updateCommentCount），并发删除不会把计数打成负数。
      *
      * @param commentId 要删除的评论 ID
      */
@@ -347,6 +426,10 @@ public class CommentCommandServiceImpl implements CommentCommandService {
      * 清理指定内容下的评论关联数据并软删除评论。
      *
      * <p>该方法只处理评论域自身数据，调用方可将其加入内容删除事务。</p>
+     * <p>实际调用方：ContentCommandServiceImpl.deleteContent 与
+     * AdminContentServiceImpl——帖子删除事务里顺带清空评论，保证
+     * "帖子没了，评论必没了"。注意这里不做计数回减：帖子行本身也删了，
+     * 评论数已随之消亡，无需（也无法）把计数减回哪张表。</p>
      */
     @Transactional
     @Override
@@ -360,6 +443,8 @@ public class CommentCommandServiceImpl implements CommentCommandService {
     }
 
     /** 评论数变化后，帖子搜索文档和所属回答搜索文档都需要按 MySQL 最新值重建。 */
+    // 事件里不带评论数增量，只是"触发一次对账"的指令：消费方重查 MySQL
+    // 最新值后重写 ES 文档，因此事件重复投递、乱序都不会算错数。
     private void createCommentSearchEvents(ContentComment comment, String triggerType) {
         searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), comment.getContentId(), triggerType);
         if (comment.getAnswerId() != null) {
@@ -402,6 +487,14 @@ public class CommentCommandServiceImpl implements CommentCommandService {
 
 
     // 删除回复评论
+    /**
+     * 删除二级（楼内回复）评论。
+     * 【为什么不用回写父评论行？】一级评论不落"回复数"字段——查询时的
+     * selectReplyCountsByParentIds 现场 COUNT(*) 聚合（见 CommentMapper.xml），
+     * 楼内回复数永远是算出来的，不是存出来的。所以删回复只需处理自己一条：
+     * 软删行 + 物理删图片/点赞明细 + 内容/回答的评论总数 -1，
+     * 不需要向父评论传播任何变更。
+     */
     private void deleteReplyComment(ContentComment comment) {
         //软删除二级评论
         commentMapper.softDeleteById(comment.getCommentId());
@@ -416,6 +509,8 @@ public class CommentCommandServiceImpl implements CommentCommandService {
         //更新回答表评论数（仅专业区评论需要）
         if (comment.getAnswerId() != null) {
             int updateCount = commentCounterService.changeAnswerCommentCount(comment.getAnswerId(), -1);
+            // 校验受影响行数：回答行不存在（或已删）时计数改不动，抛异常让
+            // 整个删除事务回滚，避免"评论没了、计数还在"的脏状态。
             if (updateCount != 1) {
                 throw new CommentFailedException("删除回答评论数失败");
             }
@@ -425,6 +520,15 @@ public class CommentCommandServiceImpl implements CommentCommandService {
 
     }
 
+    /**
+     * 删除一级评论及其全部楼内回复。
+     * 【与 deleteReplyComment 的本质差别】多了"级联"二字：先查出回复 ID 列表，
+     * 批量软删回复行、物理删回复的图片与点赞，最后软删一级评论自身。
+     * 图片/点赞明细走物理删除，是因为这两张表没有软删位可复用
+     * （见 CommentMapper.xml 的 DELETE 语句），行留着只会拖慢查询。
+     * 【坑】计数减的是 1+replyCommentIds.size()，内容表和回答表两处都要减
+     * 同一个总数，只减一处就会出现"列表里少了一条、计数器没动"的漂移。
+     */
     private void deleteFirstComment(ContentComment comment) {
         //查询一级评论的所有回复评论id
         List<Long> replyCommentIds = commentMapper.selectReplyIdsByParentId(comment.getCommentId());

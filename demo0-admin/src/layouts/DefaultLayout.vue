@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   DataBoard,
   User,
@@ -16,11 +16,15 @@ import {
 } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
 import { eventApi } from '../api/event'
+import { canAccessAdminPage } from '../utils/admin-access'
+import { authApi } from '../api/auth'
+import { logoutAdminSession } from '../utils/admin-session'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const eventDeadCount = ref(0)
+const loggingOut = ref(false)
 let eventOverviewTimer = null
 
 const activeMenu = computed(() => route.path)
@@ -40,6 +44,7 @@ const routeHeaderIcons = {
   AnswerList: ChatLineRound,
   CommentList: ChatDotRound,
   IdentityList: Stamp,
+  PolicyDocList: Collection,
   EventCenter: Connection,
   AuditLogList: Collection,
 }
@@ -49,20 +54,18 @@ const headerIcon = computed(() => routeHeaderIcons[route.name] || DataBoard)
 const menuItems = [
   { index: '/dashboard', icon: DataBoard, label: '控制台' },
   { index: '/user', icon: User, label: '用户管理', authority: 'USER_BAN' },
-  { index: '/content', icon: Document, label: '帖子管理', authority: 'CONTENT_AUDIT' },
-  { index: '/report', icon: Warning, label: '举报管理', authority: 'REPORT_HANDLE' },
-  { index: '/answer', icon: ChatLineRound, label: '回答管理', authority: 'CONTENT_AUDIT' },
-  { index: '/comment', icon: ChatDotRound, label: '评论管理', authority: 'CONTENT_AUDIT' },
+  { index: '/content', icon: Document, label: '帖子管理', authority: 'CONTENT_READ_ADMIN' },
+  { index: '/report', icon: Warning, label: '举报管理', authority: 'CONTENT_READ_ADMIN' },
+  { index: '/knowledge', icon: Collection, label: '政策知识库', roles: ['OPERATIONS_ADMIN'] },
+  { index: '/answer', icon: ChatLineRound, label: '回答管理', authority: 'CONTENT_READ_ADMIN' },
+  { index: '/comment', icon: ChatDotRound, label: '评论管理', authority: 'CONTENT_READ_ADMIN' },
   { index: '/identity', icon: Stamp, label: '身份认证', authority: 'IDENTITY_AUDIT' },
-  { index: '/events', icon: Connection, label: '事件中心', authority: 'EVENT_REPLAY', showBadge: true },
+  { index: '/events', icon: Connection, label: '事件中心', authority: 'EVENT_READ', showBadge: true },
   { index: '/audit-logs', icon: Collection, label: '审计日志', authority: 'AUDIT_LOG_READ' },
 ]
 
 function canShowMenu(item) {
-  if (!item.authority) {
-    return true
-  }
-  return userStore.hasAuthority(item.authority)
+  return canAccessAdminPage(userStore, item)
 }
 
 const roleText = computed(() => {
@@ -97,10 +100,27 @@ const avatarLetter = computed(() => {
   return /[a-zA-Z]/.test(ch) ? ch.toUpperCase() : ch
 })
 
-function logout() {
-  userStore.clearSession()
-  ElMessage.success({ message: '已退出登录', duration: 2000 })
-  router.replace({ name: 'Login' })
+async function logout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await logoutAdminSession({ api: authApi, store: userStore })
+    ElMessage.success({ message: '已退出登录', duration: 2000 })
+    await router.replace({ name: 'Login' })
+  } catch {
+    try {
+      await ElMessageBox.confirm('服务器退出请求未完成。可以重试，或仅清除本机登录状态；服务器会话可能仍有效。', '退出请求失败', {
+        confirmButtonText: '仅退出本机', cancelButtonText: '稍后重试', type: 'warning',
+      })
+      userStore.clearSession()
+      ElMessage.info('已清除本机登录状态')
+      await router.replace({ name: 'Login' })
+    } catch {
+      // 保留会话，供用户再次尝试服务端撤销。
+    }
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 async function loadEventDeadCount() {
@@ -114,8 +134,10 @@ async function loadEventDeadCount() {
 }
 
 onMounted(() => {
-  loadEventDeadCount()
-  eventOverviewTimer = window.setInterval(loadEventDeadCount, 60_000)
+  if (canAccessAdminPage(userStore, { authority: 'EVENT_READ' })) {
+    loadEventDeadCount()
+    eventOverviewTimer = window.setInterval(loadEventDeadCount, 60_000)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -173,9 +195,9 @@ onBeforeUnmount(() => {
       </el-menu>
 
       <div class="aside-footer">
-        <button type="button" class="aside-logout" @click="logout">
+        <button type="button" class="aside-logout" :disabled="loggingOut" @click="logout">
           <el-icon class="aside-logout-icon" :size="18"><SwitchButton /></el-icon>
-          <span>退出登录</span>
+          <span>{{ loggingOut ? '退出中…' : '退出登录' }}</span>
         </button>
       </div>
     </el-aside>
@@ -204,7 +226,7 @@ onBeforeUnmount(() => {
               </el-tag>
             </div>
           </div>
-          <el-button type="primary" link class="logout-btn" @click="logout">退出</el-button>
+          <el-button type="primary" link class="logout-btn" :loading="loggingOut" @click="logout">退出</el-button>
         </div>
       </el-header>
       <el-main class="main">

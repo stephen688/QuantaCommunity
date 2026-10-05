@@ -13,6 +13,17 @@ import org.springframework.stereotype.Component;
  * 注意：
  * 第一次发送由 OutboxDispatcher 负责；
  * 这个 Producer 只负责消费者失败后的重试和死信。
+ *
+ * ============================================================
+ * 【为什么重试/死信不走 Outbox，而是直接投递？】
+ * ============================================================
+ * Outbox 解决的是"业务事务与发消息的原子性"：事件必须与业务写库
+ * 同事务落库，防止业务成功而消息丢失。而重试/死信消息产生于消费侧，
+ * 业务事务早已结束，不存在原子性问题；此刻它们是 MQ 内部的流转衔接
+ * （消费失败 → 重试队列/死信队列），直接经 ReliableRabbitPublisher
+ * 带 publisher confirm 投递即可——**confirm + 未路由检查都通过才返回
+ * true，返回 false 时消费侧会 nack 重回主队列，消息不会丢**。
+ * 若再绕 Outbox 反而引入第二轮调度延迟，还可能与 Inbox 状态脱节。
  */
 @Component
 @Slf4j
@@ -23,6 +34,8 @@ public class SearchReconcileProducer {
 
     /**
      * 发送 ES 校准重试消息。
+     * 投递目标：重试交换机 → 重试队列（停留 60s）→ 死信回主队列。
+     * 返回 false（confirm 超时 / broker NACK / 未路由）时消费侧会 nack 重回主队列。
      */
     public boolean sendRetryTask(SearchReconcileMessage message) {
         try {
@@ -44,6 +57,8 @@ public class SearchReconcileProducer {
 
     /**
      * 将超过重试次数的消息发送到死信队列。
+     * 这是消息生命周期的终点：进死信队列留档，等人工排查后手工补偿，
+     * 不再自动重试。返回 false 时消费侧会 nack 重回主队列，消息不丢。
      */
     public boolean sendDeadTask(SearchReconcileMessage message) {
         try {

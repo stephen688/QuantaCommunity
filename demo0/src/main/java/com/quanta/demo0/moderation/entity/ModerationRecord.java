@@ -11,6 +11,19 @@ import java.time.LocalDateTime;
 
 /**
  * AI 审核记录实体类
+ *
+ * 对应表 tb_moderation_record（见 db/V_ai_moderation.sql），是"机器审了什么、怎么判的"
+ * 的唯一存档：管理端查询（AdminModerationService）、消费端指纹去重（ContentModerationServiceImpl）
+ * 都以它为准。
+ *
+ * ============================================================
+ * 【为什么按 (targetType, targetId, provider) 覆盖写，而不是每次审核插一行？】
+ * ============================================================
+ * 表上有唯一索引 uk_target_provider，Mapper 用 INSERT ... ON DUPLICATE KEY UPDATE
+ * 幂等写入——**一条内容只保留最新一次审核结论**：
+ * - "查最新记录"退化成一次等值查询（selectLatest），管理端秒开；
+ * - contentFingerprint（内容 MD5）配合 taskStatus=DONE 判断"内容没变就不再送审"，省云调用费用。
+ * 【审计追溯】rawResponse 保留云 API 原始报文（MEDIUMTEXT），有争议时可回放当时的机器判断依据。
  */
 @Data
 @AllArgsConstructor
@@ -66,10 +79,15 @@ public class ModerationRecord implements Serializable {
     private String rawResponse; // 对应 MEDIUMTEXT
 
     // 新增字段
+    /** 内容指纹（标题+正文+图片 URL 排序后拼接的 MD5）。与 taskStatus=DONE 配合实现"内容没变不重审" */
     private String contentFingerprint; // 内容指纹
 
 
     // 修改字段类型/注释
+    /**
+     * 任务终态：DONE=审核完成（指纹去重只认它）；FAILED=重试耗尽仍失败
+     * （由 ContentModerationServiceImpl#saveFailedRecord 写入，供运维排查）
+     */
     private String taskStatus; // 仅 DONE/FAILED
 
     /**

@@ -44,30 +44,38 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
     private final ContentDetailCacheInvalidator contentDetailCacheInvalidator;
     private final StringRedisTemplate stringRedisTemplate;
 
+    /**
+     * 点赞内容。
+     */
     @Override
     @Transactional
     public LikeResultVO likeContent(Long contentId, boolean targetLiked) {
+        // ① 检查内容是否存在
         if (contentId == null) {
             throw new ContentFailedException("contentId不能为空");
         }
+        // ② 检查用户是否已点赞
         ContentSnapshotVO content = contentCounterService.getContentSnapshot(contentId);
         if (content == null) {
             throw new ContentFailedException("内容不存在");
         }
+
         Long userId = BaseContext.getCurrentId();
-        boolean changed = false;
+        boolean changed = false;// 是否有变更
 
         if (targetLiked) {
+            // ③ 点赞内容
             ContentLiked contentLiked = ContentLiked.builder()
                     .contentId(contentId)
                     .userId(userId)
                     .createTime(LocalDateTime.now())
                     .build();
+            // ④ 插入点赞记录
             if (contentInteractionMapper.insertContentLiked(contentLiked) == 1) {
                 if (contentCounterService.changeLikedCount(contentId, 1) != 1) {
                     throw new ContentFailedException("点赞失败");
                 }
-                changed = true;
+                changed = true;// 点赞成功
             }
         } else if (contentInteractionMapper.deleteContentLikedByUser(contentId, userId) == 1) {
             if (contentCounterService.changeLikedCount(contentId, -1) != 1) {
@@ -76,7 +84,8 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
             changed = true;
         }
 
-        if (changed && targetLiked && !content.getPublishUserId().equals(userId)) {
+        // ⑤ 发送点赞通知
+               if (changed && targetLiked && !content.getPublishUserId().equals(userId)) {
             NotificationEventMessage notification = NotificationEventMessage.builder()
                     .recipientUserId(content.getPublishUserId())
                     .actorUserId(userId)
@@ -90,6 +99,7 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
 
         if (changed) {
             String triggerType = targetLiked ? "LIKE" : "UNLIKE";
+            //
             feedEventProducer.createHotScoreRecalculateEvent(contentId, triggerType);
             searchEventProducer.createSearchReconcileEvent(ModerationTargetType.CONTENT.name(), contentId, triggerType);
             contentDetailCacheInvalidator.evictAfterCommit(contentId, triggerType);
@@ -188,8 +198,13 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
         }
         return collected;
     }
-
-    private void synchronizeCacheAfterCommit(String key, Long userId, boolean targetState, String businessType) {
+    // ⑥ 事务提交后同步互动缓存
+    /**
+     * 事务提交后同步互动缓存。
+     * 【契约】事务内调用 → 注册 afterCommit 回调，事务回滚则不会失效（正确：数据没变）；
+     * 无事务调用 → 立即失效。不抛异常、无返回值——失效丢失由缓存 TTL 兜底。
+     */
+       private void synchronizeCacheAfterCommit(String key, Long userId, boolean targetState, String businessType) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             return;
         }
@@ -197,6 +212,7 @@ public class ContentInteractionServiceImpl implements ContentInteractionService 
             @Override
             public void afterCommit() {
                 try {
+                    //添加或删除互动缓存记录：key的userId为key，当前时间为score
                     if (targetState) {
                         stringRedisTemplate.opsForZSet().add(key, userId.toString(), System.currentTimeMillis());
                     } else {

@@ -9,6 +9,13 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 
+/**
+ * 管理端审核列表的一行数据（tb_user_auth 单表查询，IdentityExamMapper#list 直接映射）。
+ *
+ * 【statusText 为什么不是库字段？】SQL 查不出中文文案，由
+ * IdentityExamServiceImpl#pageQuery 在 Java 层按 AuditStatus.descByCode 统一填充，
+ * **状态码 → 文案的映射只维护在枚举一处**，前端不用再各抄一份。
+ */
     @Data
     @AllArgsConstructor
     @NoArgsConstructor

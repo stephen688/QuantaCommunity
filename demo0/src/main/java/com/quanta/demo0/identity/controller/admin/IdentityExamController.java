@@ -14,6 +14,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 管理端身份审核工作台（/admin/identityExam/*）。
+ *
+ * ============================================================
+ * 【为什么每个接口都挂 @PreAuthorize，audit 还要再多挂一个 @AdminAudit？】
+ * ============================================================
+ * 两者管的事完全不同：
+ * @PreAuthorize(IDENTITY_AUDIT) 是**准入**——没有该权限的请求根本进不了方法
+ * （PermissionConstants.IDENTITY_AUDIT，权限来自登录快照里的角色映射）；
+ * @AdminAudit 是**追责**——AOP 切面（AdminAuditAspect）只在业务抛异常时补记失败日志
+ * （此时事务已回滚，只能在事务外写"失败审计"），成功记录则由服务层 recordSuccess
+ * 在业务事务内显式写入。**失败走切面、成功走事务**，两层合起来才是完整审计链。
+ */
 @RestController
 @RequestMapping("/admin/identityExam")
 @Slf4j
@@ -45,6 +58,7 @@ public class IdentityExamController {
 
 
     //通过或驳回用户身份认证
+    // targetId 是 SpEL：从入参 DTO 取 authId，审计日志能精确到"审了哪条记录"
     @AdminAudit(
             action = AdminAuditActionConstants.IDENTITY_AUDIT,
             targetType = "IDENTITY_AUTH",

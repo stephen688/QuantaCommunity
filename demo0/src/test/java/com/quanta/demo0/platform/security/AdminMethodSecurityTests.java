@@ -14,6 +14,8 @@ import com.quanta.demo0.platform.security.config.SecurityConfiguration;
 import com.quanta.demo0.platform.security.constant.PermissionConstants;
 import com.quanta.demo0.platform.security.constant.RoleConstants;
 import com.quanta.demo0.content.controller.admin.AdminContentController;
+import com.quanta.demo0.comment.controller.admin.AdminCommentController;
+import com.quanta.demo0.comment.service.AdminCommentService;
 import com.quanta.demo0.platform.mq.admin.controller.AdminEventController;
 import com.quanta.demo0.user.controller.admin.AdminUserController;
 import com.quanta.demo0.identity.controller.admin.IdentityExamController;
@@ -180,6 +182,27 @@ class AdminMethodSecurityTests {
         verify(adminEventService).replayOutbox("event-1");
     }
 
+    /** 举报复合删除必须具备独立删除权限；审核员仍可驳回举报。 */
+    @Test
+    void reportDeletionRequiresDeletePermissionForBothPostsAndComments() throws Exception {
+        authenticateAs("content-token", Set.of(RoleConstants.USER, RoleConstants.CONTENT_AUDITOR));
+        authenticateAs("admin-token", Set.of(RoleConstants.USER, RoleConstants.SUPER_ADMIN));
+        for (String path : new String[]{"/admin/content/report/handle", "/admin/comment/report/handle"}) {
+            for (int result : new int[]{1, 3}) {
+                mockMvc.perform(post(path).header("authorization", "content-token")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reportId\":1,\"handleResult\":" + result + "}"))
+                        .andExpect(status().isForbidden());
+            }
+            mockMvc.perform(post(path).header("authorization", "content-token")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"reportId\":1,\"handleResult\":4}"))
+                    .andExpect(status().isOk());
+            mockMvc.perform(post(path).header("authorization", "admin-token")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"reportId\":1,\"handleResult\":1}"))
+                    .andExpect(status().isOk());
+        }
+    }
+
     private void authenticateAs(
             String token,
             Set<String> roles
@@ -206,6 +229,7 @@ class AdminMethodSecurityTests {
             SecurityAuthenticationEntryPoint.class,
             SecurityAccessDeniedHandler.class,
             AdminContentController.class,
+            AdminCommentController.class,
             AdminUserController.class,
             IdentityExamController.class,
             AdminEventController.class
@@ -237,6 +261,11 @@ class AdminMethodSecurityTests {
         @Bean
         AdminContentService adminContentService() {
             return mock(AdminContentService.class);
+        }
+
+        @Bean
+        AdminCommentService adminCommentService() {
+            return mock(AdminCommentService.class);
         }
 
         @Bean

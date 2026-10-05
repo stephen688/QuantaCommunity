@@ -52,6 +52,28 @@ import static com.quanta.demo0.platform.redis.constant.RedisConstants.*;
  * 设计说明：
  * - 关键状态流转置于事务内，避免审核状态与外部副作用错位；
  * - 通过 ContentExposureService 复用"通过曝光/驳回下线"统一逻辑。
+ *
+ * ============================================================
+ * 【为什么人工审核不复用 ContentAuditServiceImpl.approveContent？】
+ * ============================================================
+ * 机审那条路用 CAS（updateAuditStatusIfPending）把状态机锁死在
+ * "只允许 PENDING → 通过/驳回"，防的是 MQ 重复消费和并发覆盖；
+ * 管理端恰恰**需要突破这个限制**：已通过的帖子要能下架（1→2），
+ * 被驳回的帖子要能翻案重新可见（2→1）—— 这是产品赋予管理员的权力。
+ * 所以本类改用"读旧状态 → 直接 update → 按新旧状态差分补事件"的写法：
+ * **代价是放弃 CAS 保护，换来完整的状态图**。
+ * 重复点击的幂等不靠 CAS，靠"新旧状态相同 = 差分为 0，什么都不做"兜住。
+ *
+ * ============================================================
+ * 【audit 方法是一个"状态差分器"，不是 if-else 流程图】
+ * ============================================================
+ * 骨架：oldAuditStatus（改之前的真实状态）× auditResult（管理员的决定）
+ *   → 差分出"可见性是否变化" → 对称补齐所有下游：
+ *   进池/出池（exposeApprovedContent/hideRejectedContent）、Feed UPSERT/DELETE、
+ *   ES 对账事件、专业区回答联动校准、用户通知、缓存失效。
+ * **事件的依据是状态差，不是动作本身** —— 同一决定重复提交时差分为 0，全部跳过。
+ * 所有 Outbox 事件与状态更新在同一个事务提交，回滚时事件一起消失，不会出现
+ * "状态没改、消息已飞"的幽灵事件（Outbox 模式，见 ContentCommandServiceImpl 的说明）。
  */
 @Service
 @Slf4j
@@ -129,6 +151,9 @@ public class AdminContentServiceImpl  implements AdminContentService {
                 (auditDTO.getAuditResult() != 1 && auditDTO.getAuditResult() != 2)) {
             throw new ContentFailedException("审核结果不合法（1-通过 2-驳回）");
         }
+        // 【安全边界】管理员能决定的只有"结果"（1/2）和驳回原因，
+        // 请求体里没有、也不允许有标题/正文等任何内容字段 —— 帖子本体在这里不可篡改；
+        // 值域也由服务端校验，而不是信任前端下拉框。
 
         // 2. 查询内容是否存在
         Content content = contentMapper.selectById(auditDTO.getContentId());
@@ -140,12 +165,19 @@ public class AdminContentServiceImpl  implements AdminContentService {
         Integer oldAuditStatus = content.getAuditStatus();
 
         // 4. 更新审核状态
+        // 【为什么这里不是 CAS？】见类头：管理端要支持 1→2、2→1 的回流，
+        // updateAuditStatusIfPending 的 WHERE audit_status=0 会把这些合法流转全部挡死。
+        // "读旧状态 → update"之间的并发窗口（状态被机审抢先改掉）后果有限：
+        // 下面的差分按读到的旧状态计算，任何一次后续状态变化还会再对账 —— 最终一致兜底。
         Content updateContent = new Content();
         updateContent.setContentId(auditDTO.getContentId());
         updateContent.setAuditStatus(auditDTO.getAuditResult());
         updateContent.setUpdateTime(LocalDateTime.now());
         contentMapper.update(updateContent);
 
+        // 三个合法流转：0→1 首次上架、1→2 下架、2→1 翻案。
+        // 同状态重复提交（如 1→1）时 visibilityChanged=false，
+        // 下面的曝光/Feed/搜索分支全部跳过 —— 这就是管理端操作的幂等实现。
         boolean visibilityChanged = (oldAuditStatus == 0 && auditDTO.getAuditResult() == 1)
                 || (oldAuditStatus == 1 && auditDTO.getAuditResult() == 2)
                 || (oldAuditStatus == 2 && auditDTO.getAuditResult() == 1);
@@ -193,6 +225,8 @@ public class AdminContentServiceImpl  implements AdminContentService {
             contentExposureService.hideRejectedContent(auditDTO.getContentId());
             log.info("审核驳回（通过→驳回），已清理曝光，contentId={}", auditDTO.getContentId());
         } else if (oldAuditStatus == 2 && auditDTO.getAuditResult() == 1) {
+            // 驳回→通过是管理端独有的"翻案"流转，机审链路永远不会产生这种迁移：
+            // 重新曝光 + Feed UPSERT，让帖子回到推荐池和 Feed。
             content.setAuditStatus(auditDTO.getAuditResult());
             contentEventProducer.createFeedUpsertEvent(content);
             contentExposureService.exposeApprovedContent(toSnapshot(content));
@@ -229,6 +263,16 @@ public class AdminContentServiceImpl  implements AdminContentService {
      * 管理端删除内容
      * 执行流程：
      * 与 deleteContent 完全一致，唯一区别是跳过发布者权限校验
+     *
+     * 【为什么管理端敢跳过发布者校验？】
+     * 用户侧（ContentCommandServiceImpl.deleteContent）必须比对 BaseContext 里的 userId；
+     * 管理端入口在 Controller/拦截器层已完成管理员鉴权，服务层再校验发布者
+     * 反而会挡住"删除任意违规帖"这个核心诉求 —— 鉴权在前，业务在后。
+     *
+     * 【删除本体是同一套"四层清理"】
+     * 事实源软删 → Outbox 同事务 → 缓存失效（afterCommit）→ 投影清理（afterCommit），
+     * 与用户侧逐行对应，分层讲解见 ContentCommandServiceImpl.deleteContent 的注释，
+     * 这里不重复展开。
      *
      * @param contentId 内容 ID
      */

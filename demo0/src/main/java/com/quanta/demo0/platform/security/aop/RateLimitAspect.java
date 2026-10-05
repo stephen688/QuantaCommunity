@@ -27,9 +27,9 @@ import org.springframework.stereotype.Component;
 public class RateLimitAspect {
 
     @Autowired
-    private RateLimitService rateLimitService;
+    private RateLimitService rateLimitService;// 限流服务。
 
-    @Around("@annotation(rateLimit)")
+       @Around("@annotation(rateLimit)")// 环绕通知，用于检查限流。
     public Object checkRateLimit(
             ProceedingJoinPoint joinPoint,
             RateLimit rateLimit

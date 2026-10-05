@@ -34,6 +34,10 @@ import com.quanta.demo0.user.vo.UserInfoVO;
 @Slf4j
 public class UserController {
 
+    @Autowired(required = false)
+    private com.quanta.demo0.platform.security.properties.SecurityProperties securityProperties =
+            new com.quanta.demo0.platform.security.properties.SecurityProperties();
+
     @Autowired
     private UserAccountService userAccountService;
     @Autowired
@@ -59,6 +63,11 @@ public class UserController {
      */
     @PostMapping("/login")
     public Result<UserLoginVO> login(@RequestBody UserLoginDTO userLoginDTO) {
+        String code = userLoginDTO.getCode() == null ? "" : userLoginDTO.getCode().trim();
+        if (("test".equals(code) || "test2".equals(code))
+                && !Boolean.TRUE.equals(securityProperties.getDevLoginEnabled())) {
+            throw new org.springframework.security.access.AccessDeniedException("开发登录已关闭");
+        }
         log.info("微信登录，code 已接收，携带昵称={}", userLoginDTO.getNickName() != null);
         //1.获取openid和id
         User user = userAccountService.weChatLogin(userLoginDTO);

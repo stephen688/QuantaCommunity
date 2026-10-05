@@ -9,6 +9,13 @@ import com.quanta.demo0.identity.vo.UserAuthStatusVO;
  *
  * 管理端审核由 IdentityExamService 负责；本接口只覆盖用户侧公开路径。
  */
+
+/**
+ * （补充）用户侧只有三个动作：提交/重提、查状态、查自己的已通过详情。
+ * 与管理端接口的关键差异在"操作对象从哪来"：本接口所有方法从登录态取 currentId
+ * （controller 里 BaseContext.getCurrentId()），管理端按 authId 操作——
+ * **用户只能动自己的认证，管理员才能动别人的**，两套 Service 把这条边界钉死。
+ */
 public interface IdentityService {
 
     /**

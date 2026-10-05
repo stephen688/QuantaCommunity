@@ -9,6 +9,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotEmpty;
+
+import java.util.List;
 
 /**
  * 推荐流配置：启动时 Redis 冷启动预热、画像流重排参数（召回窗口、行为权重、α 过渡、衰减节奏）。
@@ -34,6 +38,47 @@ public class RecommendProperties {
      */
     @Valid
     private Profile profile = new Profile();
+
+    /** 推荐发现协议，旧客户端仍沿用原推荐分支。 */
+    @Valid
+    private Discovery discovery = new Discovery();
+
+    /** 推荐发现配置：控制探索、逐条曝光及会话资源，不改变热度流。 */
+    @Data
+    public static class Discovery {
+        private boolean enabled = false;
+        @DecimalMin("0.0") @DecimalMax("1.0")
+        private double explorationRatio = 0.2;
+        @Min(1) private int recentDays = 7;
+        @Min(1) private int exposureHours = 24;
+        @Min(1) private int sessionIdleMinutes = 30;
+        @Min(1) private int sessionMaxMinutes = 120;
+        @Min(1) private int maxActiveSessions = 20;
+        @Min(1) private int maxPageSize = 20;
+        @Min(1) private int maxExposureBatch = 50;
+        @NotEmpty
+        private List<@Min(1) Integer> recallWindowSteps = List.of(150, 300, 600, 1200);
+        @Min(1) private int scanBudget = 3000;
+        @Min(1) private int candidateBatchSize = 150;
+
+        /** 防止会话闲置期限越过最长生存期限。 */
+        @AssertTrue(message = "推荐会话闲置期限不能超过最长期限")
+        public boolean isSessionLifetimeValid() {
+            return sessionIdleMinutes <= sessionMaxMinutes;
+        }
+
+        /** 扩召回窗口只能逐步增大，不能循环扫描同一窗口。 */
+        @AssertTrue(message = "推荐召回窗口必须为正数并严格递增")
+        public boolean isRecallWindowsValid() {
+            if (recallWindowSteps == null || recallWindowSteps.isEmpty()) return false;
+            int previous = 0;
+            for (Integer size : recallWindowSteps) {
+                if (size == null || size <= previous) return false;
+                previous = size;
+            }
+            return true;
+        }
+    }
 
     /**
      * 画像流参数集合。

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.quanta.demo0.content.mapper.PolicyDocMapper">
+
+    <sql id="adminColumns">
+        id,
+        doc_id AS docId,
+        title,
+        content,
+        is_deleted AS isDeleted,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <select id="pageAdmin" resultType="com.quanta.demo0.content.vo.PolicyDocAdminVO">
+        SELECT
+        <include refid="adminColumns"/>
+        FROM tb_bot_policy_doc
+        <where>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (
+                    doc_id LIKE CONCAT('%', #{query.keyword}, '%')
+                    OR title LIKE CONCAT('%', #{query.keyword}, '%')
+                    OR content LIKE CONCAT('%', #{query.keyword}, '%')
+                )
+            </if>
+            <if test="query.status == 'ACTIVE'">
+                AND is_deleted = 0
+            </if>
+            <if test="query.status == 'DELETED'">
+                AND is_deleted = 1
+            </if>
+        </where>
+        ORDER BY update_time DESC, id DESC
+    </select>
+
+    <select id="selectAdminDetail" resultType="com.quanta.demo0.content.vo.PolicyDocAdminVO">
+        SELECT
+        <include refid="adminColumns"/>
+        FROM tb_bot_policy_doc
+        WHERE doc_id = #{docId}
+        LIMIT 1
+    </select>
+</mapper>

@@ -375,7 +375,10 @@ export function getReplyList(params: ReplyPageDTO): Promise<RequestResult<Commen
   });
 }
 
-export function sendComment(payload: CommentAddDTO): Promise<RequestResult<number>> {
+export function sendComment(
+  payload: CommentAddDTO,
+  submissionToken?: string,
+): Promise<RequestResult<number>> {
   if (!Number.isFinite(payload.contentId) || payload.contentId <= 0) {
     return Promise.resolve({
       ok: false,
@@ -477,6 +480,7 @@ export function sendComment(payload: CommentAddDTO): Promise<RequestResult<numbe
     method: 'POST',
     url: '/comment/send',
     data: body,
+    ...(submissionToken ? { header: { 'Idempotency-Key': submissionToken } } : {}),
   });
 }
 

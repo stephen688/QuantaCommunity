@@ -1,0 +1,13 @@
+flowchart TD
+    subgraph SAME["对称：数据与投影全部回退"]
+        A1["删点赞明细"] --> A2["计数 -1"]
+        A2 --> A3["Outbox：热度重算 UNLIKE"]
+        A3 --> A4["Outbox：ES 对账 UNLIKE"]
+        A4 --> A5["afterCommit：清详情缓存<br/>afterCommit：ZREM 已赞集合"]
+    end
+    subgraph DIFF["不对称：业务副作用按价值取舍"]
+        B1["点赞：通知作者「有人赞了你」"]
+        B2["取消：不发通知"]
+        B3["点赞：发画像信号 LIKE"]
+        B4["取消：不发画像信号"]
+    end

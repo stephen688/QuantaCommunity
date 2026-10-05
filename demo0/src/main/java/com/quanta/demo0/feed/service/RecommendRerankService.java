@@ -26,6 +26,18 @@ public interface RecommendRerankService {
     RerankResult rerank(Long userId, Integer contentType, int pageSize);
 
     /**
+     * 对已召回候选做纯重排。
+     *
+     * <p>该方法只计算画像、显式偏好和热度排序，不读取或写入曝光集合，也不负责召回、分页和可见性过滤。
+     * 推荐会话可以据此在扩召回和探索选择之间复用同一套排序公式。</p>
+     *
+     * @param userId    当前用户 ID；匿名传 null，匿名不会读取画像
+     * @param candidates 已由调用方按当前事实源筛选过的候选快照
+     * @return finalScore 降序、contentId 降序的稳定候选列表
+     */
+    List<ContentSnapshotVO> rankCandidates(Long userId, List<ContentSnapshotVO> candidates);
+
+    /**
      * 画像流重排结果。
      *
      * @param contents 当页内容快照列表（finalScore 降序，同分 contentId 降序）

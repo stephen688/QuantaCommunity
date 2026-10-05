@@ -201,6 +201,7 @@ export function getAnswerDetail(answerId: number): Promise<RequestResult<AnswerV
 
 export function publishAnswer(
   payload: AnswerPublishPayload,
+  submissionToken?: string,
 ): Promise<RequestResult<AnswerVO>> {
   if (!Number.isFinite(payload.questionId) || payload.questionId <= 0) {
     return Promise.resolve({
@@ -241,6 +242,7 @@ export function publishAnswer(
       questionId: payload.questionId,
       content: payload.content.trim(),
     },
+    ...(submissionToken ? { header: { 'Idempotency-Key': submissionToken } } : {}),
   });
 }
 

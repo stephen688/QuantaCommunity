@@ -16,6 +16,13 @@ import java.util.Objects;
  * 职责：只读取 identity Mapper 并返回稳定 VO；
  * 边界：不依赖 user Entity，也不触发缓存或认证写入。
  */
+
+/**
+ * （补充）getAuthStatus 的三种返回形态，就是全项目对"认证状态"的唯一口径：
+ * 没提交过 → UNSUBMITTED(-1)；被驳回 → 原码 2 + 驳回原因；其余 → 原码透传。
+ * 【为什么只有驳回带 remark？】用户查状态的主要诉求是"为什么被拒"，
+ * 待审/通过没有需要解释的理由——出参字段越少，语义越干净。
+ */
 @Service
 @RequiredArgsConstructor
 public class IdentityQueryServiceImpl implements IdentityQueryService {

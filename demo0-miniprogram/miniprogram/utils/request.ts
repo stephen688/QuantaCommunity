@@ -19,6 +19,7 @@ export interface RequestFailure {
   errorType: ApiErrorType;
   message: string;
   statusCode?: number;
+  businessCode?: number;
   retryAfter?: number;
 }
 
@@ -60,6 +61,42 @@ function readApiMessage(res: WechatMiniprogram.RequestSuccessCallbackResult): st
   return '';
 }
 
+function readApiCode(res: WechatMiniprogram.RequestSuccessCallbackResult): number | undefined {
+  const body = res.data as unknown as ApiResult<unknown> | null | undefined;
+  const code = body && typeof body === 'object' ? Number(body.code) : NaN;
+  return Number.isFinite(code) ? code : undefined;
+}
+
+function isSubmissionRoute(method: string, url: string): boolean {
+  const path = url.replace(/^https?:\/\/[^/]+/i, '').split('?')[0];
+  if (method.toUpperCase() === 'GET' && path === '/submission/status') {
+    return true;
+  }
+  return method.toUpperCase() === 'POST' &&
+    (path === '/content/publish' || path === '/answer/publish' || path === '/comment/send');
+}
+
+function submissionErrorType(
+  message: string,
+  statusCode?: number,
+  businessCode?: number,
+  submissionRoute = false,
+): ApiErrorType | undefined {
+  if (!submissionRoute || (statusCode !== 409 && businessCode !== 409)) {
+    return undefined;
+  }
+  if (message === '提交凭证与内容不一致') {
+    return 'submissionConflict';
+  }
+  if (message === '提交结果尚未确认，请稍后查询') {
+    return 'submissionPending';
+  }
+  if (message === '提交凭证已过期，请先核对发布记录') {
+    return 'submissionExpired';
+  }
+  return 'server';
+}
+
 function readRetryAfterSeconds(res: WechatMiniprogram.RequestSuccessCallbackResult): number | undefined {
   const header = (res.header || {}) as Record<string, string | number | undefined>;
   const raw = header['retry-after'] ?? header['Retry-After'];
@@ -69,6 +106,7 @@ function readRetryAfterSeconds(res: WechatMiniprogram.RequestSuccessCallbackResu
 
 export function request<T>(options: RequestOptions): Promise<RequestResult<T>> {
   const { method = 'GET', url, data, header = {}, showErrorToast = false } = options;
+  const submissionRoute = isSubmissionRoute(method, url);
   const token = getToken();
   const mergedHeader: Record<string, string> = {
     'ngrok-skip-browser-warning': '1',
@@ -107,6 +145,22 @@ export function request<T>(options: RequestOptions): Promise<RequestResult<T>> {
           const msg = (readApiMessage(res) || '操作过于频繁') + suffix;
           showToastIfNeeded(showErrorToast, msg);
           resolve({ ok: false, errorType: 'rateLimited', message: msg, statusCode: status, retryAfter });
+          return;
+        }
+        if (submissionRoute && (status === 400 || status === 409)) {
+          const message = readApiMessage(res) || `请求失败(${status})`;
+          const businessCode = readApiCode(res) ?? status;
+          const errorType = submissionErrorType(message, status, businessCode, submissionRoute) || 'server';
+          const retryAfter = readRetryAfterSeconds(res);
+          showToastIfNeeded(showErrorToast, message);
+          resolve({
+            ok: false,
+            errorType,
+            message,
+            statusCode: status,
+            businessCode,
+            retryAfter,
+          });
           return;
         }
         if (status < 200 || status >= 300) {
@@ -151,7 +205,17 @@ export function request<T>(options: RequestOptions): Promise<RequestResult<T>> {
         if (code !== 200) {
           const msg = result.msg || '服务异常';
           showToastIfNeeded(showErrorToast, msg);
-          resolve({ ok: false, errorType: 'server', message: msg, statusCode: status });
+          const errorType = submissionErrorType(msg, status, code, submissionRoute) || 'server';
+          const businessCode = submissionRoute ? code : undefined;
+          const retryAfter = submissionRoute ? readRetryAfterSeconds(res) : undefined;
+          resolve({
+            ok: false,
+            errorType,
+            message: msg,
+            statusCode: status,
+            ...(businessCode === undefined ? {} : { businessCode }),
+            ...(retryAfter === undefined ? {} : { retryAfter }),
+          });
           return;
         }
 

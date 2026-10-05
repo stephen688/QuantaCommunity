@@ -331,3 +331,33 @@
 .home__safe-bottom {
   height: calc(120rpx + env(safe-area-inset-bottom));
 }
+
+.home__recommend-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18rpx;
+  padding: 24rpx 24rpx 8rpx;
+  color: var(--color-text-secondary, #5c6370);
+}
+
+.home__recommend-state--exhausted {
+  padding-bottom: 0;
+}
+
+.home__recommend-state-text {
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.home__recommend-revisit {
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  color: var(--color-brand, #1e5a4c);
+  background-color: var(--color-chip-neutral-bg, #f0ede7);
+  font-size: 23rpx;
+}
+
+.home__recommend-revisit--hover {
+  opacity: 0.82;
+}

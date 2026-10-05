@@ -1,0 +1,20 @@
+sequenceDiagram
+    autonumber
+    participant A as 管理员请求
+    participant S as AdminRoleServiceImpl
+    participant DB as MySQL
+    participant R as Redis
+    participant U as 被降权用户的下一次请求
+
+    A->>S: revokeRole(userId, roleCode)
+    Note over S,DB: 同一个事务
+    S->>DB: DELETE tb_user_role
+    S->>DB: INSERT 审计（MANDATORY 加入本事务）
+    S->>S: 注册 afterCommit 回调
+    S->>DB: COMMIT
+    Note over S,R: 提交之后才执行
+    S->>R: DEL login:token:{userId}
+    S->>S: 清本实例的认证快照（Caffeine）
+    U->>R: 带旧 Token 请求
+    R-->>U: 会话不存在
+    Note over U: 认证失败 → 降级匿名 → 管理端 401

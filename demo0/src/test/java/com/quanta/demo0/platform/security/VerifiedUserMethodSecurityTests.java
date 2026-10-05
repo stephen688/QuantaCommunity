@@ -18,9 +18,11 @@ import com.quanta.demo0.platform.security.properties.JwtProperties;
 import com.quanta.demo0.platform.security.properties.SecurityProperties;
 import com.quanta.demo0.content.service.ContentCommandService;
 import com.quanta.demo0.content.service.ContentQueryService;
+import com.quanta.demo0.content.vo.ContentVO;
 import com.quanta.demo0.feed.service.FeedQueryService;
 import com.quanta.demo0.interaction.service.ContentInteractionService;
 import com.quanta.demo0.interaction.service.ReportGovernanceService;
+import com.quanta.demo0.platform.web.idempotency.service.SubmissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -60,11 +63,22 @@ class VerifiedUserMethodSecurityTests {
     @Autowired
     private ContentCommandService contentCommandService;
 
+    @Autowired
+    private SubmissionService submissionService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         reset(tokenAuthenticationService, contentCommandService);
+        reset(submissionService);
+        when(submissionService.execute(
+                anyString(),
+                any(),
+                any(),
+                eq(ContentVO.class),
+                any()))
+                .thenAnswer(invocation -> invocation.getArgument(4, Supplier.class).get());
         mockMvc = webAppContextSetup(applicationContext)
                 .apply(springSecurity())
                 .build();
@@ -195,6 +209,11 @@ class VerifiedUserMethodSecurityTests {
         @Bean
         ReportGovernanceService reportGovernanceService() {
             return mock(ReportGovernanceService.class);
+        }
+
+        @Bean
+        SubmissionService submissionService() {
+            return mock(SubmissionService.class);
         }
     }
 }

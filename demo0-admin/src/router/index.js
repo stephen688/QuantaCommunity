@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
 import { authApi } from '../api/auth'
+import { canAccessAdminPage, hasManagementRole } from '../utils/admin-access'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -38,7 +39,7 @@ const router = createRouter({
         {
           path: 'content',
           name: 'ContentList',
-          meta: { title: '帖子管理', authority: 'CONTENT_AUDIT' },
+          meta: { title: '帖子管理', authority: 'CONTENT_READ_ADMIN' },
           component: () => import('../views/content/ContentList.vue'),
         },
         {
@@ -48,19 +49,25 @@ const router = createRouter({
         {
           path: 'report',
           name: 'ReportManage',
-          meta: { title: '举报管理', authority: 'REPORT_HANDLE' },
+          meta: { title: '举报管理', authority: 'CONTENT_READ_ADMIN' },
           component: () => import('../views/report/ReportManage.vue'),
+        },
+        {
+          path: 'knowledge',
+          name: 'PolicyDocList',
+          meta: { title: '政策知识库', roles: ['OPERATIONS_ADMIN'] },
+          component: () => import('../views/knowledge/PolicyDocList.vue'),
         },
         {
           path: 'answer',
           name: 'AnswerList',
-          meta: { title: '回答管理', authority: 'CONTENT_AUDIT' },
+          meta: { title: '回答管理', authority: 'CONTENT_READ_ADMIN' },
           component: () => import('../views/answer/AnswerList.vue'),
         },
         {
           path: 'comment',
           name: 'CommentList',
-          meta: { title: '评论管理', authority: 'CONTENT_AUDIT' },
+          meta: { title: '评论管理', authority: 'CONTENT_READ_ADMIN' },
           component: () => import('../views/comment/CommentList.vue'),
         },
         {
@@ -72,7 +79,7 @@ const router = createRouter({
         {
           path: 'events',
           name: 'EventCenter',
-          meta: { title: '事件中心', authority: 'EVENT_REPLAY' },
+          meta: { title: '事件中心', authority: 'EVENT_READ' },
           component: () => import('../views/event/EventCenter.vue'),
         },
         {
@@ -122,13 +129,13 @@ router.beforeEach(async (to) => {
     return { name: 'Login', query: { redirect: to.fullPath } }
   }
 
-  if (!userStore.hasAnyManagementRole()) {
+  if (!hasManagementRole(userStore)) {
     ElMessage.warning('当前账号无管理权限')
     userStore.clearSession()
     return { name: 'Login' }
   }
 
-  if (to.meta.authority && !userStore.hasAuthority(to.meta.authority)) {
+  if (!canAccessAdminPage(userStore, to.meta)) {
     return { name: 'Forbidden' }
   }
 

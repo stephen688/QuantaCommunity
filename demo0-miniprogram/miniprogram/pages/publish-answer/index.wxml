@@ -22,6 +22,9 @@
           <text class="pa__err-text">{{summaryError}}</text>
           <text class="pa__err-link"> · 点击重试</text>
         </view>
+        <view wx:if="{{pendingSubmissionMessage}}" class="pa__err-row">
+          <text class="pa__err-text">{{pendingSubmissionMessage}}</text>
+        </view>
       </view>
 
       <view class="pa__editor card">

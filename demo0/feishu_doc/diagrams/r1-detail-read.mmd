@@ -1,0 +1,10 @@
+flowchart TD
+    A["GET /content/detail/{contentId}"] --> B{"L1 Caffeine 命中？<br/>TTL 30s"}
+    B -- 命中 --> Z["组装 VO 返回"]
+    B -- 未命中 --> C{"L2 Redis 命中？<br/>TTL 300s ± 60s"}
+    C -- 正常 JSON --> Z
+    C -- "未命中 / 命中墓碑" --> D["loader 查 MySQL，构造快照"]
+    D --> E["Lua CAS 条件回填 L2"]
+    E --> F["回填 L1"]
+    F --> Z
+    Z --> G["单独补齐访问者状态：<br/>是否点赞、是否收藏、记录浏览历史"]

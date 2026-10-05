@@ -2396,3 +2396,74 @@ Outbox/Inbox 两场景同型：BOT_MENTION(463/467)=SENT、MODERATION(463/464、
 | G-01 | C-01 | `publish` 未设 `collectCount` 导致插入异常→500 | 高 | **已修复**（2026-05-19） |
 | G-03 | R-01 | `POST /rag/search` 空 query 返回 HTTP 500，预期 400 | 中 | **已修复**（2026-05-19，`GlobalExceptionHandler` 处理 `@Valid` 校验异常→400） |
 | G-02 | C-01 | 发布默认 `auditStatus=已通过`（L154 TODO），与「待审」设计不一致 | 低 | 待产品确认 |
+
+## S-ADMIN：管理端功能补齐（2026-10-03）
+
+本轮仅管理端及必要主服务接口。按用户“禁止过度测试”的要求，使用新增功能定向验证，未执行全仓、历史 Phase 0-7 或 Bot 模型回归。数据库/会话证明使用隔离 Testcontainers MySQL、Redis 与随机验收凭据，不涉及生产用户。
+
+| 项目 | 状态 | 实际证据与边界 |
+|---|---|---|
+| 密码登录、真实角色与拒绝路径 | PASS | AdminPasswordLoginIntegrationTests：正确凭据签 JWT，安全上下文加载真实权限；错误密码、封禁、软删、无管理角色和 BOT-only 被拒；test 登录默认 403；账号超限 429 并有 Retry-After |
+| 管理端可靠退出 | PASS | POST /admin/auth/logout 撤销当前令牌；Redis 比较删除保留并发新令牌及封禁标记；原 /user/logout 契约保留。前端网络失败保留本地会话供重试或明确仅退出本机 |
+| 角色查询、授权及撤销 | PASS | 后端专用 5 项通过；真实 HTTP/MySQL 验证 USER_READ_ADMIN 读取、运营无法 ROLE_MANAGE、授权/撤销持久化、成功审计与被变更用户旧会话立即失效 |
+| 政策知识库 | PASS | 专用 6 项通过；真实 HTTP/MySQL 验证匿名 401、SUPER-only 403、OPERATIONS_ADMIN 查询/写入；分页、软删、恢复与成功审计；既有 BotContentSyncService 带出 deleted 墓碑 |
+| 凭据一次性初始化 | PASS | AdminCredentialBootstrapTests 3 项真实 MySQL 验证：不存在用户/无管理角色拒绝；合法管理员 BCrypt12 可匹配，已有凭据拒绝覆盖。初始化脚本 PowerShell 解析通过；缺交互 console 时拒绝密码输入 |
+| 举报复合删除权限 | PASS | 单个 MockMvc 定向用例先复现审核员删除返回 200，再验证两类举报的 1/3 处置额外要求 CONTENT_DELETE；审核员驳回仍允许，超级管理员删除允许 |
+| 基础浏览器检查 | PASS | 生产构建登录页实际显示账号/密码、无开发 code 切换；空提交显示“请输入账号和密码” |
+| 用户详情抽屉竞态 | PASS | 一个真实 UserList.vue SFC 定向用例验证旧角色响应不能将新用户的 loading 改成 ready，读取前角色操作保持禁用；旧详情响应也不能覆盖新用户。代码另加关闭失效与确认期间 busy 保护 |
+| 政策业务 ID 一致性 | PASS | 查询、写入 DTO、成功审计统一去除 docId 首尾空白。一个原有用例改用空白输入先复现错误，再 GREEN 1/1 通过；局部独立审查通过 |
+| 完整浏览器操作矩阵 | SKIP | 按用户禁止过度测试的要求，未扩展登录后菜单/抽屉/政策导入的整套浏览器回归；API、页面构建与针对性行为检查分别记证据 |
+| Bot 向量索引／真实问答同步 | SKIP | 管理界面仅维护源文档，未请求 Qdrant、付费 ingest 或 LLM；墓碑可同步不等于向量检索已更新 |
+| 生产部署和真实账号初始化 | PENDING | 迁移与交互式初始化说明见 docs/admin-password-login.md，未对真实数据库执行，未发布 |
+
+真实 API 六项定向测试通过，执行日志 `.codex-build/admin-completion-real-api.log`。举报修复 RED/GREEN 分别见 `.codex-build/admin-report-permission-red.log`、`admin-report-permission-green.log`。前端 18 项 Node 行为测试与新增单个真实 SFC 竞态检查均通过，最终生产构建通过。退出网络故障处理还在临时副本做过一次变异抽查，测试正确失败，变异文件已恢复。测试夹具随容器销毁，未创建持久管理员密码。本轮未改 POM 内容、CI 或 .gitignore，无新增生产依赖。
+
+## S-IDEM：HTTP 提交幂等（2026-10-03）
+
+范围为普通用户发帖、发回答、发评论及回复。按用户“禁止过度测试”的要求，仅执行公共能力、受影响安全/架构检查及 5 个隔离真实集成用例，未执行全仓回归或压测。计划见 `docs/plans/2026-10-03-http-submission-idempotency.md`，手工请求见 `cases/08-submission-idempotency.http`。
+
+| 项目 | 状态 | 实际证据与边界 |
+|---|---|---|
+| 公共契约及包边界 | PASS | 首轮 SubmissionServiceTests、SubmissionHttpTests、VerifiedUserMethodSecurityTests、PackageArchitectureTest 共 13 项通过：原响应重放、摘要冲突、缺头、稳定摘要、状态响应、既有方法授权与分层规则 |
+| BOT 缺头兼容双条件 | PASS | 单独补跑 1 个公共 Service 用例：只有配置的 Bot ID 且具备 BOT 角色可缺头；同角色异 ID、同 ID 缺角色均 400。未以此代替真实 Bot HTTP/模型链路验收 |
+| 三入口与楼层回复 | PASS | SubmissionIdempotencyIntegrationTests 5/5，通过真实 JWT/Security/HTTP、MySQL、Redis、生产 CommandService 与 Mapper；相同 Token 重试返回原 ID，业务记录和 Outbox 不增加。缺头 400、变更请求体 409、匿名查询 401、用户查询隔离均通过 |
+| 并发与事务回滚 | PASS | 2 个真实 HTTP 并发请求共享 Token，仅一份业务与凭证；合法发帖先写业务和审核 Outbox，再通过响应保存大小限制触发异常，业务、凭证、Outbox 一起回滚，恢复配置后原 Token 可成功重试 |
+| Redis 占位丢失后的重放 | PASS | 已成功后删除本次占位，重试及状态查询仍返回 MySQL 保存的原结果、不新增业务。未做 Redis 停机/长事务 TTL 故障演练；既有限流 failClosed 仍保留 |
+| 普通评论最终状态与列表 | PASS | 关闭评论云审核且使用既有 APPROVED 策略，真实提交审核状态为 1；真实公开评论列表仅出现一次。帖子审核 Outbox 写入开启，但 listener 关闭，未调用付费审核服务 |
+| 小程序公共与页面行为 | PASS | 相关 20 项通过；最后回复恢复补丁仅补跑页面 3 项通过，累计 21 项，typecheck 通过。加载临时编译的当前 TS，覆盖原 Token/冻结 payload、存储失败、账户隔离、过期容量、恢复 GET 失效、成功终态及回复恢复后原父层/目标 |
+| 独立审查 | PASS | 修复恢复竞态、成功后重复点击窗口、账号/context/回复恢复、过期容量和路由错误分类后，复查无未解决 P1/P2。已明确 400 清待确认凭证、仅保留当前页可编辑原文/回复目标；不增加已确认失败草稿的跨页面持久恢复 |
+| 通知实际消费与 Bot 全链路 | SKIP | 验证到通知相关 Outbox 不新增；RabbitMQ listener 未开启，未断言通知消费者实际落库，也未调用 QuantaBot/LLM |
+| 小程序设备验收 | PENDING | 已执行当前 TypeScript 的 wx stub 行为检查与 typecheck；微信开发者工具/真机的连点、退出恢复、回复及账号切换仍为发布前手工检查，不用 Node 结果替代设备结论 |
+| 生产迁移与兼容切换 | PENDING | 提供 V_http_submission.sql；隔离 fixture 使用等价凭证结构，未修改开发/生产数据库。默认 SUBMISSION_REQUIRE_USER_KEY=false；迁移 → 兼容后端 → 小程序 → true 的发布流程尚未执行，缺 Token 的旧请求在兼容期不受本次保护 |
+
+真实集成最终日志为 `.codex-build/submission-integration.log`，`Tests run: 5, Failures: 0, Errors: 0, Skipped: 0`。最初 Docker 引擎不可用导致 beforeAll 错误；恢复后首次真实执行因 fixture 缺 `tb_comment_like` 失败，补齐该表及无关调度访问的 `tb_browse_history` 后，唯一一次修复重跑通过，未放宽断言或 mock 领域路径。
+
+Docker 恢复时只保留并改名其损坏的临时 socket 目录，未 reset、prune 或删除容器/卷；本轮临时调整的 EnableDockerAI 已恢复原值。原 demo0 Redis PONG、RabbitMQ ping 和 Elasticsearch green 均重新确认。临时 socket 备份保留在本机 Docker runtime 同级目录，不进入仓库。
+
+关键 Token 复用断言在临时测试副本改为错误值后，单用例以 ERR_ASSERTION 失败；原文件哈希一致，临时副本已清除。存量 VerifiedUserMethodSecurityTests 增加幂等 Service fixture，仅保持原有权限断言；bot-comment.test.cjs 改为加载临时编译的当前 comment.service.ts、显式传 Token，保留 mention 断言。未修改 POM、CI、.gitignore 或新增生产依赖。
+
+## 首页推荐发现与真实曝光（2026-10-04）
+
+范围为首页“推荐／热度”、游客曝光身份、推荐会话分页、近期探索、窗口外续扫与主动再看。热度保留原实现，五分钟版本排行榜没有实施。设计与执行计划见 `docs/plans/2026-10-04-home-recommend-cold-start-{design,plan}.md`；手工请求见 `cases/09-recommend-discovery.http`。遵循用户“禁止过度测试”，只运行受影响目标用例与真实依赖集成，没有跑全仓回归、压测、Bot/云审核。
+
+| 项目 | 状态 | 实际证据与边界 |
+|---|---|---|
+| 后端编译、协议与排序 | PASS | 最终对应 Surefire 报告累计 61 项、0 failures/0 errors：DiscoveryProperties 1、Protocol 2、SessionService 4、Selector 5、RankCandidates 1、旧 Scene 10、旧 Rerank 16、SecurityFilterChain 10、Redis 集成 4、HTTP/SQL 集成 3、PackageArchitecture 5。仅计最终绿色用例，不将 RED 和重跑累加 |
+| 真实 Redis 会话/曝光 | PASS | Redis 7.2-alpine Testcontainers，4 项：并发同 session 创建同快照，owner 提交/释放隔离，同页 ID 重放，已下发归属，重复曝光不续期，过期成员清理，墓碑阻止会话复活。逐条 24h 为 score 计算与人工推进失效证据，未真实等待 24h |
+| HTTP → MyBatis/MySQL → Redis | PASS | MySQL 8.0.43、Redis 7.2-alpine 隔离容器；真实 ContentController/ExposureController、FeedQueryService、SessionService、生产 ContentMapper.xml/ContentQueryService 与 Lua。3 项验证分页互斥、重放、删除缩水、曝光后新轮排除、未上报可刷新、另一游客隔离、耗尽后再看、hot 不建会话/仍返回已曝光帖、分类/审核/软删/时间-ID 续扫 |
+| 集成测试替身范围 | PASS | 上述 HTTP fixture 对作者缓存、互动状态和纯重排使用最小替身，探索配额设为 0 以集中验证会话边界。实际画像算分/显式偏好与探索由独立目标用例证明；不以该 fixture 声称验证了完整推荐模型或生产流量 |
+| 安全与主体选择 | PASS | 真实 SecurityConfiguration/OptionalJwtAuthenticationFilter 链 10 项，TokenAuthenticationService 为测试替身；新增曝光精确路径可匿名通过，邻接内容写仍401。真实 Controller 以可信 BaseContext 用户优先，游客头不能覆盖；完整真实 JWT 登录→新曝光接口没有在本轮 fixture 中执行，不以直接设置 BaseContext 代替该证据 |
+| 小程序初步行为 | PASS | 已执行游客持久化、50%阈值、会话字段、首页账号切换/hot timer、可控 Promise 的旧 hot 请求切流/隐藏隔离、21条曝光 POST20→POST1→新GET 的 drain 顺序，共 8 项新专项；原 bot-comment 9 项在早期同批通过。最后修复后 typecheck 通过 |
+| 断言人工抽查 | PASS | 临时副本将 49% 不应曝光的 batches.length 从 0 改为 1，单用例出现 ERR_ASSERTION、exit=1；原测试未修改，临时副本已移除；另把 drain 首批未完成前的预期 POST 故意改成 POST+GET，单案例再次 ERR_ASSERTION/exit1，证明新 GET 等待顺序断言有效 |
+| 微信开发者工具/真机 | PENDING | 未执行实际滚动、吸顶遮挡、前后台和设备账户切换。Node Page/wx stub 与 typecheck 不代表设备可视曝光验收 |
+| 完整 JWT 与发布开关 | PENDING | 沿用原认证实现，无新权限凭证。真实 JWT 登录后推荐/曝光链与兼容发布仍需按 09 请求及设备步骤验收。`QUANTA_RECOMMEND_DISCOVERY_ENABLED=false` 为兼容发布默认值；隔离集成显式设置 enabled=true，未开启现有开发主服务或生产配置 |
+
+TDD 记录：配置缺少 Discovery API 的 RED、实际推荐 HTTP 丢失会话字段的 RED、编排类缺失的契约编译 RED、小程序新工具/会话字段缺失的 RED；“所有近期候选都是厌恶主题”实际断言 RED 后修为交还主推荐。初轮 49 项唯一错误为新增 RankCandidates 测试的无用 Mockito 桩，删除无用桩后该用例与架构测试通过。批量曝光读取最初误用了不存在的 multiScore 方法，按本地依赖 API 修为 score 的数组重载后真实 Redis/HTTP 通过。HTTP fixture 初次 testCompile 为 converter 错误包名，修正后 3 项全部通过；未放宽断言、跳过失败或修改生产依赖。
+
+存量 SecurityFilterChainTests 仅增加曝光精确放行/相邻写保护断言，旧测试全部保留；本次未改 POM、CI、.gitignore。测试数据只进入隔离容器，未批量改变现有帖子或曝光。测试报告位于 `demo0/target/surefire-reports/TEST-*.xml`，报告为构建产物，不要求纳入 Git。
+
+审查修正与失败语义：独立审查初轮发现探索重复选本页主推荐、构页时删除不补位、换轮清空未发曝光。前两项分别新增实际 RED 后修复，并通过 Selector5、Session4 和真实HTTP3；重放仍只缩水不补位，只有未提交的新页补位。曝光换轮先保留同主体旧队列并 drain 所有当前批次，已在途 flush 共用 Promise；同主体新轮GET等待成功或失败结束，身份改变直接隔离旧 actor。drain 首次发送失败即停止等待并保留有限后台重试，最长等待30秒；失败/超时的曝光尚未成功入 Redis，新一轮允许重复召回，不能宣称这条已曝光。真实网络/设备失败恢复仍是手工验收边界。
+
+用户后续明确前端无需继续扩测，前端验证在当前8项专项与typecheck后停止；保留已完成回归，不再重复执行或扩展设备/网络测试。
+
+独立审查最终 PASS：Selector 主推荐排除、新页删帖补位、同主体多批曝光 drain 与新GET顺序三项均闭环；复查未发现明确残留 P1/P2。复查仅检查相关源码和已执行证据，没有新增测试。
