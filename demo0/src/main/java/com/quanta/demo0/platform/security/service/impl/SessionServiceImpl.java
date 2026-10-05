@@ -10,10 +10,12 @@ import com.quanta.demo0.user.vo.UserAccountVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.quanta.demo0.platform.redis.constant.RedisConstants.LOGIN_USER_KEY;
@@ -32,6 +34,16 @@ public class SessionServiceImpl implements SessionService {
 
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate stringRedisTemplate;
+    // 比较与删除在 Redis 同一原子操作内，避免旧退出请求删除并发登录的新令牌。
+    private static final DefaultRedisScript<Long> REVOKE_SESSION = new DefaultRedisScript<>(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end", Long.class);
+
+    /** {@inheritDoc} */
+    @Override
+    public void revokeSession(Long userId, String token) {
+        if (userId == null || token == null || token.isBlank()) throw new AuthFailedException("登录会话无效");
+        stringRedisTemplate.execute(REVOKE_SESSION, List.of(LOGIN_USER_KEY + userId), token);
+    }
 
     /**
      * 为用户签发 JWT 并保存登录态。

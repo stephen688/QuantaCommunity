@@ -36,9 +36,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
      * 允许管理端操作的管理角色白名单。
      */
     private static final Set<String> MANAGED_ROLES = Set.of(
-            RoleConstants.CONTENT_AUDITOR,
-            RoleConstants.OPERATIONS_ADMIN,
-            RoleConstants.SUPER_ADMIN
+            RoleConstants.CONTENT_AUDITOR,// 内容审核员
+            RoleConstants.OPERATIONS_ADMIN,// 运营管理员
+            RoleConstants.SUPER_ADMIN// 超级管理员
     );
 
     @Autowired
@@ -56,6 +56,28 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     @Autowired
     private UserReadCacheInvalidator userReadCacheInvalidator;
 
+    /**
+     * 查询指定用户当前拥有的角色。
+     *
+     * <p>先通过用户域事实服务确认用户存在，再读取角色表；不存在用户
+     * 直接返回业务错误，避免管理端把错误展示成空角色。</p>
+     *
+     * @param userId 用户 ID
+     * @return 用户当前角色代码列表
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getUserRoles(Long userId) {
+        UserAccountVO user = userQueryService.getAccount(userId);
+        if (user == null) {
+            throw new ContentFailedException("用户不存在");
+        }
+        return userRoleMapper.findRoleCodesByUserId(userId);
+    }
+
+    /**
+     * 授权予用户角色。
+     */
     @Override
     @Transactional
     public void grantRole(Long userId, String roleCode) {

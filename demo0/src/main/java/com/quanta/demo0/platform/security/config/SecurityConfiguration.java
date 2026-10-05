@@ -39,14 +39,17 @@ import java.util.Objects;
 @EnableMethodSecurity
 public class SecurityConfiguration {
 
+    // 注册JWT认证过滤器
     @Autowired
     private OptionalJwtAuthenticationFilter
             optionalJwtAuthenticationFilter;
 
+    // 注册401处理类
     @Autowired
     private SecurityAuthenticationEntryPoint
             securityAuthenticationEntryPoint;
 
+    // 注册403处理类
     @Autowired
     private SecurityAccessDeniedHandler
             securityAccessDeniedHandler;
@@ -82,8 +85,10 @@ public class SecurityConfiguration {
                         .getAllowedOriginPatterns()
         );
 
+
         /*
          * 允许项目当前使用的HTTP请求方式。
+         * 包括GET、POST、PUT、DELETE、PATCH、OPTIONS等。
          */
         configuration.setAllowedMethods(List.of(
                 "GET",
@@ -129,6 +134,7 @@ public class SecurityConfiguration {
 
     /**
      * 配置HTTP安全过滤器链。
+     *
      */
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -181,7 +187,8 @@ public class SecurityConfiguration {
                 /*
                  * 配置不同接口的访问要求。
                  *
-                 * 规则从上往下匹配，
+                 *
+                 规则从上往下匹配，
                  * 越具体的规则要写在越前面。
                  */
                 .authorizeHttpRequests(authorize -> {
@@ -200,10 +207,13 @@ public class SecurityConfiguration {
                                         "/user/login",
                                         "/error"
                                 ).permitAll();
+                                // 仅公开 POST 密码登录；其他管理路径继续强制鉴权。
+                                authorize.requestMatchers(HttpMethod.POST, "/admin/auth/login").permitAll();
+                                authorize.requestMatchers(HttpMethod.POST, "/admin/auth/logout").authenticated();
 
                                 /*
                                  * API文档是否公开由配置决定，不再无条件放行。
-                                 *
+
                                  * 默认关闭（生产环境不要设置 API_DOCS_ENABLED=true）；
                                  * 关闭后文档路径由下方的 anyRequest().authenticated()
                                  * 兜底，避免生产环境裸暴露接口清单。
@@ -275,7 +285,8 @@ public class SecurityConfiguration {
                                  */
                                 authorize.requestMatchers(
                                         "/admin/roles/**",
-                                        "/admin/audit-logs/**"
+                                        "/admin/audit-logs/**",
+                                        "/admin/knowledge/**"
                                 ).authenticated();
 
                                 /*

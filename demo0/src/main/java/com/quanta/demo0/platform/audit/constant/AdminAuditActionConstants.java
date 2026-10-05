@@ -14,6 +14,8 @@ public final class AdminAuditActionConstants {
     public static final String EVENT_REPLAY = "EVENT_REPLAY";
     public static final String ROLE_GRANT = "ROLE_GRANT";
     public static final String ROLE_REVOKE = "ROLE_REVOKE";
+    public static final String POLICY_DOC_UPSERT = "POLICY_DOC_UPSERT";
+    public static final String POLICY_DOC_DELETE = "POLICY_DOC_DELETE";
 
     private AdminAuditActionConstants() {
     }

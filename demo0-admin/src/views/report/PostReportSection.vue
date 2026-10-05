@@ -203,8 +203,12 @@ function onDetailClosed() {
 }
 
 async function openHandle(row) {
+  if (!hasAuthority('CONTENT_AUDIT')) {
+    ElMessage.warning('当前账号没有举报处理权限')
+    return
+  }
   currentReport.value = row
-  handleForm.handleResult = 1
+  handleForm.handleResult = handleResultOptions.value[0]?.value ?? null
   handleForm.handleRemark = ''
   handleTargetDetail.value = null
   handleVisible.value = true
@@ -219,6 +223,10 @@ async function openHandle(row) {
 }
 
 async function submitHandle() {
+  if (!hasAuthority('CONTENT_AUDIT')) {
+    ElMessage.warning('当前账号没有举报处理权限')
+    return
+  }
   if (!currentReport.value) return
   handleLoading.value = true
   try {
@@ -341,7 +349,7 @@ onMounted(() => {
               <el-button type="primary" plain size="small" class="action-detail" @click="openDetail(row)">
                 查看详情
               </el-button>
-              <el-button v-if="canHandle(row) && hasAuthority('REPORT_HANDLE')" type="primary" plain size="small" @click="openHandle(row)">
+              <el-button v-if="canHandle(row) && hasAuthority('CONTENT_AUDIT')" type="primary" plain size="small" @click="openHandle(row)">
                 处理
               </el-button>
             </div>

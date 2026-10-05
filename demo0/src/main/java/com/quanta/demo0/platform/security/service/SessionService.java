@@ -22,4 +22,7 @@ public interface SessionService {
      * 删除当前会话及其封禁标记。
      */
     void logout();
+
+    /** 仅撤销与请求令牌一致的会话；保留并发新会话与封禁标记，Redis 故障向调用方传播。 */
+    void revokeSession(Long userId, String token);
 }

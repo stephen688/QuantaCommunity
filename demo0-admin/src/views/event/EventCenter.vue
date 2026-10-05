@@ -168,6 +168,10 @@ async function openDetail(kind, row) {
 }
 
 async function replay(kind, row) {
+  if (!hasAuthority('EVENT_REPLAY')) {
+    ElMessage.warning('当前账号没有事件重放权限')
+    return
+  }
   const label = kind === 'outbox' ? '发送事件' : '消费记录'
   await ElMessageBox.confirm(
     `只会重放当前 DEAD ${label}，并保留原 eventId 和审计记录。确认继续？`,

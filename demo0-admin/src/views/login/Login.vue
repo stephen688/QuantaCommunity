@@ -4,72 +4,33 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { authApi } from '../../api/auth'
 import { useUserStore } from '../../stores/user'
+import { loginAdminSession } from '../../utils/admin-session'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const loading = ref(false)
 const error = ref('')
+const isDevelopment = import.meta.env.DEV
+const useDevCode = ref(false)
 
 const form = reactive({
-  code: 'test',
+  username: '',
+  password: '',
+  code: '',
 })
 
 async function onSubmit() {
+  if (loading.value) return
   error.value = ''
-  const code = form.code?.trim()
-  if (!code) {
-    error.value = '请输入登录码'
+  if (useDevCode.value ? !form.code.trim() : !form.username.trim() || !form.password) {
+    error.value = useDevCode.value ? '请输入开发登录码' : '请输入账号和密码'
     return
   }
   loading.value = true
   try {
-    const loginData = await authApi.login(code)
-    if (!loginData?.token) {
-      error.value = '登录响应缺少 token'
-      return
-    }
-
-    userStore.setSession({
-      token: loginData.token,
-      userId: loginData.id,
-      nickName: loginData.nickName,
-      avatarUrl: loginData.avatarUrl,
-      isAdmin: false,
-    })
-
-    const userInfo = await authApi.getUserInfo()
-    userStore.setSession({
-      token: loginData.token,
-      userId: loginData.id,
-      nickName: userInfo?.nickName ?? loginData.nickName,
-      avatarUrl: userInfo?.avatarUrl ?? loginData.avatarUrl,
-      isAdmin: false,
-    })
-
-    let securityContext
-    try {
-      securityContext = await authApi.getSecurityContext()
-    } catch {
-      userStore.clearSession()
-      error.value = '当前账号无管理权限'
-      return
-    }
-
-    userStore.setSecurityContext(securityContext || {})
-    if (!userStore.hasAnyManagementRole()) {
-      userStore.clearSession()
-      error.value = '当前账号无管理权限'
-      return
-    }
-
-    userStore.setSession({
-      token: loginData.token,
-      userId: loginData.id,
-      nickName: userInfo?.nickName ?? loginData.nickName,
-      avatarUrl: userInfo?.avatarUrl ?? loginData.avatarUrl,
-      isAdmin: userStore.hasAnyManagementRole(),
-    })
+    await loginAdminSession({ api: authApi, store: userStore, ...form, useDevCode: useDevCode.value, isDevelopment })
+    form.password = ''
 
     ElMessage.success('登录成功')
     const raw = route.query.redirect
@@ -81,7 +42,7 @@ async function onSubmit() {
   } catch (e) {
     userStore.clearSession()
     if (!error.value) {
-      error.value = e?.message || '登录失败，请确认后端与 Redis 已启动'
+      error.value = e?.response?.data?.msg || e?.message || '登录失败，请稍后重试'
     }
   } finally {
     loading.value = false
@@ -155,13 +116,22 @@ async function onSubmit() {
             </div>
 
             <el-form class="login-form" label-position="top" @submit.prevent="onSubmit">
-              <el-form-item label="登录码">
+              <template v-if="!useDevCode">
+                <el-form-item label="账号">
+                  <el-input v-model="form.username" size="large" autocomplete="username" maxlength="64" placeholder="请输入管理员账号" :disabled="loading" />
+                </el-form-item>
+                <el-form-item label="密码">
+                  <el-input v-model="form.password" type="password" show-password size="large" autocomplete="current-password" maxlength="72" placeholder="请输入密码" :disabled="loading" />
+                </el-form-item>
+              </template>
+              <el-form-item v-else label="开发登录码">
                 <el-input
                   v-model="form.code"
                   size="large"
                   clearable
                   autocomplete="off"
-                  placeholder="开发环境默认 test"
+                  placeholder="请输入开发登录码"
+                  :disabled="loading"
                 />
               </el-form-item>
               <p v-if="error" class="field-error" role="alert">{{ error }}</p>
@@ -175,7 +145,10 @@ async function onSubmit() {
               </el-button>
             </el-form>
 
-            <p class="login-hint">开发环境：使用 test 码登录，需 user_role 表拥有 SUPER_ADMIN 等管理角色</p>
+            <p class="login-hint">管理员账号由运维配置，权限以现有用户角色为准。</p>
+            <el-button v-if="isDevelopment" link :disabled="loading" @click="useDevCode = !useDevCode; error = ''">
+              {{ useDevCode ? '返回账号密码登录' : '开发联调登录' }}
+            </el-button>
           </div>
         </div>
       </section>
