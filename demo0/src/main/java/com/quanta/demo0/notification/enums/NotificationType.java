@@ -4,6 +4,19 @@ import lombok.Getter;
 
 /**
  * 通知类型枚举
+ *
+ * code 是整条链路的"方言"：生产方按业务场景选类型并拼 content，落库存 code
+ * 字符串，读侧/推送侧用 desc 翻译，前端凭 code + payload 决定跳转。
+ * tb_notification.type 是普通字符串列，新增通知类型只需加枚举值和对应
+ * 生产方调用，表结构和消费者逻辑都不用动。
+ *
+ * ============================================================
+ * 【文案放枚举 desc，而不是前端按 code 自己翻译？】
+ * ============================================================
+ * desc 服务两处服务端出口：列表 VO（NotificationServiceImpl.getTypeDesc）和
+ * WebSocket 推送 VO（NotificationConsumer），**保证两个出口的文案口径一致**，
+ * 且历史通知不受前端文案改动影响；跳转等交互逻辑仍只依赖 code，code 一旦
+ * 落库就是永久事实，只增不改。
  */
 @Getter
 public enum NotificationType {
@@ -36,6 +49,10 @@ public enum NotificationType {
     }
     /**
      * 根据 code 获取枚举
+     *
+     * 【找不到返回 null，不抛异常】调用方必须判空：消费者推送时用
+     * typeEnum != null 降级成空串 typeDesc；对比 NotificationServiceImpl 里
+     * 用 valueOf + catch 的写法（返回"未知通知"），两处是同一问题的两种防御。
      */
     public static NotificationType getByCode(String code) {
         for (NotificationType type : values()) {

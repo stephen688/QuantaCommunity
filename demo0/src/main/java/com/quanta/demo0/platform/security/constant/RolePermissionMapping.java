@@ -70,6 +70,7 @@ public final class RolePermissionMapping {
             /*
              * 超级管理员：
              * 拥有第一版全部管理权限。
+             * 但不建议直接使用，应通过角色继承或动态权限管理。
              */
             RoleConstants.SUPER_ADMIN,
             Set.of(

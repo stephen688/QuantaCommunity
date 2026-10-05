@@ -1,0 +1,14 @@
+flowchart TD
+    A["带 @RateLimit 的 Controller 方法"] --> B["切面取当前登录用户<br/>SecurityContext"]
+    B -- "未登录" --> E401["抛 AuthenticationCredentialsNotFoundException"]
+    B -- "已登录" --> C{"是 BOT 角色<br/>且声明了 botLimit?"}
+    C -- "是" --> D["scene 改写为 scene-bot<br/>阈值改用 botLimit"]
+    C -- "否" --> D2["用注解上的 limit"]
+    D --> F["Redis 执行 rate_limit.lua<br/>INCR + 首次 EXPIRE + TTL"]
+    D2 --> F
+    F -- "Redis 正常" --> G{"current <= limit?"}
+    G -- "是" --> OK["放行，继续执行业务"]
+    G -- "否" --> H429["抛 RateLimitExceededException<br/>429 + Retry-After"]
+    F -- "Redis 异常" --> I{"failClosed?"}
+    I -- "true（默认）" --> H429
+    I -- "false" --> OK

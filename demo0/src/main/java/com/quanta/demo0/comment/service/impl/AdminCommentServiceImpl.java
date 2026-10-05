@@ -44,6 +44,29 @@ import java.util.Map;
  * 设计说明：
  * - 审核与删除采用事务控制，确保评论状态与关联数据一致；
  * - 复用 CommentAuditService，保证 AI 审核与人工审核行为一致。
+ *
+ * ============================================================
+ * 【人工审核为什么复用 CommentAuditService 而不是自己写状态迁移？】
+ * ============================================================
+ * 机审和管理员操作最终都落在同一个评论状态机上，副作用清单（计数、缓存、
+ * Outbox）也必须完全一致。本类只做"参数校验 + 状态路由"，四个迁移动作
+ * 全部委托 CommentAuditService 的 CAS 实现——**两个入口、一份状态机逻辑**，
+ * 不会出现人工过审漏了计数、机审过审多了通知这类分叉。
+ *
+ * ============================================================
+ * 【并发冲突的处理姿态：显式交还，不静默覆盖】
+ * ============================================================
+ * auditComment 先读旧状态选分支，真正落库靠 CAS 兜底：读取之后若 AI
+ * （或另一个管理员）抢先完成迁移，CAS 返回 0 行 → 委托方法返回 false →
+ * 这里抛"请刷新后重试"，把冲突显式交还给操作者；前面的"目标状态与当前
+ * 相同直接 return"则是对重复提交的幂等短路。
+ *
+ * ============================================================
+ * 【计数口径与用户侧删除的差异（维护时必看）】
+ * ============================================================
+ * deleteComment 只减一侧计数：有 answerId 走回答计数，否则走帖子计数；
+ * 而用户侧 CommentCommandServiceImpl.deleteComment 是内容计数必减、
+ * 回答计数按需再减。两套口径并存，改动删除级联时必须两边对照检查。
  */
 @Service
 @Slf4j
@@ -80,6 +103,10 @@ public class AdminCommentServiceImpl implements AdminCommentService {
      *
      * @param query 查询条件
      * @return 分页结果
+     *
+     * PageHelper.startPage 把分页参数放进 ThreadLocal，只对紧随其后的第一条
+     * SQL 生效；pageAdmin 不过滤 audit_status——管理端必须能看到待审/驳回
+     * 评论，这一点与 C 端查询（audit_status = 1 硬过滤）正好相反。
      */
     @Override
     public PageResult pageQuery(CommentAdminQueryDTO query) {
@@ -93,6 +120,15 @@ public class AdminCommentServiceImpl implements AdminCommentService {
      * - 待审 → 通过：执行 CommentAuditService 可见性副作用
      * - 待审 → 驳回：更新状态并记录审核人
      * - 通过 ↔ 驳回：回滚或补执行计数与索引
+     *
+     * 【auditResult 与 AuditStatus 码对齐】1=APPROVED、2=REJECTED，
+     * 前端传的就是目标状态码，路由时直接与 AuditStatus.getCode() 比较。
+     * 【四种迁移】待审→通过 / 待审→驳回 / 通过→驳回（撤回）/ 驳回→通过
+     * （翻案）分别委托 CommentAuditService 对应方法并传入 adminId 落
+     * audit_user_id 留痕；走到这里目标状态与当前必不相同（相同已被前面
+     * 幂等短路），剩余组合属于非法请求，直接抛"不支持"。
+     * 【审计留痕】成功后 AdminAuditRecorder.recordSuccess 写 CONTENT_AUDIT
+     * 审计记录，before/after 摘要携带旧/新状态码，治理动作可回溯。
      */
     @Override
     @Transactional
@@ -163,6 +199,12 @@ public class AdminCommentServiceImpl implements AdminCommentService {
      * 10. 事务提交后：更新 ES 索引（评论数变化）
      *
      * @param commentId 评论 ID
+     *
+     * 【软硬搭配】评论行软删（可追溯），图片与点赞明细物理删——这两类表
+     * 没有软删位可复用；级联范围与用户侧删除一致（回复连带清理，计数
+     * 一次减 1+回复数）。
+     * 【注意】本方法不清理评论点赞缓存（对照用户侧删除的
+     * clearCommentLikeCacheAfterCommit）；计数口径差异见类注释。
      */
     @Override
     @Transactional

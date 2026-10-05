@@ -81,12 +81,19 @@ public class AuthenticationSnapshotCacheImpl
         cache.invalidate(new AuthenticationCacheKey(userId, true));
     }
 
+
+    /**
+     * 加载用户认证快照。
+     * 包括用户角色、权限、账号状态、是否认证、是否为超级管理员。
+     */
     private AuthenticationSnapshot load(Long userId, boolean serviceToken) {
         UserAccountVO user = userQueryService.getAccount(userId);
         if (user == null) {
             return null;
         }
 
+
+        //1. 查询用户认证状态，判断是否认证
         UserAuthStatusVO userAuth = identityQueryService.getAuthStatus(userId);
         boolean verified = userAuth != null
                 && Objects.equals(
@@ -94,19 +101,25 @@ public class AuthenticationSnapshotCacheImpl
                 AuditStatus.APPROVED.getCode()
         );
 
-        Set<String> roles = loadRoles(userId, verified, serviceToken);
+        //2. 加载用户角色
+               Set<String> roles = loadRoles(userId, verified, serviceToken);
+                //3. 加载用户权限
         Set<String> authorities = RolePermissionMapping.permissionsFor(roles);
 
         return new AuthenticationSnapshot(
-                user.getAccountStatus(),
-                verified,
-                roles,
-                authorities,
+                user.getAccountStatus(),//账号状态
+                verified,//是否认证
+                roles,//角色
+                authorities,//权限
                 roles.contains(RoleConstants.SUPER_ADMIN)
         );
     }
 
-    private Set<String> loadRoles(
+    /**
+     * 加载用户角色。
+     * 包括默认角色USER、VERIFIED_USER、BOT、SUPER_ADMIN。
+     */
+       private Set<String> loadRoles(
             Long userId,
             boolean verified,
             boolean serviceToken
@@ -126,6 +139,7 @@ public class AuthenticationSnapshotCacheImpl
             roles.add(RoleConstants.VERIFIED_USER);
         }
 
+        //3. 加载用户管理角色
         List<String> assignedRoles =
                 userRoleMapper.findRoleCodesByUserId(userId);
         if (assignedRoles == null) {

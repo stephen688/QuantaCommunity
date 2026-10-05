@@ -32,6 +32,26 @@ import java.util.Map;
  * - AI 审核系统（ContentModerationServiceImpl）
  * - 管理端人工审核（AdminContentServiceImpl）
  * - 定时任务（超时自动审核）
+ *
+ * ============================================================
+ * 【这个类是"状态迁移的汇聚点"—— 三条来源、一个出口】
+ * ============================================================
+ * 机审消费者（ModerationWorkflowServiceImpl / ModerationResultServiceImpl）和
+ * 发布侧机审关闭时的自动通过（见 ContentCommandServiceImpl.schedulePostPublishActions）
+ * 都收敛到 approveContent 这一个方法。
+ * 好处：状态迁移的副作用（标签/Feed/搜索/推荐池/通知）只实现一次，
+ * 任何来源都不会漏掉某个下游 —— **入口可以多，状态机必须只有一个**。
+ * （注意：管理端人工审核走 AdminContentServiceImpl.audit 自己的一套 ——
+ * 它要支持"已通过→驳回、驳回→通过"这类机审 CAS 不允许的回流，见那边的说明。）
+ *
+ * 【面试追问：机审（MQ 消费者）和管理端审核并发审同一帖会怎样？】
+ * 见 approveContent 里的 updateAuditStatusIfPending —— 带状态条件的 UPDATE：
+ *   UPDATE tb_content SET audit_status=1 WHERE content_id=? AND audit_status=0
+ * 两条并发路径只有一条能影响 1 行，另一条拿到 0 行自动放弃。
+ * **这就是"乐观并发 + 状态机前置条件"，等价于一次 CAS** ——
+ * 不用分布式锁、不用 SELECT FOR UPDATE，数据库行锁 + WHERE 条件就够了。
+ * （与互动域"insert 明细受影响行数判幂等"是同一思想在不同场景的应用，
+ * 见 AnswerInteractionServiceImpl 里 insertAnswerLiked 对 inserted == 1 的判断。）
  */
 @Slf4j
 @Service
@@ -61,6 +81,31 @@ public class ContentAuditServiceImpl implements ContentAuditService {
      * 4. 触发内容曝光（写入推荐池）
      * 5. 发送审核通过通知给用户
      * @param contentId 内容 ID
+     *
+     * ============================================================
+     * 【方法的骨架 = 一行 CAS + 一组同事务 Outbox】
+     * ============================================================
+     *   updateAuditStatusIfPending（CAS，见类注释）→ 拿到 1 行才继续
+     *     → 3 个 Outbox 事件（标签/Feed/搜索）与审核状态**同一个事务**提交
+     *     → exposeApprovedContent 写推荐池
+     *     → 通知 Outbox
+     *
+     * 【为什么 CAS 失败（0 行）是 return 而不是抛异常？】
+     * 0 行 = 别的路径已经审过了 = **幂等命中，不是错误**。
+     * 机审消费者超时重试、定时任务补审，都会反复进这个方法 ——
+     * 如果抛异常，MQ 会当成消费失败无限重试；静默 return 才是幂等消费者的正确姿势。
+     *
+     * 【面试高频：exposeApprovedContent 是写 Redis，为什么不在 afterCommit？】
+     * 注意它在事务方法里同步执行 —— 如果写完 Redis 事务回滚了怎么办？
+     * 答案在推荐池的设计里：ZSET 是**覆盖式写入**（热度分重算时全量重写），
+     * 不存在"回滚后残留一条多余成员"的累积效应；且 ZSET 成员多了个
+     * 未过审帖子的后果有限（详情接口还有 NOT_APPROVED 负缓存拦着）。
+     * —— 不是所有 Redis 写都值得 afterCommit，**看回滚后的残留是否可自愈**。
+     *
+     * 【主题标签事件为什么也在这里发？】
+     * 标签是 LLM 异步打的，但事件必须在"内容可见"的同事务登记 ——
+     * 否则机审链路和标签链路对"内容何时算就绪"会产生两个真相。
+     * 原则：**一个业务状态迁移的所有下游事件，在同一事务里登记**。
      */
     @Override
     @Transactional
@@ -125,6 +170,15 @@ public class ContentAuditServiceImpl implements ContentAuditService {
      * 
      * @param contentId    内容 ID
      * @param rejectReason 驳回原因（可选）
+     *
+     * 【与 approveContent 的不对称是故意的】
+     * 驳回没有 Feed/推荐池/标签事件 —— 因为驳回的帖子从来就没进过这些池子
+     * （PENDING 状态时不会 expose）。只需要：搜索对账事件（保证 ES 里没有残留）
+     * + 用户通知。**下游事件跟着"可见性变化"走：可见 = 进池，不可见 = 什么都不用撤**。
+ *
+ * （边界：CAS 限定只有 PENDING 能被驳回，所以本方法面对的帖子必然从未进过推荐池；
+ * 而"已通过→驳回"的下架清理是另一种状态迁移，
+ * 由 AdminContentServiceImpl.audit 的 hideRejectedContent 分支负责 —— 两条路径别混。）
      */
     @Override
     @Transactional

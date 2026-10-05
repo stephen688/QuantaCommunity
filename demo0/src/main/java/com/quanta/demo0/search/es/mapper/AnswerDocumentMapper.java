@@ -21,6 +21,14 @@ import java.util.Map;
  * 搜索域回答文档 Mapper。
  *
  * <p>只负责 answer 索引的 ES 文档读写和序列化，不读取回答或问题的 MySQL 实体。</p>
+ *
+ * ============================================================
+ * 【与 ContentDocumentMapper 同构，但少一个 bulk】
+ * ============================================================
+ * 回答目前只有"单条事件对账"一条写路径：SearchReconcileConsumer →
+ * AnswerSearchService.upsertByAnswerId → 本类 index()；回答索引还没有
+ * 全量重建需求，所以暂时不需要 bulk（需要时再补，见 SearchReindexServiceImpl
+ * 类注释的预留说明）。delete 的幂等语义与 content 侧完全一致。
  */
 @Component
 @Slf4j
@@ -34,6 +42,8 @@ public class AnswerDocumentMapper {
 
     /**
      * 写入或覆盖一个回答文档。
+     *
+     * 【幂等】_id=answerId：重复写入是覆盖写，对账消息重放不会产生重复文档。
      */
     public void index(AnswerDocument document) throws IOException {
         IndexRequest<Map<String, Object>> request = IndexRequest.of(builder -> builder
@@ -45,6 +55,9 @@ public class AnswerDocumentMapper {
 
     /**
      * 删除回答文档；ES 中不存在时按幂等成功处理。
+     *
+     * 【为什么两种 404 都要接】同 ContentDocumentMapper.delete：result=NotFound
+     * 的正常响应与 status=404 的异常都要当成"已删除"，删除事件重放才不误报。
      */
     public void delete(Long answerId) {
         try {
@@ -68,12 +81,19 @@ public class AnswerDocumentMapper {
 
     /**
      * 执行回答召回查询。
+     *
+     * 查询语义（multiMatch + 可见性 filter）在 ElasticsearchQueryFactory 里；
+     * topK 语义是"取相关性最高的 N 条"，不是分页 —— 供 RAG 召回用。
      */
     @SuppressWarnings("rawtypes")
     public SearchResponse<Map> search(String keyword, int topK) throws IOException {
         return client.search(queryFactory.answerSearch(keyword, topK), Map.class);
     }
 
+    /**
+     * 组装 ES _source，字段名与 initializer 里 answer 索引的 mapping 一一对应
+     * （新增字段同样要同步 mapping / 本方法 / AnswerSearchServiceImpl.fromSource）。
+     */
     private Map<String, Object> toSource(AnswerDocument document) {
         Map<String, Object> source = new LinkedHashMap<>();
         source.put("answerId", document.getAnswerId());

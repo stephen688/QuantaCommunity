@@ -1,0 +1,17 @@
+flowchart TD
+    A["认证完成：身份已写入 SecurityContext"] --> B{"URL 规则逐条匹配<br/>从上往下"}
+    B -- "OPTIONS / 登录 / 错误页" --> P["permitAll"]
+    B -- "推荐流 / 搜索 / 热榜" --> P
+    B -- "API 文档（由配置开关决定）" --> P
+    B -- "WebSocket 握手 /ws" --> P2["permitAll（真正认证在 STOMP CONNECT）"]
+    B -- "/admin/events、/admin/content…" --> AU["authenticated<br/>只要求登录，具体权限交给方法层"]
+    B -- "/bot/**" --> BOT["必须是配置的 bot 账号 + ROLE_BOT"]
+    B -- "其他 /admin/**" --> SA["hasRole('SUPER_ADMIN')<br/>迁移期兜底"]
+    AU --> M{"方法层 @PreAuthorize"}
+    M -- "有权限" --> C["Controller"]
+    M -- "无权限" --> F403["403"]
+    AU -- "未登录" --> F401["401"]
+    P --> C
+    P2 --> C
+    BOT --> C
+    SA --> C

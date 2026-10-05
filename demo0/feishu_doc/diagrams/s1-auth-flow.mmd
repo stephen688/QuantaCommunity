@@ -1,0 +1,23 @@
+flowchart TD
+    A["请求带 Token（header: authorization）"] --> B{"Token 为空?"}
+    B -- "是" --> Z["直接放行：匿名"]
+    B -- "否" --> C["JwtUtil 验签 + 校验过期"]
+    C -- "过期 / 签名错" --> Z2["清空上下文 → 匿名"]
+    C -- "通过" --> D["取出 userId"]
+    D --> E{"tokenType = service?"}
+    E -- "是" --> F{"userId = 配置的 bot 账号?"}
+    F -- "否" --> Z2
+    F -- "是" --> H["跳过 Redis 会话校验"]
+    E -- "否" --> G{"Redis 里的当前 Token 还是它吗?"}
+    G -- "不存在 / 不一致" --> Z2
+    G -- "一致" --> H
+    H --> I{"Redis 有封禁标记?"}
+    I -- "有" --> Z2
+    I -- "无" --> J["读取安全快照<br/>Caffeine 45s"]
+    J -- "为空 → 用户不存在" --> Z2
+    J --> K{"accountStatus = 1?"}
+    K -- "是" --> Z2
+    K -- "否" --> L["组装 AuthenticatedUser<br/>写入 SecurityContext + BaseContext"]
+    Z --> M["进入授权层"]
+    Z2 --> M
+    L --> M

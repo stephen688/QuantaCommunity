@@ -1,0 +1,8 @@
+flowchart TD
+    A["详情页 / 列表页要渲染 isLiked"] --> B{"userId 是否为 null"}
+    B -->|"是 未登录"| C["直接返回 false"]
+    B -->|"否"| D["ZSCORE content:liked:{contentId} 查 userId"]
+    D -->|"命中 score 非空"| E["返回 true<br/>不碰 MySQL"]
+    D -->|"未命中"| F["SELECT count(1) FROM tb_content_like<br/>WHERE content_id AND user_id"]
+    F -->|"大于 0 确实赞过"| G["ZADD 回填 score = 当前时间<br/>返回 true"]
+    F -->|"等于 0 确实没赞过"| H["返回 false<br/>不回填"]

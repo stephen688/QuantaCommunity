@@ -1,0 +1,23 @@
+flowchart TD
+    A["POST 点赞接口<br/>body 里 liked = true 或 false"] --> B["校验 contentId<br/>getContentSnapshot 直查 MySQL，不走详情缓存"]
+    B -->|"null"| X0["抛「内容不存在」"]
+    B -->|"有值"| C{"liked 目标状态"}
+    C -->|"true 点赞"| D["INSERT IGNORE INTO tb_content_like"]
+    C -->|"false 取消"| E["DELETE FROM tb_content_like<br/>WHERE content_id AND user_id"]
+    D --> F{"受影响行数等于 1 ?"}
+    E --> G{"受影响行数等于 1 ?"}
+    F -->|"否 重复点赞"| Z["changed = false<br/>本次点赞在数据上没有发生"]
+    G -->|"否 本来没赞过"| Z
+    F -->|"是"| H["计数加 1"]
+    G -->|"是"| I["计数减 1"]
+    H --> J{"受影响行数等于 1 ?"}
+    I --> J
+    J -->|"否 内容不存在"| X1["抛「点赞失败」<br/>整个事务回滚"]
+    J -->|"是"| K["changed = true"]
+    K --> L["Outbox 通知作者<br/>Outbox 画像信号，仅点赞且非自赞"]
+    K --> M["Outbox 热度重算<br/>Outbox ES 对账"]
+    K --> N["afterCommit 清详情缓存<br/>afterCommit 同步已赞 ZSET"]
+    L --> O["回读快照<br/>返回 likedCount 和 isLiked"]
+    M --> O
+    N --> O
+    Z --> O

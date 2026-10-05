@@ -40,6 +40,10 @@ public class InboxEventServiceImpl implements InboxEventService {
 
     /**
      * 尝试登记并抢占审核任务。
+     * 如果任务已被其他实例抢占，返回 BUSY。
+     * 如果任务已被处理成功，返回 ALREADY_SUCCESS。
+     * 如果任务已被进入 DEAD，返回 DEAD。
+     * 如果任务未被抢占，返回 ACQUIRED。
      */
     @Override
     @Transactional
@@ -118,62 +122,81 @@ public class InboxEventServiceImpl implements InboxEventService {
 
     /**
      * 尝试登记并抢占事件。
+     * 如果事件已被其他实例抢占，返回 BUSY。
+     * 如果事件已被处理成功，返回 ALREADY_SUCCESS。
+     * 如果事件已被进入 DEAD，返回 DEAD。
+     * 如果事件未被抢占，返回 ACQUIRED。
      */
     private InboxAcquireResult acquireEvent(String consumerName, String instanceId, String eventId, String eventType, String aggregateType, Long aggregateId, Integer retryCount) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime lockedUntil = now.plusSeconds(LEASE_SECONDS);
+        LocalDateTime lockedUntil = now.plusSeconds(LEASE_SECONDS);// 租约过期时间
 
+        // 查询 Outbox 事件, 如果不存在，直接返回 ACQUIRED
         OutboxEvent outboxEvent = outboxEventMapper.selectByEventId(eventId);
 
         InboxEvent newInboxEvent = InboxEvent.builder()
                 .eventId(eventId)
                 .consumerName(consumerName)
-                .outboxEventId(outboxEvent == null ? null : outboxEvent.getId())
-                .eventType(eventType)
+                .outboxEventId(outboxEvent == null ? null : outboxEvent.getId())// 对应的 Outbox 数据库主键
+                .eventType(eventType)// 事件类型: 与 Outbox 侧保持一致
                 .aggregateType(outboxEvent == null ? aggregateType : outboxEvent.getAggregateType())
                 .aggregateId(outboxEvent == null ? aggregateId : outboxEvent.getAggregateId())
                 .status(InboxEventStatus.PROCESSING.getCode())
                 .retryCount(retryCount)
                 .lockedBy(instanceId)
-                .lockedUntil(lockedUntil)
+                .lockedUntil(lockedUntil)// 租约过期时间
                 .replayCount(0)
                 .build();
 
         try {
+            // 尝试登记事件:cas插入, 如果失败，说明已被其他实例抢占
+
             int insertedRows = inboxEventMapper.insertIfAbsent(newInboxEvent);
 
+            // 登记失败，说明已被其他实例抢占
             if (insertedRows != 1) {
                 throw new IllegalStateException("Inbox 事件登记失败");
             }
+
 
             return InboxAcquireResult.ACQUIRED;
         } catch (DuplicateKeyException ignored) {
             // consumer_name + event_id 已经存在，继续检查原来的处理状态。
         }
 
+
+        // 查询事件处理状态
         InboxEvent existingEvent = inboxEventMapper.selectByConsumerAndEvent(consumerName, eventId);
 
+        // 事件不存在，直接返回 ACQUIRED
         if (existingEvent == null) {
             throw new IllegalStateException("Inbox 事件查询失败");
         }
 
+        // 事件已被处理成功，返回 ALREADY_SUCCESS
         if (InboxEventStatus.SUCCESS.getCode().equals(existingEvent.getStatus())) {
             return InboxAcquireResult.ALREADY_SUCCESS;
         }
-
+        // 事件已被进入 DEAD，返回 DEAD
         if (InboxEventStatus.DEAD.getCode().equals(existingEvent.getStatus())) {
             return InboxAcquireResult.DEAD;
         }
 
+        // 事件已被其他实例抢占，返回 BUSY
         if (existingEvent.getLockedUntil() != null && existingEvent.getLockedUntil().isAfter(now)) {
             return InboxAcquireResult.BUSY;
         }
 
+        // 事件未被抢占，返回 ACQUIRED
         int updatedRows = inboxEventMapper.claimExpired(consumerName, eventId, instanceId, lockedUntil, now);
 
         return updatedRows == 1 ? InboxAcquireResult.ACQUIRED : InboxAcquireResult.BUSY;
     }
 
+    /**
+     * 尝试登记并抢占内容主题标签消息；
+     * aggregate 兜底值与 Outbox 侧 createContentTopicTagEvent 保持一致（CONTENT / contentId）。
+     */
     @Override
     @Transactional
     public InboxAcquireResult acquire(String consumerName, String instanceId, ContentTopicTagMessage message) {
@@ -181,6 +204,15 @@ public class InboxEventServiceImpl implements InboxEventService {
                 "CONTENT", message.getContentId(), message.getRetryCount() == null ? 0 : message.getRetryCount());
     }
 
+
+    /**
+     * 尝试登记并抢占用户行为消息；
+     * aggregate 兜底值与 Outbox 侧 createUserBehaviorEvent 保持一致（USER / userId）。
+     * @param consumerName
+     * @param instanceId
+     * @param message
+     * @return
+     */
     @Override
     @Transactional
     public InboxAcquireResult acquire(String consumerName, String instanceId, ProfileReconcileMessage message) {

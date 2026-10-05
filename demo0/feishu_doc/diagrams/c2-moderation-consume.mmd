@@ -1,0 +1,14 @@
+flowchart TD
+    A[收到审核消息] --> B{有 eventId 吗}
+    B -- 没有 --> Z[拒绝处理，进死信]
+    B -- 有 --> C["Inbox 抢占 acquire(consumerName, instanceId)"]
+    C -- ALREADY_SUCCESS --> D[直接 ACK，幂等跳过]
+    C -- BUSY --> E[投递到 60s 重试队列，然后 ACK]
+    C -- DEAD --> Z
+    C -- ACQUIRED --> F[调阿里云机审 moderate]
+    F --> G{decision}
+    G -- ERROR --> H{重试次数已达上限}
+    H -- 否 --> I[markRetry + 重新投递重试队列]
+    H -- 是 --> J[saveFailedRecord + markDead + 进死信]
+    G -- "PASS / REJECT / MANUAL" --> K["同一事务：处理审核结果 + 标记 Inbox SUCCESS"]
+    K --> L[ACK]

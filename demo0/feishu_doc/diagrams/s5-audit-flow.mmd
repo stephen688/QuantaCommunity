@@ -1,0 +1,19 @@
+flowchart TD
+    A["管理端请求：带 @AdminAudit 的方法"] --> B["AdminAuditAspect 环绕"]
+    B --> C["joinPoint.proceed() 业务执行"]
+
+    C -- "正常返回" --> D["业务代码显式调用<br/>adminAuditRecorder.recordSuccess"]
+
+    D --> E["@Transactional(MANDATORY)<br/>强制加入业务事务"]
+    E --> F["INSERT tb_admin_audit_log"]
+    F --> G{"INSERT 成功?"}
+    G -- "否" --> H["抛异常 → 业务事务整体回滚"]
+    G -- "是" --> I["业务与审计一起提交"]
+
+    C -- "抛异常" --> J["切面捕获"]
+    J --> K["recordFailure<br/>AdminAuditFailureWriter"]
+    K --> L["@Transactional(REQUIRES_NEW)<br/>独立事务提交"]
+    L --> M["失败痕迹落库<br/>业务回滚也不影响它"]
+    J --> N["原异常继续向上抛"]
+
+    K -- "审计自己失败" --> O["只记 error 日志<br/>不覆盖原始业务异常"]

@@ -40,6 +40,7 @@ public class OutboxEventAppender {
         return appendInternal(eventId, eventType, aggregateType, aggregateId, message, true);
     }
 
+    // 内部方法：序列化消息并追加一条 Outbox 记录
     private String appendInternal(String eventId, String eventType, String aggregateType,
                                   Long aggregateId, Object message, boolean insertIfAbsent) {
         final String payload;

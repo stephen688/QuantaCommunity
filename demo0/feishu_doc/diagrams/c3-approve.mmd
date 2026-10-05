@@ -1,0 +1,9 @@
+flowchart TD
+    A["approveContent(contentId)"] --> B["CAS：UPDATE tb_content SET audit_status=APPROVED<br/>WHERE content_id=? AND audit_status=PENDING"]
+    B -- "影响 0 行" --> C[别的路径已处理过，幂等 return]
+    B -- "影响 1 行" --> D["同一事务内登记下游动作"]
+    D --> E1["主题标签事件（LLM 异步打标）"]
+    D --> E2["Feed 上架事件"]
+    D --> E3["ES 索引对账事件"]
+    D --> E4["同步写推荐池 ZSET"]
+    D --> E5["审核结果通知作者"]

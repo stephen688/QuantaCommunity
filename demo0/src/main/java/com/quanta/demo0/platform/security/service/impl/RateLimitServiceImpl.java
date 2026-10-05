@@ -33,6 +33,11 @@ public class RateLimitServiceImpl
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
+
+    /**
+     * 检查限流。
+     *
+     */
     @Override
     public RateLimitDecision check(
             String scene,
@@ -41,10 +46,13 @@ public class RateLimitServiceImpl
             int windowSeconds,
             boolean failClosed
     ) {
+        // ① 构建Redis键名
         String key = "security:rate-limit:"
                 + scene + ":" + subject;
 
         try {
+            // ② 执行Lua限流脚本
+            // 限流结果：[是否允许，剩余请求数，重试时间（秒）]
             List<Long> result = stringRedisTemplate.execute(
                     RATE_LIMIT_SCRIPT,
                     List.of(key),
@@ -52,10 +60,12 @@ public class RateLimitServiceImpl
                     String.valueOf(limit)
             );
 
+            // ③ 解析限流结果
             if (result == null || result.size() < 3) {
                 throw new IllegalStateException("Redis限流结果格式错误");
             }
 
+            // ④ 返回限流决策
             return new RateLimitDecision(
                     result.get(0) == 1L,
                     result.get(1),

@@ -26,6 +26,12 @@ import org.springframework.stereotype.Component;
  * // 3. 获取图片限额
  * int maxImages = commentZonePolicy.getMaxImages(contentType);
  * </pre>
+ *
+ * 【坑】contentType 是 Integer，与 int 常量比较会触发自动拆箱——传入 null
+ * 会抛 NPE 而不是落进"生活区"兜底分支；当前调用方传入的都是内容快照里的
+ * contentType 字段，但作为公共策略类要对 null 有意识地防御或约定。
+ * 【现状】规则是编译期常量而非配置项：调整限额需要改代码重新发布，
+ * 好处是绝对确定、无配置漂移；若后续要运营动态调参，再考虑外置配置。
  * @author Quanta Team
  * @since 2026-05-01
  */
@@ -84,6 +90,8 @@ public class CommentZonePolicy {
         if (contentType == CONTENT_TYPE_LIFE && answerId != null) {
             throw new CommentFailedException("生活区评论不支持回答 ID（answerId）");
         }
+        // 【边界】contentType 为 1/2 以外的值时上面两个 if 都不命中、直接放行——
+        // 校验只认识这两个值，新分区接入必须回到这里补规则。
     }
 
     /**
@@ -97,6 +105,7 @@ public class CommentZonePolicy {
      * @return 字数上限（生活区 500，专业区 1000）
      */
     public int getMaxLength(Integer contentType) {
+        // 非 2 即按生活区兜底（与 validateAnswerId 的"未知值放行"是两种不同策略）
         return contentType == CONTENT_TYPE_PROFESSIONAL
                 ? PROFESSIONAL_MAX_LENGTH
                 : LIFE_MAX_LENGTH;

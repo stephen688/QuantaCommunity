@@ -23,6 +23,15 @@ import java.util.List;
 /**
  * 阿里云图片审核客户端(与文本审核客户端分开，
  * 原因是图片审核需要上传图片到阿里云存储，而文本审核则不需要)
+ *
+ * ============================================================
+ * 【图片审核比文本审核多出来的两件事】
+ * ============================================================
+ * 1. 多图聚合：一条内容可能带多张图，checkImages 逐张送审后按
+ *    REJECT > MANUAL > PASS 聚合成一个结论；任何一张送审出错，
+ *    整批直接返回 ERROR 交给上层重试，绝不"部分通过"。
+ * 2. 置信度门槛：文本靠 riskLevel 分档，图片靠 confidence 数值——
+ *    只有达到 {@link #REJECT_CONFIDENCE} 才算"实锤"，否则一律按疑似处理。
  */
 
 @Slf4j
@@ -34,11 +43,22 @@ public class AliyunImageModerationClient {
      * ；classic baselineCheck 未开通时会 service is invalid
      * */
     private static final String IMAGE_SERVICE = "baselineCheckByVL";
+    /** 单张图 confidence 达到该阈值才算"实锤违规"（否则只算疑似，转人工） */
     private static final float REJECT_CONFIDENCE = 70F;
 
     private final Client aliyunGreenClient;
     private final AliyunModerationProperties moderationProperties;
 
+    /**
+     * 逐张送审一组图片，聚合成一个整体结论。
+     *
+     * @param dataIdPrefix 业务 ID 前缀（调用方传 targetId）；每张图的实际 dataId 为
+     *                     "前缀_下标"，让阿里云端能区分同一条内容的多张图
+     *
+     * 【聚合规则】任一张 REJECT → 整体 REJECT；否则任一张 MANUAL → 整体 MANUAL；
+     * 都没有才 PASS。【坑】任何一张送审出错（ERROR）立即短路返回该 ERROR，
+     * 剩余图片不再送审——这轮审核视为"没审成"，由上层工作流决定重试。
+     */
     public ModerationResult checkImages(String dataIdPrefix, List<String> imageUrls) {
         if (CollectionUtils.isEmpty(imageUrls)) {
             return ModerationResult.builder().decision(ModerationDecision.PASS).build();
@@ -89,6 +109,7 @@ public class AliyunImageModerationClient {
                 .build();
     }
 
+    /** 送审单张图片：拼参数 → 调 SDK → 双层状态码校验 → 翻译结论，与文本客户端的套路一致 */
     private ModerationResult checkSingleImage(String dataId, String imageUrl) {
         try {
             JSONObject serviceParameters = new JSONObject();
@@ -128,6 +149,15 @@ public class AliyunImageModerationClient {
         }
     }
 
+    /**
+     * 翻译单张图的响应体：遍历 result 列表，按 confidence 分成"实锤"与"疑似"两桶。
+     *
+     * 【坑】阿里云用 "nonLabel" 表示"未命中任何风险标签"，要显式跳过；
+     * 全部是 nonLabel 时 labels 为空，直接 PASS。
+     * 【决策规则】有实锤（confidence ≥ 70）且 auto-reject-enabled=true → REJECT；
+     * 有实锤但关了自动拒绝、或只有疑似 → manual-on-suspect=true 转 MANUAL，否则 REJECT；
+     * 什么都没有 → PASS。
+     */
     private ModerationResult mapImageResult(ImageModerationResponseBody body, String raw) {
         ImageModerationResponseBody.ImageModerationResponseBodyData data = body.getData();
         if (data == null || CollectionUtils.isEmpty(data.getResult())) {
@@ -143,6 +173,7 @@ public class AliyunImageModerationClient {
 
         for (ImageModerationResponseBody.ImageModerationResponseBodyDataResult result : data.getResult()) {
             String label = result.getLabel();
+            // nonLabel = "没有命中风险标签"，不是真实标签，跳过不统计
             if (!StringUtils.hasText(label) || "nonLabel".equalsIgnoreCase(label)) {
                 continue;
             }

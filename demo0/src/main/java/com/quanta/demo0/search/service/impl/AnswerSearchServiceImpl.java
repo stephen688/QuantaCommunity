@@ -27,6 +27,17 @@ import java.util.Map;
  *
  * <p>回答和父问题的可见性由 MySQL 当前快照决定；ES 仅保存派生文档，检索失败继续保持 RAG
  * 的空结果降级语义。</p>
+ *
+ * ============================================================
+ * 【同一份 ES 数据，为什么 upsert 抛异常、searchAnswers 却吞异常？】
+ * ============================================================
+ * upsertByAnswerId 失败会抛 SearchFailedException：写路径失败必须暴露，
+ * 让上游（业务事务 / MQ 对账）感知并重试，否则 ES 会静默落后于 MySQL，
+ * 出现"已被驳回的回答仍能搜到"这种口径漂移。
+ * searchAnswers 失败则返回空列表：它是 RAG 检索（rag 包 EsRecallService）
+ * 的回答召回源，属于"锦上添花"的旁路数据——ES 不可用时应降级为
+ * "这一路没有召回"，而不是让整个问答链路跟着失败。
+ * **写要响（暴露问题等重试），读要稳（降级不拖垮主流程）。**
  */
 @Service
 @Slf4j
@@ -42,6 +53,10 @@ public class AnswerSearchServiceImpl implements AnswerSearchService {
 
     /**
      * 按回答和父问题当前状态写入或删除 answer 文档。
+     *
+     * <p>【可见才写，不可见即删】回答本身满足 is_deleted=0 且 audit_status=1 还不够——
+     * 父问题被软删或驳回时（isVisible(question) 不通过），回答也必须从 ES 移除，
+     * 否则用户会搜到"挂在已删问题下的孤回答"。两条检查任一不过都走幂等删除。</p>
      */
     @Override
     public void upsertByAnswerId(Long answerId) {
@@ -50,6 +65,8 @@ public class AnswerSearchServiceImpl implements AnswerSearchService {
             return;
         }
         try {
+            // 先看回答自己的 MySQL 快照（AnswerQueryService），再看父问题快照（ContentQueryService）。
+            // 可见性以 MySQL 当前状态为唯一事实源，ES 文档只是派生品。
             AnswerSnapshotVO answer = answerQueryService.getAnswerSnapshot(answerId);
             if (!isVisible(answer)) {
                 deleteDocumentByAnswerId(answerId);
@@ -82,6 +99,11 @@ public class AnswerSearchServiceImpl implements AnswerSearchService {
 
     /**
      * 执行回答召回；关键词为空或 ES 异常时返回空列表。
+     *
+     * <p>【召回不分页】size 直接等于 topK（由调用方传入，rag 包按 rag.es-top-k 配置决定），
+     * 只取相关性最高的 topK 条，结果按 _score 降序。也不做高亮——
+     * 对比内容搜索（ElasticsearchQueryFactory.contentSearch 带 &lt;em&gt; 高亮），
+     * 这里的产出是给 RAG 喂料的原始文本，不是给前端渲染的。</p>
      */
     @Override
     @SuppressWarnings("rawtypes")
@@ -91,6 +113,9 @@ public class AnswerSearchServiceImpl implements AnswerSearchService {
         }
         try {
             var response = answerDocumentMapper.search(keyword, topK);
+            // ES client 以 Map.class 读回 source（见 AnswerDocumentMapper.search），
+            // 所以这里手工从 Map 逐字段收敛类型后拼 AnswerDocument，
+            // 并把命中分回填到 esSearchScore 供 RAG 融合排序使用。
             List<AnswerDocument> result = new ArrayList<>();
             for (Hit<Map> hit : response.hits().hits()) {
                 Map<String, Object> source = hit.source();
@@ -108,14 +133,21 @@ public class AnswerSearchServiceImpl implements AnswerSearchService {
         }
     }
 
+    /** 与 content 包一致的可见口径：未删除且审核通过。 */
     private boolean isVisible(ContentSnapshotVO content) {
         return content != null && content.getIsDeleted() == 0 && content.getAuditStatus() == 1;
     }
 
+    /** 回答侧同口径：未删除且审核通过。 */
     private boolean isVisible(AnswerSnapshotVO answer) {
         return answer != null && answer.getIsDeleted() == 0 && answer.getAuditStatus() == 1;
     }
 
+    /**
+     * 写入侧组装 ES 文档：把回答正文与父问题标题冗余进同一份文档，
+     * 这样 ES 的 multi_match 才能同时命中 questionTitle 和 answerContent 两个文本字段，
+     * 召回时不需要二次 join MySQL。
+     */
     private AnswerDocument toDocument(AnswerSnapshotVO answer, ContentSnapshotVO question) {
         return AnswerDocument.builder()
                 .answerId(answer.getAnswerId())
@@ -132,6 +164,9 @@ public class AnswerSearchServiceImpl implements AnswerSearchService {
                 .build();
     }
 
+    /**
+     * 从 ES source Map 反序列化回答文档（与 toDocument 字段一一对应）。
+     */
     private AnswerDocument fromSource(Map<String, Object> source) {
         return AnswerDocument.builder()
                 .answerId(longValue(source.get("answerId")))
@@ -160,6 +195,11 @@ public class AnswerSearchServiceImpl implements AnswerSearchService {
         return value == null ? null : value.toString();
     }
 
+    /**
+     * 兼容解析 createTime：ES 索引对该字段声明了四种 format
+     * （"yyyy-MM-dd HH:mm:ss" / ISO 本地时间 / ISO+Z / epoch 毫秒，见
+     * ElasticsearchIndexInitializer 的 mapping），按命中形态逐一尝试。
+     */
     private LocalDateTime parseCreateTime(Object value) {
         if (value == null) {
             return null;
