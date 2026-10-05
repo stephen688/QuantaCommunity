@@ -45,9 +45,9 @@ import java.util.Map;
  * 【ES 列表与 MySQL 详情怎么分工？】
  * ============================================================
  * ES 文档（ContentDocument）只存列表页要展示的快照字段（标题、正文、各类计数），
- * 图片不在 ES 中——toVO 里每条结果再调 contentQueryService.getContentImageUrls
- * 回 MySQL 补图片 URL；用户点开详情则走 content 域的 getContentDetail
- * （内容详情多级缓存），不经过 ES。列表页默认每页 10 条，逐条补图代价可控。
+ * 图片不在 ES 中——搜索结果收集本页内容 ID 后，通过 contentQueryService 一次批量
+ * 补齐图片 URL；用户点开详情则走 content 域的 getContentDetail（内容详情多级缓存），
+ * 不经过 ES。
  */
 @Service
 @Slf4j
@@ -112,9 +112,16 @@ public class ContentSearchServiceImpl implements ContentSearchService {
             authors = Collections.emptyMap();
         }
         Map<Long, UserAuthInfoVO> authorMap = authors;
+        List<Long> contentIds = contents.stream().map(ContentDocument::getContentId).toList();
+        Map<Long, List<String>> imageUrlsByContentId = contentQueryService.getContentImageUrlsBatch(contentIds);
+        if (imageUrlsByContentId == null) {
+            imageUrlsByContentId = Collections.emptyMap();
+        }
+        Map<Long, List<String>> imageMap = imageUrlsByContentId;
         List<ContentVO> contentVOList = contents.stream()
                 .map(content -> toVO(content,
-                        authorMap.getOrDefault(content.getPublishUserId(), new UserAuthInfoVO())))
+                        authorMap.getOrDefault(content.getPublishUserId(), new UserAuthInfoVO()),
+                        imageMap.getOrDefault(content.getContentId(), List.of())))
                 .toList();
         // PageHelper 的 Page 只带回 total + 本页数据，总页数与 hasMore 在这里手动换算，
         // 组装成平台统一的 PageVO 返回给前端。
@@ -157,13 +164,13 @@ public class ContentSearchServiceImpl implements ContentSearchService {
     }
 
     /**
-     * ES 快照 + 作者资料 + 图片 URL 组装成列表页 ContentVO。
+     * ES 快照 + 作者资料 + 已批量取回的图片 URL 组装成列表页 ContentVO。
      *
      * <p>【取舍】isLiked/isCollected 恒为 false：列表页不做"我是否点赞/收藏过"的
      * 个性化判断（那是详情页与交互域的职责），避免列表查询被用户行为表拖慢。
      * 计数字段允许为 null（ES source 手工反序列化而来），统一归零展示。</p>
      */
-    private ContentVO toVO(ContentDocument content, UserAuthInfoVO author) {
+    private ContentVO toVO(ContentDocument content, UserAuthInfoVO author, List<String> imageUrls) {
         return ContentVO.builder()
                 .contentId(content.getContentId())
                 .contentType(content.getContentType())
@@ -179,7 +186,7 @@ public class ContentSearchServiceImpl implements ContentSearchService {
                 .quantaBatch(author.getQuantaBatch())
                 .auditStatus(content.getAuditStatus())
                 .createTime(content.getCreateTime())
-                .images(contentQueryService.getContentImageUrls(content.getContentId()))
+                .images(imageUrls)
                 .isLiked(false)
                 .isCollected(false)
                 .build();

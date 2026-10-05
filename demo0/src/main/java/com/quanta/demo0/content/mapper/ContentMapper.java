@@ -69,6 +69,17 @@ public interface ContentMapper {
     List<ContentImage> selectImagesByContentIds(Long contentId);
 
     /**
+     * 按内容 ID 批量查询图片。
+     *
+     * XML 使用参数绑定的 IN 查询，并按 content_id、sort 排序，供内容列表装配
+     * 一次取回本批次所有图片，避免逐条查询产生 N+1。
+     *
+     * @param contentIds 内容 ID 列表，调用方负责过滤 null 和空列表
+     * @return 按内容 ID、图片 sort 排序的图片行
+     */
+    List<ContentImage> selectImagesBatchByContentIds(@Param("contentIds") List<Long> contentIds);
+
+    /**
      * 根据内容 IDs 列表查询对应的内容列表
      * @param ids 内容 ID 列表
      * @return 内容列表

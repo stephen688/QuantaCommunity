@@ -34,8 +34,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -63,7 +66,7 @@ class FollowFeedServiceImplAuthorCacheTest {
         when(redisTemplate.opsForZSet().reverseRangeByScoreWithScores(
                 eq(FEED_ALL_KEY + VIEWER_ID), eq(0D), anyDouble(), eq(0L), eq(3L)
         )).thenReturn(feedEntries(101L, 102L));
-        when(contentQueryService.getContentImageUrls(anyLong())).thenReturn(Collections.emptyList());
+        when(contentQueryService.getContentImageUrlsBatch(anyCollection())).thenReturn(Collections.emptyMap());
         when(contentInteractionService.isContentLiked(anyLong(), eq(VIEWER_ID))).thenReturn(false);
         when(contentInteractionService.isContentCollected(anyLong(), eq(VIEWER_ID))).thenReturn(false);
 
@@ -131,6 +134,28 @@ class FollowFeedServiceImplAuthorCacheTest {
         verify(userMapper).selectUserAuthInfoByIds(List.of(11L, 99L));
         assertThat(contentViews(result)).extracting(ContentVO::getNickName)
                 .containsExactly("Ada", "Ada", null);
+    }
+
+    @Test
+    void feedLoadsImagesInOneBatchAndKeepsImagesWithTheirContent() {
+        contentQueryServiceReturns(contents(101L, 11L, 102L, 12L));
+        AuthorProfileCache authorCache = mock(AuthorProfileCache.class);
+        when(authorCache.getAll(List.of(11L, 12L)))
+                .thenReturn(Map.of(11L, author(11L, "Ada"), 12L, author(12L, "Grace")));
+        ReflectionTestUtils.setField(service, "authorProfileCache", authorCache);
+        when(contentQueryService.getContentImageUrlsBatch(List.of(101L, 102L)))
+                .thenReturn(Map.of(
+                        101L, List.of("image-101-a", "image-101-b"),
+                        102L, List.of("image-102-a")));
+
+        ScrollResult result = service.getFollowFeed(query());
+
+        assertThat(contentViews(result)).extracting(ContentVO::getImages)
+                .containsExactly(
+                        List.of("image-101-a", "image-101-b"),
+                        List.of("image-102-a"));
+        verify(contentQueryService, times(1)).getContentImageUrlsBatch(List.of(101L, 102L));
+        verify(contentQueryService, never()).getContentImageUrls(anyLong());
     }
 
     private FollowFeedQueryDTO query() {

@@ -299,15 +299,8 @@ public class RagSearchService {
         Map<Long, UserAuthInfoVO> userAuthMap = userAuthList.stream()
                 .collect(Collectors.toMap(UserAuthInfoVO::getUserId, u -> u, (v1, v2) -> v1));
 
-        // 批量查询图片
-        // N+1 模式：循环逐个查询图片
-        Map<Long, List<String>> imageMap = new HashMap<>();
-        for (Long contentId : contentIds) {
-            List<String> imageUrls = contentQueryService.getContentFactImageUrls(contentId);
-            if (imageUrls != null && !imageUrls.isEmpty()) {
-                imageMap.put(contentId, imageUrls);
-            }
-        }
+        // 一次查询本批候选图片，保留事实口径中的空 URL 和重复项。
+        Map<Long, List<String>> imageMap = contentQueryService.getContentFactImageUrlsBatch(contentIds);
         // 按候选顺序组装 ContentVO（保持融合排序顺序）
         List<ContentVO> voList = new ArrayList<>();
         for (RagCandidate candidate : candidates) {

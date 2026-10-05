@@ -2503,3 +2503,30 @@ TDD 记录：配置缺少 Discovery API 的 RED、实际推荐 HTTP 丢失会话
 用户已明确授权执行迁移、提交、合并和 push。对 `127.0.0.1:3306/demo` 检查目标列不存在后执行上述一次性脚本；复查 `trace_id=varchar(64), nullable=YES`。迁移前后 Outbox 行数和 distinct event_id 均为 1474，非空 trace_id 为 0，没有回填历史、删除记录或修改事件身份。证据为临时目录中的 `business-migration-evidence.json`。此次没有重启/部署原 9191 服务；新代码运行前置中的本地数据库迁移已完成，其他环境须各自执行。
 
 Git 仅包含本轮 traceId/日志代码、测试、迁移与对应文档；混合文件按本轮差异暂存，其他任务的工作区修改保留。授权后的提交、main 合并和远端结果由 Git 历史及交付回复提供，前文“没有提交”仅描述初次本地验收时的状态。
+
+## S-IMAGE-BATCH：列表图片批量查询（2026-10-05）
+
+**状态：实现与定向验证 PASS；未重启部署，性能复测未执行。** 计划为 `docs/plans/2026-10-05-content-images-batch.md`。这是图片查询路径的行为改动，按最小 TDD 验证；用户要求一步完成、不做过度测试。
+
+范围：7 个生产文件，普通搜索、关注流、RAG 三处循环图片查询改为调用 content 域公开批量接口。Mapper 用绑定参数的 IN 查询，显式 `ORDER BY content_id,sort`；服务过滤空/重复 ID、分组并为无图内容返回空列表。展示口径过滤空白 URL，事实/RAG 口径保留空值、重复项。单帖详情及评论查询未改，没有迁移、新索引或依赖变更。
+
+| 验证 | 真实结果 |
+|---|---|
+| RED：批量接口尚不存在时运行新增测试 | testCompile 因缺少新增批量 API 失败；未作为行为断言失败统计 |
+| RED：底层完成、三个入口尚未接入时 | 三个入口的图片装配断言失败；6 项中 3 失败、0 错误，证明测试能发现仍用单帖查询 |
+| GREEN：`mvn -q -Dtest=ContentQueryServiceImplSnapshotTest,ContentSearchServiceImplImagesTest,FollowFeedServiceImplAuthorCacheTest,RagSearchServiceImagesTest test` | 11 项通过，0 失败/错误/跳过；验证多帖图片关联、无图、结果顺序、URL 两种口径及批量调用次数；包括原作者缓存测试 |
+| 真实 Mapper / MySQL smoke | 使用生产 Mapper 接口和 XML、本地 `127.0.0.1:3306/demo` 会话临时表，乱序插入合成图片，验证 IN 绑定、下划线映射、content_id/sort 排序、分组、空值与重复 URL；通过 |
+
+临时表只存在于 smoke 的独立 JDBC 连接，关闭连接后销毁，未修改原图片表或业务数据。脚本及脱敏日志在 `%TEMP%/ContentImagesBatchSmoke.java`、`quanta-images-mysql.log`、`quanta-images-green.log`。沿用当前 Maven 测试依赖，仍有既存 SLF4J 多 provider 与 Mockito 动态 agent 警告，未扩大到依赖治理。
+
+查询次数结论为源代码与定向调用验证：每批非空结果一次图片查询，空批次零次；未采集实际 HTTP 请求的数据库统计，也未执行全量测试、额外压测、平均耗时或 P95 对比。初次验收时原服务进程未重启，未提交、push 或合并；工作区已有其他修改保留。
+
+独立只读审查完成：未发现 Critical/Important 问题，可交付；唯一 Minor 为计划审查复选框状态，已回写完成。
+
+### S-IMAGE-BATCH 本地重启与 Git 交付（2026-10-05）
+
+用户后续授权重启、提交和推送。从只包含本轮修改的 Git 暂存区导出独立构建目录，执行 `mvn -q -DskipTests package` 成功；没有把未提交的 Feed/浏览同步代码带入运行包。沿用原后端进程的环境和工作目录，凭据只在内存中传递，继续使用本地 secret 配置文件。
+
+原 IDE Java 17 进程 35560 停止，使用 Java 21 运行本轮构建包，9191 监听进程为 19684；日志确认 `Tomcat started on port 9191` 和 `Started Demo0Application`。匿名非空搜索 smoke：HTTP 200、Result.code=200、3 条结果、图片为空列表，响应回传 `X-Request-Id=image-batch-live-20261005`。没有复跑 LLM/Bot/MQ 写回或性能压测。
+
+运行包、PID、构建/启动日志与脱敏 HTTP 摘要在 `%TEMP%/quanta-images-release-20261005-214027`；应用日志继续按配置写入 `logs/demo0.log`。提交范围为 7 个生产文件、4 个测试文件和3份本任务文档；混合文档只暂存本轮条目，其他工作区修改保留。Git 提交及远端结果以本次交付回复与 Git 历史为准。

@@ -8,6 +8,7 @@ import com.quanta.demo0.platform.common.result.PageVO;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 内容域查询服务。
@@ -105,10 +106,26 @@ public interface ContentQueryService {
     /** 取内容图片 URL 列表（过滤空 URL），供 Feed/搜索装配图片字段。 */
     List<String> getContentImageUrls(Long contentId);
 
+    /**
+     * 批量取内容图片 URL（过滤空 URL），供 Feed/搜索列表一次装配图片字段。
+     *
+     * @param contentIds 内容 ID 集合；null、空集合或全为 null 时不访问数据库
+     * @return 按内容 ID 分组的图片 URL；无图片的内容对应空列表
+     */
+    Map<Long, List<String>> getContentImageUrlsBatch(Collection<Long> contentIds);
+
     /** 返回图片事实序列，不过滤空 URL，供保留原列表装配契约的读取方使用。 */
     // 【与 getContentImageUrls 的差异】空 URL/重复项原样保留——需要看到图片表"真实事实"
     // （包括空槽位）的调用方用这个，展示场景用上面过滤版。
     List<String> getContentFactImageUrls(Long contentId);
+
+    /**
+     * 批量取内容图片事实序列，保留空 URL、重复项及数据库返回顺序。
+     *
+     * @param contentIds 内容 ID 集合；null、空集合或全为 null 时不访问数据库
+     * @return 按内容 ID 分组的原始图片 URL；无图片的内容对应空列表
+     */
+    Map<Long, List<String>> getContentFactImageUrlsBatch(Collection<Long> contentIds);
 
     /**
      * 分页查询"我发布的内容"，可按审核状态过滤（null = 全部状态）。

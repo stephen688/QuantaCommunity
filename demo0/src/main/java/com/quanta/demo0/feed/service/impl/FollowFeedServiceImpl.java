@@ -148,6 +148,15 @@ public class FollowFeedServiceImpl implements FollowFeedService {
                     .toList();
         }
 
+        Map<Long, List<String>> imageUrlsByContentId = contents.isEmpty()
+                ? Collections.emptyMap()
+                : contentQueryService.getContentImageUrlsBatch(
+                        contents.stream().map(ContentSnapshotVO::getContentId).toList());
+        if (imageUrlsByContentId == null) {
+            imageUrlsByContentId = Collections.emptyMap();
+        }
+        Map<Long, List<String>> imageMap = imageUrlsByContentId;
+
         //8.查询用户信息，处理点赞，收藏高亮
       List<Long> userIds= contents.stream()
                 .map(ContentSnapshotVO::getPublishUserId)
@@ -161,7 +170,8 @@ public class FollowFeedServiceImpl implements FollowFeedService {
                             UserAuthInfoVO userAuthInfo=userAuthInfoMap
                                     .getOrDefault(content.getPublishUserId()
                                             ,new UserAuthInfoVO());
-                            return convertContentToVO(content, userAuthInfo);
+                            return convertContentToVO(content, userAuthInfo,
+                                    imageMap.getOrDefault(content.getContentId(), List.of()));
                         }).toList();
         //10.封装返回
         return ScrollResult
@@ -222,7 +232,9 @@ public class FollowFeedServiceImpl implements FollowFeedService {
         log.info("Feed 删除完成：contentId={}, 粉丝数量={}", contentId, followerIds.size());
     }
 
-    private ContentVO convertContentToVO(ContentSnapshotVO content, UserAuthInfoVO userInfo) {
+    private ContentVO convertContentToVO(ContentSnapshotVO content,
+                                         UserAuthInfoVO userInfo,
+                                         List<String> imageUrls) {
         return ContentVO.builder()
                 .contentId(content.getContentId())
                 .contentType(content.getContentType())
@@ -238,7 +250,7 @@ public class FollowFeedServiceImpl implements FollowFeedService {
                 .quantaBatch(userInfo.getQuantaBatch())
                 .auditStatus(content.getAuditStatus())
                 .createTime(content.getCreateTime())
-                .images(contentQueryService.getContentImageUrls(content.getContentId()))
+                .images(imageUrls)
                 .isLiked(isContentLiked(content.getContentId()))
                 .isCollected(isContentCollected(content.getContentId()))
                 .build();

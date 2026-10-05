@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -294,6 +295,15 @@ public class ContentQueryServiceImpl implements ContentQueryService {
                 .toList();
     }
 
+    /**
+     * 批量取展示用图片 URL：同一批内容只访问一次图片表，并为无图内容保留空列表。
+     * 空或无效 ID 集合直接返回，避免生成空 IN 查询。
+     */
+    @Override
+    public Map<Long, List<String>> getContentImageUrlsBatch(Collection<Long> contentIds) {
+        return getContentImageUrlsBatchInternal(contentIds, false);
+    }
+
     /** 保留原 Mapper 图片投影的顺序、重复项和空值，不复用审核用的 URL 过滤规则。 */
     @Override
     public List<String> getContentFactImageUrls(Long contentId) {
@@ -303,6 +313,44 @@ public class ContentQueryServiceImpl implements ContentQueryService {
         }
         return images.stream().map(ContentImage::getImageUrl)
                 .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 批量取事实图片 URL：保留空值和重复项，供需要还原图片表事实的调用方使用。
+     */
+    @Override
+    public Map<Long, List<String>> getContentFactImageUrlsBatch(Collection<Long> contentIds) {
+        return getContentImageUrlsBatchInternal(contentIds, true);
+    }
+
+    private Map<Long, List<String>> getContentImageUrlsBatchInternal(
+            Collection<Long> contentIds, boolean preserveBlankUrls) {
+        if (contentIds == null || contentIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = contentIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, List<String>> imageUrlsByContentId = new LinkedHashMap<>();
+        ids.forEach(contentId -> imageUrlsByContentId.put(contentId, new ArrayList<>()));
+
+        List<ContentImage> images = contentMapper.selectImagesBatchByContentIds(ids);
+        if (images == null || images.isEmpty()) {
+            return imageUrlsByContentId;
+        }
+        images.stream()
+                .filter(Objects::nonNull)
+                .filter(image -> image.getContentId() != null
+                        && imageUrlsByContentId.containsKey(image.getContentId()))
+                .filter(image -> preserveBlankUrls
+                        || org.apache.commons.lang3.StringUtils.isNotBlank(image.getImageUrl()))
+                .forEach(image -> imageUrlsByContentId.get(image.getContentId()).add(image.getImageUrl()));
+        return imageUrlsByContentId;
     }
 
     private ContentSnapshotVO toSnapshot(Content content) {

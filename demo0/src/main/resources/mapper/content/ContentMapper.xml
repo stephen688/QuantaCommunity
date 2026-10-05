@@ -18,6 +18,17 @@
             (#{img.contentId},#{img.imageUrl},#{img.sort})
         </foreach>
     </insert>
+
+    <select id="selectImagesBatchByContentIds" resultType="com.quanta.demo0.content.entity.ContentImage">
+        SELECT content_id, image_url, sort
+        FROM tb_content_image
+        WHERE content_id IN
+        <foreach collection="contentIds" item="contentId" open="(" separator="," close=")">
+            #{contentId}
+        </foreach>
+        ORDER BY content_id, sort
+    </select>
+
     <!-- 动态更新内容 -->
     <update id="update">
         update tb_content
