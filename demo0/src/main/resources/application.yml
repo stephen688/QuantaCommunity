@@ -30,8 +30,8 @@ spring:
       port: 6379
       database: 1
   rabbitmq:
-    host: 192.168.100.128
-    port: 5672
+    host: localhost
+    port: 5674
     username: admin
     password: ${RABBITMQ_PASSWORD}
     virtual-host: /
@@ -45,7 +45,7 @@ spring:
 
   # Elasticsearch 配置
   elasticsearch:
-    host: 192.168.100.128
+    host: localhost
     port: 9200
     scheme: http
 
@@ -105,6 +105,14 @@ logging:
          service: info
          controller: info
 quanta:
+  submission-idempotency:
+    # 后端先以兼容模式发布，待小程序全部携带凭证后再切换为 true。
+    require-user-key: ${SUBMISSION_REQUIRE_USER_KEY:false}
+    processing-ttl-seconds: 30
+    retention-days: 7
+    cleanup-batch-size: 500
+    max-response-bytes: 262144
+    cleanup-cron: "0 20 3 * * ?"
   cache:
     read-path:
       authentication:
@@ -121,6 +129,8 @@ quanta:
         negative-ttl-seconds: 60
         tombstone-ttl-seconds: 360
   security:
+    # 本地联调需显式开启；正式环境保持 false，避免 test/test2 绕过密码认证。
+    dev-login-enabled: ${DEV_LOGIN_ENABLED:false}
     # 是否开放API接口文档，生产环境默认关闭（不设置或设为false）。
     # 本地开发需要调试接口文档时执行：API_DOCS_ENABLED=true
     api-docs-enabled: ${API_DOCS_ENABLED:false}
@@ -153,6 +163,19 @@ quanta:
         # 是否在启动时重建粉丝排行（默认关闭，首次部署手动开启一次）
       rebuild-follower-rank-on-startup: false
   recommend:
+    discovery:
+      enabled: ${QUANTA_RECOMMEND_DISCOVERY_ENABLED:false}
+      exploration-ratio: 0.2
+      recent-days: 7
+      exposure-hours: 24
+      session-idle-minutes: 30
+      session-max-minutes: 120
+      max-active-sessions: 20
+      max-page-size: 20
+      max-exposure-batch: 50
+      scan-budget: 3000
+      candidate-batch-size: 150
+      recall-window-steps: [150, 300, 600, 1200]
     topic-tags:
       enabled: ${QUANTA_TOPIC_TAGS_ENABLED:true} # 关闭时保留待处理队列，重新开启继续消费
       timeout-seconds: 20
